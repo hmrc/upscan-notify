@@ -32,11 +32,14 @@ package service
  * limitations under the License.
  */
 
+import java.net.URL
+
 import model.{Message, MessageProcessedSuccessfully, MessageProcessingFailed, MessageProcessingResult}
 import org.mockito.Mockito
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{GivenWhenThen, Matchers}
 import uk.gov.hmrc.play.test.UnitSpec
+import org.mockito.ArgumentMatchers.any
 
 import scala.util.{Failure, Success}
 
@@ -44,7 +47,7 @@ class MessageProcessingServiceSpec extends UnitSpec with Matchers with GivenWhen
 
   val parser = new MessageParser {
     override def parse(message: Message) = message.body match {
-      case "VALID-BODY" => Success(())
+      case "VALID-BODY" => Success(FileNotification(new URL("http://localhost:9000/myurl")))
       case _            => Failure(new Exception("Parsing failed"))
     }
   }
@@ -60,13 +63,13 @@ class MessageProcessingServiceSpec extends UnitSpec with Matchers with GivenWhen
       val message = model.Message("VALID-BODY")
 
       And("notification service can successfuly processs this message")
-      Mockito.when(notificationService.notifyCallback()).thenReturn(Success())
+      Mockito.when(notificationService.notifyCallback(any())).thenReturn(Success())
 
       When("message processing service is called")
       val result: MessageProcessingResult = messageProcessingService.process(message)
 
       Then("notification service is called")
-      Mockito.verify(notificationService).notifyCallback()
+      Mockito.verify(notificationService).notifyCallback(any())
 
       And("successful result is returned")
       result shouldBe MessageProcessedSuccessfully
@@ -102,13 +105,13 @@ class MessageProcessingServiceSpec extends UnitSpec with Matchers with GivenWhen
       val message = model.Message("VALID-BODY")
 
       And("notification service fails when processing this message")
-      Mockito.when(notificationService.notifyCallback()).thenReturn(Failure(new Exception("Notification failed")))
+      Mockito.when(notificationService.notifyCallback(any())).thenReturn(Failure(new Exception("Notification failed")))
 
       When("message processing service is called")
       val result: MessageProcessingResult = messageProcessingService.process(message)
 
       Then("notification service is called")
-      Mockito.verify(notificationService).notifyCallback()
+      Mockito.verify(notificationService).notifyCallback(any())
 
       And("failure result is returned")
       result shouldBe MessageProcessingFailed("Notification failed")

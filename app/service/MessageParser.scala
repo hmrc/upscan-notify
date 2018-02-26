@@ -22,5 +22,5 @@ import scala.util.Try
 
 trait MessageParser {
 
-  def parse(message: Message): Try[Any]
+  def parse(message: Message): Try[FileNotification]
 }

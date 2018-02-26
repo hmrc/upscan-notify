@@ -16,6 +16,8 @@
 
 package service
 
+import java.net.URL
+
 import model.{Message, MessageProcessedSuccessfully, MessageProcessingFailed, MessageProcessingResult}
 
 import scala.util.{Failure, Success, Try}
@@ -24,11 +26,11 @@ class MessageProcessingService(parser: MessageParser, notificationService: Notif
 
   def process(message: Message): MessageProcessingResult = {
 
-    val parsingResult: Try[Any] = parser.parse(message)
+    val parsingResult: Try[FileNotification] = parser.parse(message)
 
     parsingResult match {
-      case Success(_) =>
-        notificationService.notifyCallback() match {
+      case Success(notification) =>
+        notificationService.notifyCallback(notification.url) match {
           case Success(_)         => MessageProcessedSuccessfully
           case Failure(exception) => MessageProcessingFailed(exception.getMessage)
         }
@@ -38,3 +40,5 @@ class MessageProcessingService(parser: MessageParser, notificationService: Notif
 
   }
 }
+
+case class FileNotification(url: URL)

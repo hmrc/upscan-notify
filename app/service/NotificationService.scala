@@ -16,8 +16,10 @@
 
 package service
 
+import java.net.URL
+
 import scala.util.Try
 
 trait NotificationService {
-  def notifyCallback(): Try[Any]
+  def notifyCallback(url: URL): Try[Any]
 }
