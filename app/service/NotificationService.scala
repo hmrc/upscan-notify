@@ -14,20 +14,10 @@
  * limitations under the License.
  */
 
-package infrastructure
+package service
 
-import org.scalatest.{GivenWhenThen, Matchers}
-import uk.gov.hmrc.play.test.UnitSpec
+import scala.util.Try
 
-class EmptySpec extends UnitSpec with Matchers with GivenWhenThen {
-
-
-  "Empty test" should {
-
-    "do nothing" in {
-
-    }
-
-  }
-
+trait NotificationService {
+  def notifyCallback(): Try[Any]
 }
