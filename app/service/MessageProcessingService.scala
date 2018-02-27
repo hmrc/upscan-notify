@@ -16,29 +16,27 @@
 
 package service
 
-import java.net.URL
+import model._
 
-import model.{Message, MessageProcessedSuccessfully, MessageProcessingFailed, MessageProcessingResult}
-
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-class MessageProcessingService(parser: MessageParser, notificationService: NotificationService) {
+class MessageProcessingService(parser: MessageParser, notificationService: NotificationService)(
+  implicit ec: ExecutionContext) {
 
-  def process(message: Message): MessageProcessingResult = {
+  def process(message: Message): Future[MessageProcessingResult] = {
 
-    val parsingResult: Try[FileNotification] = parser.parse(message)
+    val parsingResult = parser.parse(message)
 
     parsingResult match {
       case Success(notification) =>
-        notificationService.notifyCallback(notification.url) match {
-          case Success(_)         => MessageProcessedSuccessfully
-          case Failure(exception) => MessageProcessingFailed(exception.getMessage)
-        }
-
-      case Failure(_) => MessageProcessingFailed("Parsing failed")
+        notificationService
+          .notifyCallback(notification)
+          .map(_ => MessageProcessedSuccessfully)
+          .recover { case e: Throwable => MessageProcessingFailed(e.getMessage) }
+      case Failure(error) =>
+        Future.successful(MessageProcessingFailed(s"Parsing failed, reason: ${error.getMessage}"))
     }
 
   }
 }
-
-case class FileNotification(url: URL)

@@ -17,51 +17,106 @@
 package service
 
 import java.net.URL
-import javax.inject.Inject
 
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.typesafe.config.Config
+import model.FileNotification
 import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{GivenWhenThen, Matchers}
-import play.api.Configuration
-import play.api.libs.json.Writes
-import play.api.libs.ws.WSClient
-import uk.gov.hmrc.http.hooks.HttpHook
-import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse}
-import uk.gov.hmrc.play.bootstrap.config.AppName
-import uk.gov.hmrc.play.bootstrap.http.{DefaultHttpClient, HttpClient}
+import org.scalatest.{BeforeAndAfterAll, GivenWhenThen, Matchers}
+import org.scalatestplus.play.OneAppPerSuite
+import uk.gov.hmrc.play.bootstrap.http.HttpClient
 import uk.gov.hmrc.play.http.ws.WSHttp
 import uk.gov.hmrc.play.test.UnitSpec
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Try
 
-class HttpNotificationServiceSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
+class HttpNotificationServiceSpec
+    extends UnitSpec
+    with Matchers
+    with GivenWhenThen
+    with MockitoSugar
+    with OneAppPerSuite
+    with BeforeAndAfterAll {
   val callbackServer = new WireMockServer(wireMockConfig().port(11111))
 
-  callbackServer.stubFor(
-    post(urlEqualTo("/myservice/123"))
-      .willReturn(
-        aResponse()
-          .withStatus(200)
-      ))
+  override def beforeAll() =
+    callbackServer.start()
+
+  override def afterAll() =
+    callbackServer.stop()
+
+  private def stubCallbackReceiverToReturnValidResponse(): Unit =
+    callbackServer.stubFor(
+      post(urlEqualTo("/myservice/123"))
+        .willReturn(
+          aResponse()
+            .withStatus(204)
+        ))
+
+  private def stubCallbackReceiverToReturnInvalidResponse(): Unit =
+    callbackServer.stubFor(
+      post(urlEqualTo("/myservice/123"))
+        .willReturn(
+          aResponse()
+            .withStatus(503)
+        ))
 
   "HttpNotificationService" should {
     "post JSON to the passed in callback URL" in {
-      callbackServer.start()
 
-      Given("a callback URL")
+      Given("there is working host that can receive callback")
       val url = new URL("http://localhost:11111/myservice/123")
+      stubCallbackReceiverToReturnValidResponse()
 
       When("the service is called")
-      val service = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
-      val result  = service.notifyCallback(url)
+      val notification = FileNotification(url, "file-reference")
+      val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
+      val result       = Try(Await.result(service.notifyCallback(notification), 30.seconds))
 
-      Then("callback URL is called with an empty body (body will be generated later)")
-      callbackServer.verify(postRequestedFor(urlEqualTo("/myservice/123")))
+      Then("service should return success")
+      result.isSuccess shouldBe true
 
-      callbackServer.stop()
+      And("callback URL is called with an empty body (body will be generated later)")
+      callbackServer.verify(
+        postRequestedFor(urlEqualTo("/myservice/123")).withRequestBody(equalToJson("""
+          |{ "reference" : "file-reference"}
+        """.stripMargin)))
+
+    }
+
+    "return error when called host returns HTTP error response" in {
+
+      Given("host that would receive callback returns errors")
+      val url = new URL("http://localhost:11111/myservice/123")
+      stubCallbackReceiverToReturnInvalidResponse()
+
+      When("the service is called")
+      val notification = FileNotification(url, "file-reference")
+      val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
+      val result       = Try(Await.result(service.notifyCallback(notification), 30.seconds))
+
+      Then("service should return an error")
+      result.isSuccess shouldBe false
+
+    }
+
+    "return error when remote call fails" in {
+      Given("host that would receive callback is not reachable")
+      val url = new URL("http://invalid-host-name:11111/myservice/123")
+      stubCallbackReceiverToReturnInvalidResponse()
+
+      When("the service is called")
+      val notification = FileNotification(url, "file-reference")
+      val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
+      val result       = Try(Await.result(service.notifyCallback(notification), 30.seconds))
+
+      Then("service should return an error")
+      result.isSuccess shouldBe false
     }
   }
 

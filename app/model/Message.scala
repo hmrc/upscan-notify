@@ -16,4 +16,4 @@
 
 package model
 
-case class Message(body: String) {}
+case class Message(body: String)

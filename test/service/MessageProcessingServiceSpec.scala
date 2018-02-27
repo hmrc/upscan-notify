@@ -34,21 +34,23 @@ package service
 
 import java.net.URL
 
-import model.{Message, MessageProcessedSuccessfully, MessageProcessingFailed, MessageProcessingResult}
+import model._
 import org.mockito.Mockito
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{GivenWhenThen, Matchers}
 import uk.gov.hmrc.play.test.UnitSpec
 import org.mockito.ArgumentMatchers.any
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 class MessageProcessingServiceSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
 
   val parser = new MessageParser {
     override def parse(message: Message) = message.body match {
-      case "VALID-BODY" => Success(FileNotification(new URL("http://localhost:9000/myurl")))
-      case _            => Failure(new Exception("Parsing failed"))
+      case "VALID-BODY" => Success(FileNotification(new URL("http://localhost:9000/myurl"), "file-reference"))
+      case _            => Failure(new Exception("Invalid body"))
     }
   }
 
@@ -63,7 +65,7 @@ class MessageProcessingServiceSpec extends UnitSpec with Matchers with GivenWhen
       val message = model.Message("VALID-BODY")
 
       And("notification service can successfuly processs this message")
-      Mockito.when(notificationService.notifyCallback(any())).thenReturn(Success())
+      Mockito.when(notificationService.notifyCallback(any())).thenReturn(Future.successful(()))
 
       When("message processing service is called")
       val result: MessageProcessingResult = messageProcessingService.process(message)
@@ -92,7 +94,7 @@ class MessageProcessingServiceSpec extends UnitSpec with Matchers with GivenWhen
       Mockito.verifyZeroInteractions(notificationService)
 
       And("failure result is returned")
-      result shouldBe MessageProcessingFailed("Parsing failed")
+      result shouldBe MessageProcessingFailed("Parsing failed, reason: Invalid body")
     }
 
     "fail when processing valid message if notification service fails" in {
@@ -105,7 +107,9 @@ class MessageProcessingServiceSpec extends UnitSpec with Matchers with GivenWhen
       val message = model.Message("VALID-BODY")
 
       And("notification service fails when processing this message")
-      Mockito.when(notificationService.notifyCallback(any())).thenReturn(Failure(new Exception("Notification failed")))
+      Mockito
+        .when(notificationService.notifyCallback(any()))
+        .thenReturn(Future.failed(new Exception("Notification failed")))
 
       When("message processing service is called")
       val result: MessageProcessingResult = messageProcessingService.process(message)

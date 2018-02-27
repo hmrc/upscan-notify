@@ -16,29 +16,29 @@
 
 package service
 
-import java.net.URL
 import javax.inject.Inject
 
+import model.FileNotification
 import play.api.libs.json.{Format, Json}
-import uk.gov.hmrc.http.HeaderCarrier
+import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse}
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
 
-import scala.concurrent.{Await, ExecutionContext}
-import scala.concurrent.duration._
-import scala.util.Try
+import scala.concurrent.{ExecutionContext, Future}
 
 class HttpNotificationService @Inject()(httpClient: HttpClient)(implicit ec: ExecutionContext)
     extends NotificationService {
-  override def notifyCallback(url: URL): Try[Any] =
-    Try {
-      val callback    = Callback("12345")
-      implicit val hc = HeaderCarrier()
-      Await.result(httpClient.POST[Callback, String](url.toString, callback), 30.seconds)
-    }
+
+  override def notifyCallback(notification: FileNotification): Future[Unit] = {
+    val callback                   = CallbackBody(notification.reference)
+    implicit val hc: HeaderCarrier = HeaderCarrier()
+    httpClient
+      .POST[CallbackBody, HttpResponse](notification.url.toString, callback)
+      .map(_ => Unit)
+  }
 }
 
-case class Callback(reference: String)
+case class CallbackBody(reference: String)
 
-object Callback {
-  implicit val formats: Format[Callback] = Json.format[Callback]
+object CallbackBody {
+  implicit val formats: Format[CallbackBody] = Json.format[CallbackBody]
 }

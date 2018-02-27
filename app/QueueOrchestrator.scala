@@ -18,15 +18,20 @@ import model.{Message, MessageProcessedSuccessfully, MessageProcessingFailed}
 import play.api.Logger
 import service.MessageProcessingService
 
-class QueueOrchestrator(consumer: QueueConsumer, processor: MessageProcessingService) {
-  def handleQueue() = {
-    val messages: List[Message] = consumer.poll()
-    messages.foreach { message =>
-      processor.process(message) match {
-        case MessageProcessedSuccessfully => consumer.confirm(message)
-        case MessageProcessingFailed(error) =>
-          Logger.warn(s"Failed to process message in queue. Message body: ${message.body}, error: $error")
-      }
-    }
+import scala.concurrent.{ExecutionContext, Future}
+
+class QueueOrchestrator(consumer: QueueConsumer, processor: MessageProcessingService)(implicit ec: ExecutionContext) {
+  def handleQueue(): Future[Unit] = {
+    val messages = consumer.poll()
+    val outcomes = messages.map(handleMessage)
+    Future.sequence(outcomes).map(_ => ())
   }
+
+  private def handleMessage(message: Message): Future[Unit] =
+    processor.process(message).map {
+      case MessageProcessedSuccessfully =>
+        consumer.confirm(message)
+      case MessageProcessingFailed(error) =>
+        Logger.warn(s"Failed to process message in queue. Message body: ${message.body}, error: $error")
+    }
 }

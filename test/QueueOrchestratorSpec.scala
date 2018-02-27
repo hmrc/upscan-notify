@@ -22,6 +22,10 @@ import service.MessageProcessingService
 import uk.gov.hmrc.play.test.UnitSpec
 import org.mockito.ArgumentMatchers.any
 
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+
 class QueueOrchestratorSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
 
   "QueueOrchestrator" should {
@@ -38,7 +42,7 @@ class QueueOrchestratorSpec extends UnitSpec with Matchers with GivenWhenThen wi
       val queueOrchestrator = new QueueOrchestrator(queueConsumer, processor)
 
       When("the orchestrator is called")
-      queueOrchestrator.handleQueue()
+      Await.result(queueOrchestrator.handleQueue(), 30 seconds)
 
       Then("the queue consumer should poll for messages")
       Mockito.verify(queueConsumer).poll()
@@ -65,7 +69,7 @@ class QueueOrchestratorSpec extends UnitSpec with Matchers with GivenWhenThen wi
       val queueOrchestrator = new QueueOrchestrator(queueConsumer, processor)
 
       When("the orchestrator is called")
-      queueOrchestrator.handleQueue()
+      Await.result(queueOrchestrator.handleQueue(), 30 seconds)
 
       Then("the queue consumer should poll for messages")
       Mockito.verify(queueConsumer).poll()

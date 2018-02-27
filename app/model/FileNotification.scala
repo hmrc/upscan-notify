@@ -14,12 +14,8 @@
  * limitations under the License.
  */
 
-package service
+package model
 
-import model.FileNotification
+import java.net.URL
 
-import scala.concurrent.Future
-
-trait NotificationService {
-  def notifyCallback(notification: FileNotification): Future[Unit]
-}
+case class FileNotification(url: URL, reference: String)

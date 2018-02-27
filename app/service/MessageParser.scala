@@ -16,7 +16,7 @@
 
 package service
 
-import model.Message
+import model.{FileNotification, Message}
 
 import scala.util.Try
 
