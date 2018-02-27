@@ -21,6 +21,7 @@ import org.scalatest.{GivenWhenThen, Matchers}
 import service.MessageProcessingService
 import uk.gov.hmrc.play.test.UnitSpec
 import org.mockito.ArgumentMatchers.any
+import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -31,7 +32,7 @@ class QueueOrchestratorSpec extends UnitSpec with Matchers with GivenWhenThen wi
   "QueueOrchestrator" should {
     "get messages from the queue consumer, and call notification service for valid messages" in {
       Given("there are only valid messages in a message queue")
-      val validMessage = new Message("VALID-BODY")
+      val validMessage = new Message("VALID-BODY", "RECEIPT-1")
 
       val queueConsumer = mock[QueueConsumer]
       Mockito.when(queueConsumer.poll()).thenReturn(List(validMessage))
@@ -56,8 +57,8 @@ class QueueOrchestratorSpec extends UnitSpec with Matchers with GivenWhenThen wi
 
     "get messages from the queue consumer, and call notification service for valid messages and ignore invalid messages" in {
       Given("there are only valid messages in a message queue")
-      val validMessage   = Message("VALID-BODY")
-      val invalidMessage = Message("INVALID-BODY")
+      val validMessage   = Message("VALID-BODY", "RECEIPT-1")
+      val invalidMessage = Message("INVALID-BODY", "RECEIPT-2")
 
       val queueConsumer = mock[QueueConsumer]
       Mockito.when(queueConsumer.poll()).thenReturn(List(validMessage, invalidMessage))

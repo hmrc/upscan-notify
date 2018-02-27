@@ -22,9 +22,12 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class QueueOrchestrator(consumer: QueueConsumer, processor: MessageProcessingService)(implicit ec: ExecutionContext) {
   def handleQueue(): Future[Unit] = {
-    val messages = consumer.poll()
-    val outcomes = messages.map(handleMessage)
-    Future.sequence(outcomes).map(_ => ())
+    val outcomes = for {
+      messages        <- consumer.poll()
+      messageOutcomes <- Future.sequence { messages.map(handleMessage) }
+    } yield messageOutcomes
+
+    outcomes.map(_ => ())
   }
 
   private def handleMessage(message: Message): Future[Unit] =
