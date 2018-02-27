@@ -39,7 +39,7 @@ class NotifyOnSuccessfulUploadProcessingFlowSpec extends UnitSpec with Matchers 
   }
 
   val fileDetailsRetriever = new FileNotificationDetailsRetriever {
-    override def lookupDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
+    override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
       Future.successful(UploadedFile(new URL("http://localhost:8080"), objectLocation.objectKey))
   }
 

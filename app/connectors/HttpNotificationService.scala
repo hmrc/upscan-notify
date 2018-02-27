@@ -29,11 +29,11 @@ import scala.concurrent.{ExecutionContext, Future}
 class HttpNotificationService @Inject()(httpClient: HttpClient)(implicit ec: ExecutionContext)
     extends NotificationService {
 
-  override def notifyCallback(notification: UploadedFile): Future[Unit] = {
-    val callback                   = CallbackBody(notification.reference)
+  override def notifyCallback(uploadedFile: UploadedFile): Future[Unit] = {
+    val callback                   = CallbackBody(uploadedFile.reference)
     implicit val hc: HeaderCarrier = HeaderCarrier()
     httpClient
-      .POST[CallbackBody, HttpResponse](notification.url.toString, callback)
+      .POST[CallbackBody, HttpResponse](uploadedFile.callbackUrl.toString, callback)
       .map(_ => Unit)
   }
 }

@@ -42,7 +42,7 @@ class NotifyOnSuccessfulUploadProcessingFlow @Inject()(
     val outcome =
       for {
         parsedMessage <- parser.parse(message)
-        notification  <- fileDetailsRetriever.lookupDetails(parsedMessage.location)
+        notification  <- fileDetailsRetriever.retrieveUploadedFileDetails(parsedMessage.location)
         _             <- notificationService.notifyCallback(notification)
         _             <- consumer.confirm(message)
       } yield ()
