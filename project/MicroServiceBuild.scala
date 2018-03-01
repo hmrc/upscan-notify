@@ -44,7 +44,8 @@ private object AppDependencies {
     "io.findify"             %% "s3mock"                      % "0.2.4"             % scope,
     "com.typesafe.play"      %% "play-ws"                     % "2.5.6"             % scope,
     "commons-io"             % "commons-io"                   % "2.6"               % scope,
-    "org.scalacheck"         %% "scalacheck"                  % "1.13.4"            % scope
+    "org.scalacheck"         %% "scalacheck"                  % "1.13.4"            % scope,
+    "com.github.tomakehurst" % "wiremock"                     % "1.58"              % scope
   )
 
   object Test {

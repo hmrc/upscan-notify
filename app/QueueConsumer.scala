@@ -14,20 +14,10 @@
  * limitations under the License.
  */
 
-package infrastructure
+import model.Message
 
-import org.scalatest.{GivenWhenThen, Matchers}
-import uk.gov.hmrc.play.test.UnitSpec
+trait QueueConsumer {
+  def poll(): List[Message]
 
-class EmptySpec extends UnitSpec with Matchers with GivenWhenThen {
-
-
-  "Empty test" should {
-
-    "do nothing" in {
-
-    }
-
-  }
-
+  def confirm(message: Message)
 }
