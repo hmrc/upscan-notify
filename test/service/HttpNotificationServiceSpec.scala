@@ -18,6 +18,8 @@ package service
 
 import java.net.URL
 
+import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
@@ -26,6 +28,9 @@ import model.FileNotification
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, GivenWhenThen, Matchers}
 import org.scalatestplus.play.OneAppPerSuite
+import org.scalatestplus.play.guice.GuiceOneAppPerSuite
+import play.api.libs.ws.ahc.AhcWSClient
+import play.api.libs.ws.{WS, WSClient}
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
 import uk.gov.hmrc.play.http.ws.WSHttp
 import uk.gov.hmrc.play.test.UnitSpec
@@ -40,7 +45,6 @@ class HttpNotificationServiceSpec
     with Matchers
     with GivenWhenThen
     with MockitoSugar
-    with OneAppPerSuite
     with BeforeAndAfterAll {
   val callbackServer = new WireMockServer(wireMockConfig().port(11111))
 
@@ -123,6 +127,10 @@ class HttpNotificationServiceSpec
 }
 
 class TestHttpClient extends HttpClient with WSHttp {
+  implicit val system                             = ActorSystem()
+  implicit val materializer                       = ActorMaterializer()
+  override val wsClient                           = AhcWSClient()
   override lazy val configuration: Option[Config] = None
   override val hooks                              = Seq.empty
+
 }

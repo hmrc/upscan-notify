@@ -16,12 +16,14 @@
 
 package service
 
+import javax.inject.Inject
+
 import model._
 import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class MessageProcessingService(
+class MessageProcessingService @Inject()(
   parser: MessageParser,
   fileDetailsRetriever: FileNotificationDetailsRetriever,
   notificationService: NotificationService)(implicit ec: ExecutionContext) {

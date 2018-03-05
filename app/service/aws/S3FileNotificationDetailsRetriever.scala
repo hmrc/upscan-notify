@@ -17,6 +17,7 @@
 package service.aws
 
 import java.net.URL
+import javax.inject.Inject
 
 import com.amazonaws.services.s3.AmazonS3Client
 import model.FileNotification
@@ -26,7 +27,7 @@ import collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class S3FileNotificationDetailsRetriever(s3Client: AmazonS3Client)(implicit ec: ExecutionContext)
+class S3FileNotificationDetailsRetriever @Inject()(s3Client: AmazonS3Client)(implicit ec: ExecutionContext)
     extends FileNotificationDetailsRetriever {
 
   override def retrieveFileDetails(bucket: String, objectKey: String): Future[FileNotification] =

@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
+import javax.inject.Inject
+
 import model.{Message, MessageProcessedSuccessfully, MessageProcessingFailed}
 import play.api.Logger
 import service.MessageProcessingService
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class QueueOrchestrator(consumer: QueueConsumer, processor: MessageProcessingService)(implicit ec: ExecutionContext) {
+class QueueOrchestrator @Inject()(consumer: QueueConsumer, processor: MessageProcessingService)(
+  implicit ec: ExecutionContext) {
   def handleQueue(): Future[Unit] = {
     val outcomes = for {
       messages        <- consumer.poll()

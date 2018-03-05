@@ -18,24 +18,34 @@ package helpers
 
 import javax.inject.Inject
 
-import play.api.{Configuration, Environment}
-import uk.gov.hmrc.play.config.ServicesConfig
+import play.api.Configuration
 
 trait ServiceConfiguration {
 
   def outboundSuccessfulQueueUrl: String
+
+  def accessKeyId: String
+
+  def secretAccessKey: String
+
+  def sessionToken: Option[String]
+
+  def awsRegion: String
 }
 
-class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, environment: Environment)
-    extends ServiceConfiguration
-    with ServicesConfig {
+class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) extends ServiceConfiguration {
 
-  override protected def mode = environment.mode
+  override def outboundSuccessfulQueueUrl: String =
+    getRequired(configuration.getString(_), "aws.sqs.outbound.successful.queue")
 
-  override protected def runModeConfiguration = configuration
+  override def awsRegion = getRequired(configuration.getString(_), "aws.s3.region")
 
-  override def outboundSuccessfulQueueUrl: String = {
-    val key = s"$env.aws.sqs.outbound.successful.queue"
-    configuration.getString(key).getOrElse(throw new Exception(s"Configuration key not found: $key"))
-  }
+  override def accessKeyId = getRequired(configuration.getString(_), "aws.accessKeyId")
+
+  override def secretAccessKey = getRequired(configuration.getString(_), "aws.secretAccessKey")
+
+  override def sessionToken = configuration.getString("aws.sessionToken")
+
+  def getRequired[T](function: String => Option[T], key: String) =
+    function(key).getOrElse(throw new IllegalStateException(s"Configuration key not found: $key"))
 }
