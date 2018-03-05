@@ -35,23 +35,27 @@ package service
 import java.net.URL
 
 import model._
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{GivenWhenThen, Matchers}
 import uk.gov.hmrc.play.test.UnitSpec
-import org.mockito.ArgumentMatchers.any
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
 
 class MessageProcessingServiceSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
 
   val parser = new MessageParser {
     override def parse(message: Message) = message.body match {
-      case "VALID-BODY" => Success(FileNotification(new URL("http://localhost:9000/myurl"), "file-reference"))
-      case _            => Failure(new Exception("Invalid body"))
+      case "VALID-BODY" => FileUploadedEvent("bucket", "file-reference")
+      case _            => UnsupportedMessage("Invalid body")
     }
+  }
+
+  val fileDetailsRetriever = new FileNotificationDetailsRetriever {
+    override def retrieveFileDetails(bucket: String, objectKey: String): Future[FileNotification] =
+      Future.successful(FileNotification(new URL("http://localhosy:8080"), objectKey))
   }
 
   "Message processing service" should {
@@ -59,7 +63,7 @@ class MessageProcessingServiceSpec extends UnitSpec with Matchers with GivenWhen
 
       val notificationService = mock[NotificationService]
 
-      val messageProcessingService = new MessageProcessingService(parser, notificationService)
+      val messageProcessingService = new MessageProcessingService(parser, fileDetailsRetriever, notificationService)
 
       Given("there is a message with valid body")
       val message = model.Message("VALID-BODY", "RECEIPT-1")
@@ -78,11 +82,11 @@ class MessageProcessingServiceSpec extends UnitSpec with Matchers with GivenWhen
 
     }
 
-    "fail if the message has invalid content and there should be no notification" in {
+    "fail if the message has invalid content and there should be no notification and message should be treated as failed" in {
 
       val notificationService = mock[NotificationService]
 
-      val messageProcessingService = new MessageProcessingService(parser, notificationService)
+      val messageProcessingService = new MessageProcessingService(parser, fileDetailsRetriever, notificationService)
 
       Given(" there is a message with invalid body")
       val message = model.Message("INVALID-BODY", "RECEIPT-2")
@@ -94,14 +98,14 @@ class MessageProcessingServiceSpec extends UnitSpec with Matchers with GivenWhen
       Mockito.verifyZeroInteractions(notificationService)
 
       And("failure result is returned")
-      result shouldBe MessageProcessingFailed("Parsing failed, reason: Invalid body")
+      result shouldBe MessageProcessingFailed("Invalid body")
     }
 
     "fail when processing valid message if notification service fails" in {
 
       val notificationService = mock[NotificationService]
 
-      val messageProcessingService = new MessageProcessingService(parser, notificationService)
+      val messageProcessingService = new MessageProcessingService(parser, fileDetailsRetriever, notificationService)
 
       Given("there is a message with valid body")
       val message = model.Message("VALID-BODY", "RECEIPT-1")

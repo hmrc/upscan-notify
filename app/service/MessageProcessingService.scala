@@ -17,26 +17,32 @@
 package service
 
 import model._
+import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
 
-class MessageProcessingService(parser: MessageParser, notificationService: NotificationService)(
-  implicit ec: ExecutionContext) {
+class MessageProcessingService(
+  parser: MessageParser,
+  fileDetailsRetriever: FileNotificationDetailsRetriever,
+  notificationService: NotificationService)(implicit ec: ExecutionContext) {
 
   def process(message: Message): Future[MessageProcessingResult] = {
 
     val parsingResult = parser.parse(message)
 
     parsingResult match {
-      case Success(notification) =>
-        notificationService
-          .notifyCallback(notification)
-          .map(_ => MessageProcessedSuccessfully)
-          .recover { case e: Throwable => MessageProcessingFailed(e.getMessage) }
-      case Failure(error) =>
-        Future.successful(MessageProcessingFailed(s"Parsing failed, reason: ${error.getMessage}"))
+      case FileUploadedEvent(bucket, objectKey) =>
+        val outcome =
+          for (notification <- fileDetailsRetriever.retrieveFileDetails(bucket, objectKey);
+               _            <- notificationService.notifyCallback(notification))
+            yield MessageProcessedSuccessfully
+
+        outcome.recover { case e: Throwable => MessageProcessingFailed(e.getMessage) }
+      case UnsupportedMessage(reason) =>
+        Logger.warn(s"Retrieved unsupported message. Reason: $reason. Message body: ${message.body}")
+        Future.successful(MessageProcessingFailed(reason))
     }
 
   }
+
 }

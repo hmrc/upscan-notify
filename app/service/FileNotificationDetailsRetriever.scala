@@ -16,13 +16,10 @@
 
 package service
 
-import model.Message
+import model.FileNotification
 
-trait MessageParser {
+import scala.concurrent.Future
 
-  def parse(message: Message): ParsingResult
+trait FileNotificationDetailsRetriever {
+  def retrieveFileDetails(bucket: String, objectKey: String): Future[FileNotification]
 }
-
-sealed trait ParsingResult
-case class FileUploadedEvent(bucket: String, objectKey: String) extends ParsingResult
-case class UnsupportedMessage(reason: String) extends ParsingResult
