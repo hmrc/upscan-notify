@@ -16,8 +16,10 @@
 
 import model.Message
 
-trait QueueConsumer {
-  def poll(): List[Message]
+import scala.concurrent.Future
 
-  def confirm(message: Message)
+trait QueueConsumer {
+  def poll(): Future[List[Message]]
+
+  def confirm(message: Message): Future[Unit]
 }

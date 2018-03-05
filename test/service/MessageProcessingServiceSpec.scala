@@ -62,7 +62,7 @@ class MessageProcessingServiceSpec extends UnitSpec with Matchers with GivenWhen
       val messageProcessingService = new MessageProcessingService(parser, notificationService)
 
       Given("there is a message with valid body")
-      val message = model.Message("VALID-BODY")
+      val message = model.Message("VALID-BODY", "RECEIPT-1")
 
       And("notification service can successfuly processs this message")
       Mockito.when(notificationService.notifyCallback(any())).thenReturn(Future.successful(()))
@@ -85,7 +85,7 @@ class MessageProcessingServiceSpec extends UnitSpec with Matchers with GivenWhen
       val messageProcessingService = new MessageProcessingService(parser, notificationService)
 
       Given(" there is a message with invalid body")
-      val message = model.Message("INVALID-BODY")
+      val message = model.Message("INVALID-BODY", "RECEIPT-2")
 
       When("message processing service is called")
       val result: MessageProcessingResult = messageProcessingService.process(message)
@@ -104,7 +104,7 @@ class MessageProcessingServiceSpec extends UnitSpec with Matchers with GivenWhen
       val messageProcessingService = new MessageProcessingService(parser, notificationService)
 
       Given("there is a message with valid body")
-      val message = model.Message("VALID-BODY")
+      val message = model.Message("VALID-BODY", "RECEIPT-1")
 
       And("notification service fails when processing this message")
       Mockito
