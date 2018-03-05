@@ -27,17 +27,14 @@ import com.typesafe.config.Config
 import model.FileNotification
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, GivenWhenThen, Matchers}
-import org.scalatestplus.play.OneAppPerSuite
-import org.scalatestplus.play.guice.GuiceOneAppPerSuite
 import play.api.libs.ws.ahc.AhcWSClient
-import play.api.libs.ws.{WS, WSClient}
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
 import uk.gov.hmrc.play.http.ws.WSHttp
 import uk.gov.hmrc.play.test.UnitSpec
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Try
 
 class HttpNotificationServiceSpec
