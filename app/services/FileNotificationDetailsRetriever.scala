@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package service
+package services
 
 import model.FileNotification
 

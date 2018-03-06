@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package service
+package services
 
 import javax.inject.Inject
 
 import model._
-import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -41,8 +40,7 @@ class MessageProcessingService @Inject()(
 
         outcome.recover { case e: Throwable => MessageProcessingFailed(e.getMessage) }
       case UnsupportedMessage(reason) =>
-        Logger.warn(s"Retrieved unsupported message. Reason: $reason. Message body: ${message.body}")
-        Future.successful(MessageProcessingFailed(reason))
+        Future.successful(MessageProcessingFailed(s"Parsing failed, $reason"))
     }
 
   }

@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-package service.aws
+package connectors.aws
 
 import java.net.URL
 import javax.inject.Inject
 
 import com.amazonaws.services.s3.AmazonS3Client
 import model.FileNotification
-import service.FileNotificationDetailsRetriever
+import services.FileNotificationDetailsRetriever
 
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -31,8 +31,8 @@ class S3FileNotificationDetailsRetriever @Inject()(s3Client: AmazonS3Client)(imp
     extends FileNotificationDetailsRetriever {
 
   override def retrieveFileDetails(bucket: String, objectKey: String): Future[FileNotification] =
-    for (metadata <- Future(s3Client.getObjectMetadata(bucket, objectKey));
-         notification <- Future.fromTry(
-                          Try(FileNotification(new URL(metadata.getUserMetadata.asScala("x-meta-")), objectKey))))
+    for (metadataQueryResult <- Future(s3Client.getObjectMetadata(bucket, objectKey));
+         metadata = metadataQueryResult.getUserMetadata.asScala;
+         notification <- Future.fromTry(Try(FileNotification(new URL(metadata("callback-url")), objectKey))))
       yield notification
 }

@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package service.aws
+package connectors.aws
 
 import javax.inject.{Inject, Provider}
 
 import com.amazonaws.auth.{AWSCredentialsProvider, AWSStaticCredentialsProvider, BasicAWSCredentials, BasicSessionCredentials}
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
 import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClientBuilder}
-import helpers.ServiceConfiguration
+import config.ServiceConfiguration
 import play.api.inject.{Binding, Module}
 import play.api.{Configuration, Environment}
 

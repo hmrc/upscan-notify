@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package service
+package connectors.aws
 
 import model.Message
 import org.scalatest.Matchers
-import service.aws.S3EventParser
+import services.{FileUploadedEvent, UnsupportedMessage}
 import uk.gov.hmrc.play.test.UnitSpec
 
 class S3EventMessageParserSpec extends UnitSpec with Matchers {
@@ -26,7 +26,7 @@ class S3EventMessageParserSpec extends UnitSpec with Matchers {
   "MessageParser" should {
     "properly parse valid S3 event message" in {
 
-      S3EventParser.parse(Message(sampleMessage, "HANDLE")) shouldBe FileUploadedEvent(
+      S3EventParser.parse(Message("ID", sampleMessage, "HANDLE")) shouldBe FileUploadedEvent(
         "hmrc-upscan-live-transient",
         "acabd94b-4d74-4b04-a0ca-1914950f9c02")
 
@@ -35,11 +35,11 @@ class S3EventMessageParserSpec extends UnitSpec with Matchers {
     "return unparseable message for invalid JSON" in {}
 
     "return test message for test message" in {
-      S3EventParser.parse(Message(testMessage, "HANDLE")) shouldBe a[UnsupportedMessage]
+      S3EventParser.parse(Message("ID1", testMessage, "HANDLE")) shouldBe a[UnsupportedMessage]
     }
 
     "return unparseable message for S3 message other than upload" in {
-      S3EventParser.parse(Message(others3message, "HANDLE")) shouldBe a[UnsupportedMessage]
+      S3EventParser.parse(Message("ID2", others3message, "HANDLE")) shouldBe a[UnsupportedMessage]
     }
   }
 

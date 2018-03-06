@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package service.aws
+package connectors.aws
 
 import com.amazonaws.auth.{AWSCredentialsProvider, AWSSessionCredentials}
-import helpers.ServiceConfiguration
+import config.ServiceConfiguration
 import org.scalatest.Matchers
 import uk.gov.hmrc.play.test.UnitSpec
 
@@ -37,6 +37,8 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec with Matchers {
         override def sessionToken: Option[String] = Some("SESSION_TOKEN")
 
         override def outboundSuccessfulQueueUrl: String = ???
+
+        override def retryInterval = ???
       }
 
       val credentials: AWSCredentialsProvider = new ProviderOfAWSCredentials(configuration).get()
@@ -59,6 +61,8 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec with Matchers {
         override def sessionToken: Option[String] = None
 
         override def outboundSuccessfulQueueUrl: String = ???
+
+        override def retryInterval = ???
       }
 
       val credentials: AWSCredentialsProvider = new ProviderOfAWSCredentials(configuration).get()

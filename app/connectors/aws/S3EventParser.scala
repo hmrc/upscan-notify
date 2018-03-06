@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package service.aws
+package connectors.aws
 
 import model.Message
-import service.{FileUploadedEvent, UnsupportedMessage}
+import services.{FileUploadedEvent, UnsupportedMessage}
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
-import service.{MessageParser, ParsingResult}
+import services.{MessageParser, ParsingResult}
 
 import scala.util.{Failure, Success, Try}
 

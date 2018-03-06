@@ -14,14 +14,30 @@
  * limitations under the License.
  */
 
+package services
+
+/*
+ * Copyright 2018 HM Revenue & Customs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import model.{Message, MessageProcessedSuccessfully, MessageProcessingFailed}
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{GivenWhenThen, Matchers}
-import service.MessageProcessingService
 import uk.gov.hmrc.play.test.UnitSpec
-import org.mockito.ArgumentMatchers.any
-import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -32,7 +48,7 @@ class QueueOrchestratorSpec extends UnitSpec with Matchers with GivenWhenThen wi
   "QueueOrchestrator" should {
     "get messages from the queue consumer, and call notification service for valid messages" in {
       Given("there are only valid messages in a message queue")
-      val validMessage = new Message("VALID-BODY", "RECEIPT-1")
+      val validMessage = Message("ID", "VALID-BODY", "RECEIPT-1")
 
       val queueConsumer = mock[QueueConsumer]
       Mockito.when(queueConsumer.poll()).thenReturn(List(validMessage))
@@ -43,7 +59,7 @@ class QueueOrchestratorSpec extends UnitSpec with Matchers with GivenWhenThen wi
       val queueOrchestrator = new QueueOrchestrator(queueConsumer, processor)
 
       When("the orchestrator is called")
-      Await.result(queueOrchestrator.handleQueue(), 30 seconds)
+      Await.result(queueOrchestrator.run(), 30 seconds)
 
       Then("the queue consumer should poll for messages")
       Mockito.verify(queueConsumer).poll()
@@ -57,8 +73,8 @@ class QueueOrchestratorSpec extends UnitSpec with Matchers with GivenWhenThen wi
 
     "get messages from the queue consumer, and call notification service for valid messages and ignore invalid messages" in {
       Given("there are only valid messages in a message queue")
-      val validMessage   = Message("VALID-BODY", "RECEIPT-1")
-      val invalidMessage = Message("INVALID-BODY", "RECEIPT-2")
+      val validMessage   = Message("ID", "VALID-BODY", "RECEIPT-1")
+      val invalidMessage = Message("ID", "INVALID-BODY", "RECEIPT-2")
 
       val queueConsumer = mock[QueueConsumer]
       Mockito.when(queueConsumer.poll()).thenReturn(List(validMessage, invalidMessage))
@@ -70,7 +86,7 @@ class QueueOrchestratorSpec extends UnitSpec with Matchers with GivenWhenThen wi
       val queueOrchestrator = new QueueOrchestrator(queueConsumer, processor)
 
       When("the orchestrator is called")
-      Await.result(queueOrchestrator.handleQueue(), 30 seconds)
+      Await.result(queueOrchestrator.run(), 30 seconds)
 
       Then("the queue consumer should poll for messages")
       Mockito.verify(queueConsumer).poll()

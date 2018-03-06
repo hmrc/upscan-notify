@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-import helpers.{PlayBasedServiceConfiguration, ServiceConfiguration}
+import config.{PlayBasedServiceConfiguration, ServiceConfiguration}
+import connectors.HttpNotificationService
+import connectors.aws.{S3EventParser, S3FileNotificationDetailsRetriever, SqsQueueConsumer}
 import play.api.inject.{Binding, Module}
 import play.api.{Configuration, Environment}
-import service.aws.{S3EventParser, S3FileNotificationDetailsRetriever}
-import service._
+import services._
 
 class NotifyModule extends Module {
   override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] =
@@ -29,6 +30,7 @@ class NotifyModule extends Module {
       bind[MessageParser].to(S3EventParser),
       bind[QueueConsumer].to[SqsQueueConsumer],
       bind[MessageProcessingService].toSelf,
-      bind[QueueOrchestrator].toSelf.eagerly()
+      bind[PollingJob].to[QueueOrchestrator],
+      bind[ContinousPoller].toSelf.eagerly()
     )
 }

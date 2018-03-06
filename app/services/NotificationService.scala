@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-package service
+package services
 
-import model.Message
+import model.FileNotification
 
-trait MessageParser {
+import scala.concurrent.Future
 
-  def parse(message: Message): ParsingResult
+trait NotificationService {
+  def notifyCallback(notification: FileNotification): Future[Unit]
 }
-
-sealed trait ParsingResult
-case class FileUploadedEvent(bucket: String, objectKey: String) extends ParsingResult
-case class UnsupportedMessage(reason: String) extends ParsingResult

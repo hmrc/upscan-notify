@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-package service
+package connectors
 
 import javax.inject.Inject
 
 import model.FileNotification
 import play.api.libs.json.{Format, Json}
+import services.NotificationService
 import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse}
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
 

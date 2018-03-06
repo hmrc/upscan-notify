@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+package services
+
 import model.Message
 
 import scala.concurrent.Future

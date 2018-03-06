@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
-package helpers
+package config
 
 import javax.inject.Inject
 
 import play.api.Configuration
 
+import scala.concurrent.duration.{FiniteDuration, _}
+
 trait ServiceConfiguration {
+  def retryInterval: FiniteDuration
 
   def outboundSuccessfulQueueUrl: String
 
@@ -48,4 +51,6 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
 
   def getRequired[T](function: String => Option[T], key: String) =
     function(key).getOrElse(throw new IllegalStateException(s"Configuration key not found: $key"))
+
+  override def retryInterval = getRequired(configuration.getMilliseconds, "aws.sqs.retry.interval").milliseconds
 }

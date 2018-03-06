@@ -16,4 +16,4 @@
 
 package model
 
-case class Message(body: String, receiptHandle: String)
+case class Message(id: String, body: String, receiptHandle: String)

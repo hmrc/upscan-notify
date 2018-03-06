@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package service
+package connectors
 
 import java.net.URL
 
