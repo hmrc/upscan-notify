@@ -58,7 +58,7 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
   override def retryInterval = getRequired(configuration.getMilliseconds, "aws.sqs.retry.interval").milliseconds
 
   override def s3FileLifetime: FiniteDuration =
-    getRequired(configuration.getMilliseconds, "aws.sqs.retry.uploadLifetime").milliseconds
+    getRequired(configuration.getMilliseconds, "aws.s3.uploadLifetime").milliseconds
 
   def getRequired[T](function: String => Option[T], key: String) =
     function(key).getOrElse(throw new IllegalStateException(s"Configuration key not found: $key"))
