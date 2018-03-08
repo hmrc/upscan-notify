@@ -21,6 +21,8 @@ import config.ServiceConfiguration
 import org.scalatest.Matchers
 import uk.gov.hmrc.play.test.UnitSpec
 
+import scala.concurrent.duration.FiniteDuration
+
 class ProviderOfAWSCredentialsSpec extends UnitSpec with Matchers {
 
   "ProviderOfAWSCredentials" should {
@@ -41,6 +43,8 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec with Matchers {
         override def retryInterval = ???
 
         override def callbackUrlMetadataKey: String = ???
+
+        override def s3FileLifetime: FiniteDuration = ???
       }
 
       val credentials: AWSCredentialsProvider = new ProviderOfAWSCredentials(configuration).get()
@@ -67,6 +71,8 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec with Matchers {
         override def retryInterval = ???
 
         override def callbackUrlMetadataKey: String = ???
+
+        override def s3FileLifetime: FiniteDuration = ???
       }
 
       val credentials: AWSCredentialsProvider = new ProviderOfAWSCredentials(configuration).get()

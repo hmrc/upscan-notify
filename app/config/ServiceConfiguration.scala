@@ -17,10 +17,8 @@
 package config
 
 import javax.inject.Inject
-
 import play.api.Configuration
-
-import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.duration._
 
 trait ServiceConfiguration {
   def retryInterval: FiniteDuration
@@ -36,6 +34,9 @@ trait ServiceConfiguration {
   def awsRegion: String
 
   def callbackUrlMetadataKey: String
+
+  def s3FileLifetime: FiniteDuration
+
 }
 
 class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) extends ServiceConfiguration {
@@ -55,6 +56,9 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
     getRequired(configuration.getString(_), "aws.s3.callbackUrlMetadataKey")
 
   override def retryInterval = getRequired(configuration.getMilliseconds, "aws.sqs.retry.interval").milliseconds
+
+  override def s3FileLifetime: FiniteDuration =
+    getRequired(configuration.getMilliseconds, "aws.sqs.retry.uploadLifetime").milliseconds
 
   def getRequired[T](function: String => Option[T], key: String) =
     function(key).getOrElse(throw new IllegalStateException(s"Configuration key not found: $key"))

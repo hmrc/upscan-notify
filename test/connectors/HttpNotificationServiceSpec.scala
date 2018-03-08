@@ -71,11 +71,12 @@ class HttpNotificationServiceSpec
     "post JSON to the passed in callback URL" in {
 
       Given("there is working host that can receive callback")
-      val url = new URL("http://localhost:11111/myservice/123")
+      val callbackUrl = new URL("http://localhost:11111/myservice/123")
+      val downloadUrl = new URL("http://remotehost/bucket/123")
       stubCallbackReceiverToReturnValidResponse()
 
       When("the service is called")
-      val notification = UploadedFile(url, "file-reference")
+      val notification = UploadedFile(callbackUrl, "file-reference", downloadUrl)
       val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
       val result       = Try(Await.result(service.notifyCallback(notification), 30.seconds))
 
@@ -84,8 +85,11 @@ class HttpNotificationServiceSpec
 
       And("callback URL is called with an empty body (body will be generated later)")
       callbackServer.verify(
-        postRequestedFor(urlEqualTo("/myservice/123")).withRequestBody(equalToJson("""
-          |{ "reference" : "file-reference"}
+        postRequestedFor(urlEqualTo("/myservice/123"))
+          .withRequestBody(equalToJson("""
+          |{ "reference" : "file-reference",
+          |  "downloadUrl" : "http://remotehost/bucket/123"
+          |}
         """.stripMargin)))
 
     }
@@ -93,11 +97,12 @@ class HttpNotificationServiceSpec
     "return error when called host returns HTTP error response" in {
 
       Given("host that would receive callback returns errors")
-      val url = new URL("http://localhost:11111/myservice/123")
+      val callbackUrl = new URL("http://localhost:11111/myservice/123")
+      val downloadUrl = new URL("http://remotehost/bucket/123")
       stubCallbackReceiverToReturnInvalidResponse()
 
       When("the service is called")
-      val notification = UploadedFile(url, "file-reference")
+      val notification = UploadedFile(callbackUrl, "file-reference", downloadUrl)
       val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
       val result       = Try(Await.result(service.notifyCallback(notification), 30.seconds))
 
@@ -108,11 +113,12 @@ class HttpNotificationServiceSpec
 
     "return error when remote call fails" in {
       Given("host that would receive callback is not reachable")
-      val url = new URL("http://invalid-host-name:11111/myservice/123")
+      val callbackUrl = new URL("http://invalid-host-name:11111/myservice/123")
+      val downloadUrl = new URL("http://remotehost/bucket/123")
       stubCallbackReceiverToReturnInvalidResponse()
 
       When("the service is called")
-      val notification = UploadedFile(url, "file-reference")
+      val notification = UploadedFile(callbackUrl, "file-reference", downloadUrl)
       val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
       val result       = Try(Await.result(service.notifyCallback(notification), 30.seconds))
 
