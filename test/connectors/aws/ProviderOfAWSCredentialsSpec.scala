@@ -39,6 +39,8 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec with Matchers {
         override def outboundSuccessfulQueueUrl: String = ???
 
         override def retryInterval = ???
+
+        override def callbackUrlMetadataKey: String = ???
       }
 
       val credentials: AWSCredentialsProvider = new ProviderOfAWSCredentials(configuration).get()
@@ -63,6 +65,8 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec with Matchers {
         override def outboundSuccessfulQueueUrl: String = ???
 
         override def retryInterval = ???
+
+        override def callbackUrlMetadataKey: String = ???
       }
 
       val credentials: AWSCredentialsProvider = new ProviderOfAWSCredentials(configuration).get()

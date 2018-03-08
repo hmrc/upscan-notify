@@ -34,12 +34,14 @@ trait ServiceConfiguration {
   def sessionToken: Option[String]
 
   def awsRegion: String
+
+  def callbackUrlMetadataKey: String
 }
 
 class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) extends ServiceConfiguration {
 
   override def outboundSuccessfulQueueUrl: String =
-    getRequired(configuration.getString(_), "aws.sqs.outbound.successful.queue")
+    getRequired(configuration.getString(_), "aws.sqs.queue.outbound.successful")
 
   override def awsRegion = getRequired(configuration.getString(_), "aws.s3.region")
 
@@ -49,8 +51,12 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
 
   override def sessionToken = configuration.getString("aws.sessionToken")
 
+  override def callbackUrlMetadataKey: String =
+    getRequired(configuration.getString(_), "aws.sqs.callbackUrlMetadataKey")
+
+  override def retryInterval = getRequired(configuration.getMilliseconds, "aws.sqs.retry.interval").milliseconds
+
   def getRequired[T](function: String => Option[T], key: String) =
     function(key).getOrElse(throw new IllegalStateException(s"Configuration key not found: $key"))
 
-  override def retryInterval = getRequired(configuration.getMilliseconds, "aws.sqs.retry.interval").milliseconds
 }

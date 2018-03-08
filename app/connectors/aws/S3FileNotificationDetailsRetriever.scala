@@ -19,21 +19,38 @@ package connectors.aws
 import java.net.URL
 import javax.inject.Inject
 
-import com.amazonaws.services.s3.AmazonS3Client
+import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3.model.ObjectMetadata
+import config.ServiceConfiguration
 import model.{S3ObjectLocation, UploadedFile}
 import services.FileNotificationDetailsRetriever
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
-class S3FileNotificationDetailsRetriever @Inject()(s3Client: AmazonS3Client)(implicit ec: ExecutionContext)
+class S3FileNotificationDetailsRetriever @Inject()(s3Client: AmazonS3, config: ServiceConfiguration)(
+  implicit ec: ExecutionContext)
     extends FileNotificationDetailsRetriever {
 
-  override def lookupDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
+  private val metadataKey = config.callbackUrlMetadataKey
+
+  override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
     for {
-      metadataQueryResult <- Future(s3Client.getObjectMetadata(objectLocation.bucket, objectLocation.objectKey))
-      metadata = metadataQueryResult.getUserMetadata.asScala
-      notification <- Future.fromTry(Try(UploadedFile(new URL(metadata("callback-url")), objectLocation.objectKey)))
-    } yield notification
+      metadata     <- Future(s3Client.getObjectMetadata(objectLocation.bucket, objectLocation.objectKey))
+      uploadedFile <- retrieveUploadedFile(metadata, objectLocation.objectKey)
+    } yield uploadedFile
+
+  private def retrieveUploadedFile(metadata: ObjectMetadata, objectKey: String): Future[UploadedFile] =
+    metadata.getUserMetadata.asScala.get(metadataKey) match {
+      case Some(callbackMetadata) =>
+        Try(new URL(callbackMetadata)) match {
+          case Success(callbackUrl) => Future.successful(UploadedFile(callbackUrl, objectKey))
+          case Failure(error) =>
+            Future.failed(
+              new IllegalArgumentException(
+                s"Invalid metadata: $metadataKey: $callbackMetadata for file: $objectKey. Error: $error"))
+        }
+      case None => Future.failed(new NoSuchElementException(s"Metadata not found: $metadataKey for file: $objectKey"))
+    }
 }
