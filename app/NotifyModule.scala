@@ -29,7 +29,7 @@ class NotifyModule extends Module {
       bind[NotificationService].to[HttpNotificationService],
       bind[MessageParser].to[S3EventParser],
       bind[QueueConsumer].to[SqsQueueConsumer],
-      bind[PollingJob].to[SuccessfulUploadNotificationProcessingFlow],
+      bind[PollingJob].to[NotifyOnSuccessfulUploadProcessingFlow],
       bind[ContinousPoller].toSelf.eagerly()
     )
 }
