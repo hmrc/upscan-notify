@@ -14,12 +14,30 @@
  * limitations under the License.
  */
 
+package connectors.aws
+
+/*
+ * Copyright 2018 HM Revenue & Customs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import java.util
 import java.util.{List => JList}
 
 import com.amazonaws.services.sqs.AmazonSQS
 import com.amazonaws.services.sqs.model.{Message => SqsMessage, _}
-import helpers.ServiceConfiguration
+import config.ServiceConfiguration
 import model.Message
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
@@ -43,6 +61,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
       val message = new SqsMessage()
       message.setBody(s"SQS message body: $index")
       message.setReceiptHandle(s"SQS receipt handle: $index")
+      message.setMessageId(s"ID$index")
       messages.add(message)
     }
 
@@ -67,8 +86,8 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
 
       And("the list of messages should be returned")
       messages shouldBe List(
-        Message("SQS message body: 1", "SQS receipt handle: 1"),
-        Message("SQS message body: 2", "SQS receipt handle: 2"))
+        Message("ID1", "SQS message body: 1", "SQS receipt handle: 1"),
+        Message("ID2", "SQS message body: 2", "SQS receipt handle: 2"))
     }
 
     "call an SQS endpoint to receive messages for empty queue" in {
@@ -101,6 +120,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
 
       When("the consumer confirm method is called")
       val result = consumer.poll()
+      Await.ready(result, 2.seconds)
 
       Then("the SQS endpoint should be called")
       Mockito.verify(sqsClient).receiveMessage(any(): ReceiveMessageRequest)
@@ -129,7 +149,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
       Mockito.verify(sqsClient).deleteMessage(any())
 
       And("unit should be returned")
-      result shouldBe ()
+      result shouldBe ((): Unit)
     }
 
     "handle failing SQS delete calls" in {

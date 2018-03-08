@@ -14,21 +14,22 @@
  * limitations under the License.
  */
 
-import javax.inject.Provider
-
-import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClientBuilder}
-import helpers.{PlayBasedServiceConfiguration, ServiceConfiguration}
+import config.{PlayBasedServiceConfiguration, ServiceConfiguration}
+import connectors.HttpNotificationService
+import connectors.aws.{S3EventParser, S3FileNotificationDetailsRetriever, SqsQueueConsumer}
 import play.api.inject.{Binding, Module}
 import play.api.{Configuration, Environment}
+import services._
 
 class NotifyModule extends Module {
   override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] =
     Seq(
       bind[ServiceConfiguration].to[PlayBasedServiceConfiguration].eagerly(),
-      bind[AmazonSQS].toProvider[SqsClientProvider]
+      bind[FileNotificationDetailsRetriever].to[S3FileNotificationDetailsRetriever],
+      bind[NotificationService].to[HttpNotificationService],
+      bind[MessageParser].to[S3EventParser],
+      bind[QueueConsumer].to[SqsQueueConsumer],
+      bind[PollingJob].to[NotifyOnSuccessfulUploadProcessingFlow],
+      bind[ContinousPoller].toSelf.eagerly()
     )
-}
-
-class SqsClientProvider extends Provider[AmazonSQS] {
-  override def get(): AmazonSQS = AmazonSQSClientBuilder.defaultClient()
 }

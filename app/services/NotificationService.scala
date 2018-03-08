@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
-package model
+package services
 
-case class Message(body: String, receiptHandle: String)
+import model.UploadedFile
+
+import scala.concurrent.Future
+
+trait NotificationService {
+  def notifyCallback(notification: UploadedFile): Future[Unit]
+}

@@ -14,8 +14,13 @@
  * limitations under the License.
  */
 
-package model
+package services
 
-sealed trait MessageProcessingResult
-case object MessageProcessedSuccessfully extends MessageProcessingResult
-case class MessageProcessingFailed(message: String) extends MessageProcessingResult
+import model.{FileUploadEvent, Message}
+
+import scala.concurrent.Future
+
+trait MessageParser {
+
+  def parse(message: Message): Future[FileUploadEvent]
+}

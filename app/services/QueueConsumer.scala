@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-package service
+package services
 
-import model.FileNotification
+import model.Message
 
 import scala.concurrent.Future
 
-trait NotificationService {
-  def notifyCallback(notification: FileNotification): Future[Unit]
+trait QueueConsumer {
+  def poll(): Future[List[Message]]
+
+  def confirm(message: Message): Future[Unit]
 }

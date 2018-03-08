@@ -14,25 +14,27 @@
  * limitations under the License.
  */
 
-package service
+package connectors
 
 import java.net.URL
 
+import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.typesafe.config.Config
-import model.FileNotification
+import model.UploadedFile
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, GivenWhenThen, Matchers}
-import org.scalatestplus.play.OneAppPerSuite
+import play.api.libs.ws.ahc.AhcWSClient
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
 import uk.gov.hmrc.play.http.ws.WSHttp
 import uk.gov.hmrc.play.test.UnitSpec
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Try
 
 class HttpNotificationServiceSpec
@@ -40,7 +42,6 @@ class HttpNotificationServiceSpec
     with Matchers
     with GivenWhenThen
     with MockitoSugar
-    with OneAppPerSuite
     with BeforeAndAfterAll {
   val callbackServer = new WireMockServer(wireMockConfig().port(11111))
 
@@ -74,7 +75,7 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnValidResponse()
 
       When("the service is called")
-      val notification = FileNotification(url, "file-reference")
+      val notification = UploadedFile(url, "file-reference")
       val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
       val result       = Try(Await.result(service.notifyCallback(notification), 30.seconds))
 
@@ -96,7 +97,7 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnInvalidResponse()
 
       When("the service is called")
-      val notification = FileNotification(url, "file-reference")
+      val notification = UploadedFile(url, "file-reference")
       val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
       val result       = Try(Await.result(service.notifyCallback(notification), 30.seconds))
 
@@ -111,7 +112,7 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnInvalidResponse()
 
       When("the service is called")
-      val notification = FileNotification(url, "file-reference")
+      val notification = UploadedFile(url, "file-reference")
       val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
       val result       = Try(Await.result(service.notifyCallback(notification), 30.seconds))
 
@@ -123,6 +124,10 @@ class HttpNotificationServiceSpec
 }
 
 class TestHttpClient extends HttpClient with WSHttp {
+  implicit val system                             = ActorSystem()
+  implicit val materializer                       = ActorMaterializer()
+  override val wsClient                           = AhcWSClient()
   override lazy val configuration: Option[Config] = None
   override val hooks                              = Seq.empty
+
 }

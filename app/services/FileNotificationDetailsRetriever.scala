@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import model.Message
+package services
+
+import model.{S3ObjectLocation, UploadedFile}
 
 import scala.concurrent.Future
 
-trait QueueConsumer {
-  def poll(): Future[List[Message]]
-
-  def confirm(message: Message): Future[Unit]
+trait FileNotificationDetailsRetriever {
+  def lookupDetails(objectLocation: S3ObjectLocation): Future[UploadedFile]
 }
