@@ -57,12 +57,10 @@ class SuccessfulUploadNotificationProcessingFlow @Inject()(
   def processMessage(message: Message): Future[Unit] = {
     val outcome =
       for {
-        parsedMessage   <- parser.parse(message)
-        notification    <- fileDetailsRetriever.lookupDetails(parsedMessage.location)
-        callbackOutcome <- notificationService.notifyCallback(notification)
-        _ <- {
-          consumer.confirm(message)
-        }
+        parsedMessage <- parser.parse(message)
+        notification  <- fileDetailsRetriever.lookupDetails(parsedMessage.location)
+        _             <- notificationService.notifyCallback(notification)
+        _             <- consumer.confirm(message)
       } yield ()
 
     outcome.onFailure {

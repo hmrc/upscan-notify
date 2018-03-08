@@ -16,7 +16,7 @@
 
 package services
 
-import model.{Message, S3ObjectLocation}
+import model.{FileUploadEvent, Message}
 
 import scala.concurrent.Future
 
@@ -24,5 +24,3 @@ trait MessageParser {
 
   def parse(message: Message): Future[FileUploadEvent]
 }
-
-case class FileUploadEvent(location: S3ObjectLocation)
