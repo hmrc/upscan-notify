@@ -16,14 +16,13 @@
 
 package connectors.aws
 
-import model.{Message, S3ObjectLocation}
+import model.{FileUploadEvent, Message, S3ObjectLocation}
 import org.scalatest.Matchers
-import services.FileUploadEvent
 import uk.gov.hmrc.play.test.UnitSpec
 
-import scala.concurrent.{Await, Future}
-import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 class S3EventMessageParserSpec extends UnitSpec with Matchers {
 

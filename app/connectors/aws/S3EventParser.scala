@@ -18,7 +18,7 @@ package connectors.aws
 
 import javax.inject.Inject
 
-import model.{Message, S3ObjectLocation}
+import model.{FileUploadEvent, Message, S3ObjectLocation}
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._

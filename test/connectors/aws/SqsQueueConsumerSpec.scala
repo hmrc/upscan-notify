@@ -149,7 +149,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
       Mockito.verify(sqsClient).deleteMessage(any())
 
       And("unit should be returned")
-      result shouldBe ()
+      result shouldBe ((): Unit)
     }
 
     "handle failing SQS delete calls" in {
