@@ -27,11 +27,13 @@ import services.FileNotificationDetailsRetriever
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 class S3FileNotificationDetailsRetriever @Inject()(s3Client: AmazonS3, config: ServiceConfiguration)(
   implicit ec: ExecutionContext)
     extends FileNotificationDetailsRetriever {
+
+  private val metadataKey = config.callbackUrlMetadataKey
 
   override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
     for {
@@ -40,10 +42,15 @@ class S3FileNotificationDetailsRetriever @Inject()(s3Client: AmazonS3, config: S
     } yield uploadedFile
 
   private def retrieveUploadedFile(metadata: ObjectMetadata, objectKey: String): Future[UploadedFile] =
-    Future.fromTry {
-      Try {
-        val userMetadata = metadata.getUserMetadata.asScala
-        UploadedFile(new URL(userMetadata(config.callbackUrlMetadataKey)), objectKey)
-      }
+    metadata.getUserMetadata.asScala.get(metadataKey) match {
+      case Some(callbackMetadata) =>
+        Try(new URL(callbackMetadata)) match {
+          case Success(callbackUrl) => Future.successful(UploadedFile(callbackUrl, objectKey))
+          case Failure(error) =>
+            Future.failed(
+              new IllegalArgumentException(
+                s"Invalid metadata: $metadataKey: $callbackMetadata for file: $objectKey. Error: $error"))
+        }
+      case None => Future.failed(new NoSuchElementException(s"Metadata not found: $metadataKey for file: $objectKey"))
     }
 }

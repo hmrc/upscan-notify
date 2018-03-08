@@ -81,11 +81,11 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       When("the retrieve method is called")
       val result = retriever.retrieveUploadedFileDetails(location)
 
-      Then("the S3 client should be called")
-      Mockito.verify(s3Client).getObjectMetadata(any(): String, any(): String)
-
-      And("a wrapped error returned")
       ScalaFutures.whenReady(result.failed) { error =>
+        Then("the S3 client should be called")
+        Mockito.verify(s3Client).getObjectMetadata(any(): String, any(): String)
+
+        And("a wrapped error returned")
         error shouldBe a[AmazonServiceException]
       }
     }
@@ -105,13 +105,40 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       When("the retrieve method is called")
       val result = retriever.retrieveUploadedFileDetails(location)
 
-      Then("the S3 client should be called")
-      Mockito.verify(s3Client).getObjectMetadata(any(): String, any(): String)
-
-      And("a wrapped error returned")
       ScalaFutures.whenReady(result.failed) { error =>
+        Then("the S3 client should be called")
+        Mockito.verify(s3Client).getObjectMetadata(any(): String, any(): String)
+
+        And("a wrapped error returned")
         error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"key not found: $awsMetadataKey"
+        error.getMessage shouldBe s"Metadata not found: $awsMetadataKey for file: ${location.objectKey}"
+      }
+    }
+
+    "return wrapped failure if the callback metadata is not a valid URL" in {
+      val userMetadata = new util.TreeMap[String, String]()
+      userMetadata.put(awsMetadataKey, "this-is-not-a-url")
+
+      val objectMetadata = mock[ObjectMetadata]
+      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+
+      val s3Client = mock[AmazonS3]
+      Mockito.when(s3Client.getObjectMetadata(any(): String, any(): String)).thenReturn(objectMetadata)
+
+      Given("a S3 file notification retriever and a valid set of retrieval details")
+      val retriever = new S3FileNotificationDetailsRetriever(s3Client, config)
+
+      When("the retrieve method is called")
+      val result = retriever.retrieveUploadedFileDetails(location)
+
+      ScalaFutures.whenReady(result.failed) { error =>
+        Then("the S3 client should be called")
+        Mockito.verify(s3Client).getObjectMetadata(any(): String, any(): String)
+
+        And("a wrapped error returned")
+        error shouldBe a[IllegalArgumentException]
+        error.getMessage
+          .contains(s"Invalid metadata: aws-metadata-key: this-is-not-a-url for file: ${location.objectKey}") shouldBe true
       }
     }
   }
