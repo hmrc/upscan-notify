@@ -16,10 +16,11 @@
 
 package connectors
 
+import java.net.URL
 import javax.inject.Inject
 
 import model.UploadedFile
-import play.api.libs.json.{Format, Json}
+import play.api.libs.json._
 import services.NotificationService
 import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse}
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
@@ -30,7 +31,7 @@ class HttpNotificationService @Inject()(httpClient: HttpClient)(implicit ec: Exe
     extends NotificationService {
 
   override def notifyCallback(uploadedFile: UploadedFile): Future[Unit] = {
-    val callback                   = CallbackBody(uploadedFile.reference)
+    val callback                   = CallbackBody.fromUploadedFile(uploadedFile)
     implicit val hc: HeaderCarrier = HeaderCarrier()
     httpClient
       .POST[CallbackBody, HttpResponse](uploadedFile.callbackUrl.toString, callback)
@@ -38,8 +39,14 @@ class HttpNotificationService @Inject()(httpClient: HttpClient)(implicit ec: Exe
   }
 }
 
-case class CallbackBody(reference: String)
+case class CallbackBody(reference: String, downloadUrl: URL)
 
 object CallbackBody {
-  implicit val formats: Format[CallbackBody] = Json.format[CallbackBody]
+  def fromUploadedFile(uploadedFile: UploadedFile) =
+    new CallbackBody(uploadedFile.reference, uploadedFile.downloadUrl)
+
+  implicit val urlFormats: Writes[URL] = new Writes[URL] {
+    override def writes(o: URL): JsValue = JsString(o.toString)
+  }
+  implicit val formats: Writes[CallbackBody] = Json.writes[CallbackBody]
 }

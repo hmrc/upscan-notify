@@ -16,7 +16,7 @@
 
 import config.{PlayBasedServiceConfiguration, ServiceConfiguration}
 import connectors.HttpNotificationService
-import connectors.aws.{S3EventParser, S3FileNotificationDetailsRetriever, SqsQueueConsumer}
+import connectors.aws.{S3DownloadUrlGenerator, S3EventParser, S3FileNotificationDetailsRetriever, SqsQueueConsumer}
 import play.api.inject.{Binding, Module}
 import play.api.{Configuration, Environment}
 import services._
@@ -28,6 +28,7 @@ class NotifyModule extends Module {
       bind[FileNotificationDetailsRetriever].to[S3FileNotificationDetailsRetriever],
       bind[NotificationService].to[HttpNotificationService],
       bind[MessageParser].to[S3EventParser],
+      bind[DownloadUrlGenerator].to[S3DownloadUrlGenerator],
       bind[QueueConsumer].to[SqsQueueConsumer],
       bind[PollingJob].to[NotifyOnSuccessfulUploadProcessingFlow],
       bind[ContinousPoller].toSelf.eagerly()

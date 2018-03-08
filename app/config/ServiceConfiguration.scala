@@ -36,6 +36,8 @@ trait ServiceConfiguration {
   def awsRegion: String
 
   def callbackUrlMetadataKey: String
+
+  def daysToExpiration: Int
 }
 
 class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) extends ServiceConfiguration {
@@ -55,6 +57,8 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
     getRequired(configuration.getString(_), "aws.sqs.callbackUrlMetadataKey")
 
   override def retryInterval = getRequired(configuration.getMilliseconds, "aws.sqs.retry.interval").milliseconds
+
+  override def daysToExpiration: Int = getRequired(configuration.getInt, "aws.s3.daysToExpiration")
 
   def getRequired[T](function: String => Option[T], key: String) =
     function(key).getOrElse(throw new IllegalStateException(s"Configuration key not found: $key"))
