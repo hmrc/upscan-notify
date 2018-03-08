@@ -17,7 +17,8 @@
 package connectors.aws
 
 import java.net.URL
-import java.util.{Calendar, Date}
+import java.time.Instant
+import java.util.Date
 import javax.inject.Inject
 
 import com.amazonaws.services.s3.AmazonS3
@@ -30,9 +31,8 @@ class S3DownloadUrlGenerator @Inject()(s3Client: AmazonS3, config: ServiceConfig
     s3Client.generatePresignedUrl(objectLocation.bucket, objectLocation.objectKey, expirationDate())
 
   private def expirationDate(): Date = {
-    val c = Calendar.getInstance
-    c.setTime(new Date())
-    c.add(Calendar.DATE, config.daysToExpiration)
-    c.getTime
+    val now         = Instant.now()
+    val lifetimeEnd = now.plusSeconds(config.s3FileLifetime.toSeconds)
+    Date.from(lifetimeEnd)
   }
 }
