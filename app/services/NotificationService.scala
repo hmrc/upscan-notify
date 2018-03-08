@@ -16,10 +16,10 @@
 
 package services
 
-import model.FileNotification
+import model.UploadedFile
 
 import scala.concurrent.Future
 
 trait NotificationService {
-  def notifyCallback(notification: FileNotification): Future[Unit]
+  def notifyCallback(notification: UploadedFile): Future[Unit]
 }

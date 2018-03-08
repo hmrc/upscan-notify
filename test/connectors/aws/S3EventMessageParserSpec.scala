@@ -16,30 +16,38 @@
 
 package connectors.aws
 
-import model.Message
+import model.{Message, S3ObjectLocation}
 import org.scalatest.Matchers
-import services.{FileUploadedEvent, UnsupportedMessage}
+import services.FileUploadEvent
 import uk.gov.hmrc.play.test.UnitSpec
 
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
+
 class S3EventMessageParserSpec extends UnitSpec with Matchers {
+
+  val parser = new S3EventParser()
 
   "MessageParser" should {
     "properly parse valid S3 event message" in {
 
-      S3EventParser.parse(Message("ID", sampleMessage, "HANDLE")) shouldBe FileUploadedEvent(
-        "hmrc-upscan-live-transient",
-        "acabd94b-4d74-4b04-a0ca-1914950f9c02")
+      Await.result(parser.parse(Message("ID", sampleMessage, "HANDLE")), 2 seconds) shouldBe FileUploadEvent(
+        S3ObjectLocation("hmrc-upscan-live-transient", "acabd94b-4d74-4b04-a0ca-1914950f9c02"))
 
     }
 
-    "return unparseable message for invalid JSON" in {}
+    "return failure for test message" in {
 
-    "return test message for test message" in {
-      S3EventParser.parse(Message("ID1", testMessage, "HANDLE")) shouldBe a[UnsupportedMessage]
+      val result: Future[FileUploadEvent] = parser.parse(Message("ID1", testMessage, "HANDLE"))
+      Await.ready(result, 2 seconds)
+      result.value.get.isSuccess shouldBe false
     }
 
     "return unparseable message for S3 message other than upload" in {
-      S3EventParser.parse(Message("ID2", others3message, "HANDLE")) shouldBe a[UnsupportedMessage]
+      val result: Future[FileUploadEvent] = parser.parse(Message("ID1", others3message, "HANDLE"))
+      Await.ready(result, 2 seconds)
+      result.value.get.isSuccess shouldBe false
     }
   }
 

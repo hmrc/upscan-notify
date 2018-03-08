@@ -24,7 +24,7 @@ import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.typesafe.config.Config
-import model.FileNotification
+import model.UploadedFile
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, GivenWhenThen, Matchers}
 import play.api.libs.ws.ahc.AhcWSClient
@@ -75,7 +75,7 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnValidResponse()
 
       When("the service is called")
-      val notification = FileNotification(url, "file-reference")
+      val notification = UploadedFile(url, "file-reference")
       val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
       val result       = Try(Await.result(service.notifyCallback(notification), 30.seconds))
 
@@ -97,7 +97,7 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnInvalidResponse()
 
       When("the service is called")
-      val notification = FileNotification(url, "file-reference")
+      val notification = UploadedFile(url, "file-reference")
       val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
       val result       = Try(Await.result(service.notifyCallback(notification), 30.seconds))
 
@@ -112,7 +112,7 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnInvalidResponse()
 
       When("the service is called")
-      val notification = FileNotification(url, "file-reference")
+      val notification = UploadedFile(url, "file-reference")
       val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
       val result       = Try(Await.result(service.notifyCallback(notification), 30.seconds))
 

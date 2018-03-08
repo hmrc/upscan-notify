@@ -16,6 +16,4 @@
 
 package model
 
-import java.net.URL
-
-case class FileNotification(url: URL, reference: String)
+case class S3ObjectLocation(bucket: String, objectKey: String)

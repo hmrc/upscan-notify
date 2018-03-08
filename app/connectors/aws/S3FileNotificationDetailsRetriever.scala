@@ -20,7 +20,7 @@ import java.net.URL
 import javax.inject.Inject
 
 import com.amazonaws.services.s3.AmazonS3Client
-import model.FileNotification
+import model.{S3ObjectLocation, UploadedFile}
 import services.FileNotificationDetailsRetriever
 
 import scala.collection.JavaConverters._
@@ -30,9 +30,10 @@ import scala.util.Try
 class S3FileNotificationDetailsRetriever @Inject()(s3Client: AmazonS3Client)(implicit ec: ExecutionContext)
     extends FileNotificationDetailsRetriever {
 
-  override def retrieveFileDetails(bucket: String, objectKey: String): Future[FileNotification] =
-    for (metadataQueryResult <- Future(s3Client.getObjectMetadata(bucket, objectKey));
-         metadata = metadataQueryResult.getUserMetadata.asScala;
-         notification <- Future.fromTry(Try(FileNotification(new URL(metadata("callback-url")), objectKey))))
-      yield notification
+  override def lookupDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
+    for {
+      metadataQueryResult <- Future(s3Client.getObjectMetadata(objectLocation.bucket, objectLocation.objectKey))
+      metadata = metadataQueryResult.getUserMetadata.asScala
+      notification <- Future.fromTry(Try(UploadedFile(new URL(metadata("callback-url")), objectLocation.objectKey)))
+    } yield notification
 }

@@ -14,15 +14,8 @@
  * limitations under the License.
  */
 
-package services
+package model
 
-import model.{Message, S3ObjectLocation}
+import java.net.URL
 
-import scala.concurrent.Future
-
-trait MessageParser {
-
-  def parse(message: Message): Future[FileUploadEvent]
-}
-
-case class FileUploadEvent(location: S3ObjectLocation)
+case class UploadedFile(url: URL, reference: String)

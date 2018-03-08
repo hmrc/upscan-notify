@@ -16,16 +16,17 @@
 
 package connectors.aws
 
-import model.Message
-import services.{FileUploadedEvent, UnsupportedMessage}
+import javax.inject.Inject
+
+import model.{Message, S3ObjectLocation}
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
-import services.{MessageParser, ParsingResult}
+import services._
 
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.{ExecutionContext, Future}
 
-object S3EventParser extends MessageParser {
+class S3EventParser @Inject()(implicit ec: ExecutionContext) extends MessageParser {
 
   case class S3EventNotification(records: Seq[S3EventNotificationRecord])
 
@@ -39,34 +40,32 @@ object S3EventParser extends MessageParser {
 
   case class S3Details(bucketName: String, objectKey: String)
 
-  override def parse(message: Message): ParsingResult = {
+  implicit val s3reads: Reads[S3Details] =
+    ((JsPath \ "bucket" \ "name").read[String] and
+      (JsPath \ "object" \ "key").read[String])(S3Details.apply _)
 
-    implicit val s3reads: Reads[S3Details] =
-      ((JsPath \ "bucket" \ "name").read[String] and
-        (JsPath \ "object" \ "key").read[String])(S3Details.apply _)
+  implicit val reads: Reads[S3EventNotificationRecord] = Json.reads[S3EventNotificationRecord]
 
-    implicit val reads: Reads[S3EventNotificationRecord] = Json.reads[S3EventNotificationRecord]
+  implicit val messageReads: Reads[S3EventNotification] =
+    (JsPath \ "Records").read[Seq[S3EventNotificationRecord]].map(S3EventNotification)
 
-    implicit val messageReads: Reads[S3EventNotification] =
-      (JsPath \ "Records").read[Seq[S3EventNotificationRecord]].map(S3EventNotification)
+  override def parse(message: Message): Future[FileUploadEvent] =
+    for {
+      json               <- Future.successful(Json.parse(message.body))
+      deserializedJson   <- asFuture(json.validate[S3EventNotification])
+      interpretedMessage <- interpretS3EventMessage(deserializedJson)
+    } yield interpretedMessage
 
-    Try(Json.parse(message.body)) match {
-      case Success(json) =>
-        json
-          .validate[S3EventNotification]
-          .fold(
-            errors => UnsupportedMessage(s"Cannot parse the message ${errors.toString()}"),
-            result => interpretS3EventMessage(result)
-          )
-      case Failure(e) => UnsupportedMessage(s"Invalid JSON: ${e.getMessage}")
-    }
-  }
+  private def asFuture[T](input: JsResult[T]): Future[T] =
+    input.fold(
+      errors => Future.failed(new Exception(s"Cannot parse the message ${errors.toString()}")),
+      result => Future.successful(result))
 
-  private def interpretS3EventMessage(result: S3EventNotification): ParsingResult =
+  private def interpretS3EventMessage(result: S3EventNotification): Future[FileUploadEvent] =
     result.records match {
       case S3EventNotificationRecord(_, "aws:s3", _, _, "ObjectCreated:Post", s3Details) :: Nil =>
-        FileUploadedEvent(s3Details.bucketName, s3Details.objectKey)
-      case _ => UnsupportedMessage(s"Unexpected number of records in event ${result.records.toString}")
+        Future.successful(FileUploadEvent(S3ObjectLocation(s3Details.bucketName, s3Details.objectKey)))
+      case _ => Future.failed(new Exception(s"Unexpected number of records in event ${result.records.toString}"))
     }
 
 }

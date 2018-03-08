@@ -18,7 +18,7 @@ package connectors
 
 import javax.inject.Inject
 
-import model.FileNotification
+import model.UploadedFile
 import play.api.libs.json.{Format, Json}
 import services.NotificationService
 import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse}
@@ -29,7 +29,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class HttpNotificationService @Inject()(httpClient: HttpClient)(implicit ec: ExecutionContext)
     extends NotificationService {
 
-  override def notifyCallback(notification: FileNotification): Future[Unit] = {
+  override def notifyCallback(notification: UploadedFile): Future[Unit] = {
     val callback                   = CallbackBody(notification.reference)
     implicit val hc: HeaderCarrier = HeaderCarrier()
     httpClient

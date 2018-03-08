@@ -34,28 +34,43 @@ package services
 
 import javax.inject.Inject
 
-import model.{Message, MessageProcessedSuccessfully, MessageProcessingFailed}
+import model.Message
 import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class QueueOrchestrator @Inject()(consumer: QueueConsumer, processor: MessageProcessingService)(
-  implicit ec: ExecutionContext)
+class SuccessfulUploadNotificationProcessingFlow @Inject()(
+  consumer: QueueConsumer,
+  parser: MessageParser,
+  fileDetailsRetriever: FileNotificationDetailsRetriever,
+  notificationService: NotificationService)(implicit ec: ExecutionContext)
     extends PollingJob {
   def run(): Future[Unit] = {
     val outcomes = for {
       messages        <- consumer.poll()
-      messageOutcomes <- Future.sequence { messages.map(handleMessage) }
+      messageOutcomes <- Future.sequence { messages.map(processMessage) }
     } yield messageOutcomes
 
     outcomes.map(_ => ())
   }
 
-  private def handleMessage(message: Message): Future[Unit] =
-    processor.process(message).map {
-      case MessageProcessedSuccessfully =>
-        consumer.confirm(message)
-      case MessageProcessingFailed(error) =>
-        Logger.warn(s"Failed to process message '${message.id}'. Cause: $error")
+  def processMessage(message: Message): Future[Unit] = {
+    val outcome =
+      for {
+        parsedMessage   <- parser.parse(message)
+        notification    <- fileDetailsRetriever.lookupDetails(parsedMessage.location)
+        callbackOutcome <- notificationService.notifyCallback(notification)
+        _ <- {
+          consumer.confirm(message)
+        }
+      } yield ()
+
+    outcome.onFailure {
+      case error: Exception => Logger.warn(s"Failed to process message '${message.id}'. Cause: $error")
     }
+
+    outcome.recover { case _ => () }
+
+  }
+
 }

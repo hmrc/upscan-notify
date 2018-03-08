@@ -27,10 +27,9 @@ class NotifyModule extends Module {
       bind[ServiceConfiguration].to[PlayBasedServiceConfiguration].eagerly(),
       bind[FileNotificationDetailsRetriever].to[S3FileNotificationDetailsRetriever],
       bind[NotificationService].to[HttpNotificationService],
-      bind[MessageParser].to(S3EventParser),
+      bind[MessageParser].to[S3EventParser],
       bind[QueueConsumer].to[SqsQueueConsumer],
-      bind[MessageProcessingService].toSelf,
-      bind[PollingJob].to[QueueOrchestrator],
+      bind[PollingJob].to[SuccessfulUploadNotificationProcessingFlow],
       bind[ContinousPoller].toSelf.eagerly()
     )
 }
