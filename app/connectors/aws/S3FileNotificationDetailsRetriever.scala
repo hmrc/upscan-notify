@@ -48,8 +48,9 @@ class S3FileNotificationDetailsRetriever @Inject()(s3Client: AmazonS3, config: S
           case Success(callbackUrl) => Future.successful(UploadedFile(callbackUrl, objectKey))
           case Failure(error) =>
             Future.failed(
-              new IllegalArgumentException(
-                s"Invalid metadata: $metadataKey: $callbackMetadata for file: $objectKey. Error: $error"))
+              new Exception(
+                s"Invalid metadata: $metadataKey: $callbackMetadata for file: $objectKey. Error: $error",
+                error))
         }
       case None => Future.failed(new NoSuchElementException(s"Metadata not found: $metadataKey for file: $objectKey"))
     }

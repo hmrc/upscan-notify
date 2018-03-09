@@ -48,6 +48,12 @@ class S3EventMessageParserSpec extends UnitSpec with Matchers {
       Await.ready(result, 2 seconds)
       result.value.get.isSuccess shouldBe false
     }
+
+    "return unparseable message for S3 message with invalid JSON" in {
+      val result: Future[FileUploadEvent] = parser.parse(Message("ID1", "$>>>>", "HANDLE"))
+      Await.ready(result, 2 seconds)
+      result.value.get.isSuccess shouldBe false
+    }
   }
 
   val sampleMessage =
