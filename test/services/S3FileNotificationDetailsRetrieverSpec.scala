@@ -142,7 +142,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
         Mockito.verify(s3Client).getObjectMetadata(any(): String, any(): String)
 
         And("a wrapped error returned")
-        error shouldBe a[IllegalArgumentException]
+        error shouldBe an[Exception]
         error.getMessage
           .contains(s"Invalid metadata: aws-metadata-key: this-is-not-a-url for file: ${location.objectKey}") shouldBe true
       }

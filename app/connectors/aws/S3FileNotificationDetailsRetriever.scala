@@ -51,10 +51,9 @@ class S3FileNotificationDetailsRetriever @Inject()(
             val downloadUrl = downloadUrlGenerator.generate(objectLocation)
             Future.successful(UploadedFile(callbackUrl, objectLocation.objectKey, downloadUrl))
           case Failure(error) =>
-            Future.failed(
-              new Exception(
-                s"Invalid metadata: $metadataKey: $callbackMetadata for file: $objectKey. Error: $error",
-                error))
+            Future.failed(new Exception(
+              s"Invalid metadata: $metadataKey: $callbackMetadata for file: ${objectLocation.objectKey}. Error: $error",
+              error))
         }
       case None =>
         Future.failed(
