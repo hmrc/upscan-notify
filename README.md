@@ -23,14 +23,14 @@ aws_secret_access_key = YOUR_SECRET_KEY_HERE
 output = json
 region = eu-west-2
 mfa_serial = arn:aws:iam::638924580364:mfa/your.username
-role_arn = arn:aws:iam::415042754718:role/RoleServicePrototypesEngineer
+role_arn = arn:aws:iam::063874132475:role/RoleServiceUpscanEngineer
 
 [webops-users]
 aws_access_key_id = YOUR_ACCESS_KEY_HERE
 aws_secret_access_key = YOUR_SECRET_KEY_HERE
 mfa_serial = arn:aws:iam::638924580364:mfa/your.username
 region = eu-west-2
-role_arn = arn:aws:iam::415042754718:role/RoleServicePrototypesEngineer
+role_arn = arn:aws:iam::063874132475:role/RoleServiceUpscanEngineer
 ```
 - Working AWS MFA authentication
 - Have python 2.7 installed
