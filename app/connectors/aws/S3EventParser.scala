@@ -25,6 +25,7 @@ import play.api.libs.json._
 import services._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 class S3EventParser @Inject()(implicit ec: ExecutionContext) extends MessageParser {
 
@@ -51,7 +52,7 @@ class S3EventParser @Inject()(implicit ec: ExecutionContext) extends MessagePars
 
   override def parse(message: Message): Future[FileUploadEvent] =
     for {
-      json               <- Future.successful(Json.parse(message.body))
+      json               <- Future.fromTry(Try(Json.parse(message.body)))
       deserializedJson   <- asFuture(json.validate[S3EventNotification])
       interpretedMessage <- interpretS3EventMessage(deserializedJson)
     } yield interpretedMessage

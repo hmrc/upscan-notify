@@ -48,7 +48,8 @@ class NotifyOnSuccessfulUploadProcessingFlow @Inject()(
       } yield ()
 
     outcome.onFailure {
-      case error: Exception => Logger.warn(s"Failed to process message '${message.id}'. Cause: $error")
+      case error: Exception =>
+        Logger.warn(s"Failed to process message '${message.id}', cause ${error.getMessage}", error)
     }
 
     outcome.recover { case _ => () }
