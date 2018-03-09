@@ -38,9 +38,12 @@ class NotifyOnSuccessfulUploadProcessingFlowSpec extends UnitSpec with Matchers 
     }
   }
 
+  val callbackUrl = new URL("http://localhost:8080")
+  val downloadUrl = new URL("http://remotehost/bucket/123")
+
   val fileDetailsRetriever = new FileNotificationDetailsRetriever {
     override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
-      Future.successful(UploadedFile(new URL("http://localhost:8080"), objectLocation.objectKey))
+      Future.successful(UploadedFile(callbackUrl, objectLocation.objectKey, downloadUrl))
   }
 
   "SuccessfulUploadNotificationProcessingFlow" should {
@@ -126,15 +129,15 @@ class NotifyOnSuccessfulUploadProcessingFlowSpec extends UnitSpec with Matchers 
 
       val notificationService = mock[NotificationService]
       Mockito
-        .when(notificationService.notifyCallback(UploadedFile(new URL("http://localhost:8080"), "ID1")))
+        .when(notificationService.notifyCallback(UploadedFile(callbackUrl, "ID1", downloadUrl)))
         .thenReturn(Future.successful(()))
 
       Mockito
-        .when(notificationService.notifyCallback(UploadedFile(new URL("http://localhost:8080"), "ID2")))
+        .when(notificationService.notifyCallback(UploadedFile(callbackUrl, "ID2", downloadUrl)))
         .thenReturn(Future.failed(new Exception("Planned exception")))
 
       Mockito
-        .when(notificationService.notifyCallback(UploadedFile(new URL("http://localhost:8080"), "ID3")))
+        .when(notificationService.notifyCallback(UploadedFile(callbackUrl, "ID3", downloadUrl)))
         .thenReturn(Future.successful(()))
 
       val queueOrchestrator =

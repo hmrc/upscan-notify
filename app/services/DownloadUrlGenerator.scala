@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package model
+package services
 
 import java.net.URL
 
-case class Message(id: String, body: String, receiptHandle: String)
-case class UploadedFile(callbackUrl: URL, reference: String, downloadUrl: URL)
+import model.S3ObjectLocation
 
-case class S3ObjectLocation(bucket: String, objectKey: String)
-case class FileUploadEvent(location: S3ObjectLocation)
+trait DownloadUrlGenerator {
+  def generate(objectLocation: S3ObjectLocation): URL
+}

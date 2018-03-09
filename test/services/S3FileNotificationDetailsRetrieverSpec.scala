@@ -31,8 +31,9 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{GivenWhenThen, Matchers}
 import uk.gov.hmrc.play.test.UnitSpec
-import scala.concurrent.ExecutionContext.Implicits.global
+
 import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
@@ -45,6 +46,8 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
     val config = mock[ServiceConfiguration]
     Mockito.when(config.callbackUrlMetadataKey).thenReturn(awsMetadataKey)
 
+    val urlGenerator = mock[DownloadUrlGenerator]
+
     "return callback URL from S3 metadata" in {
       val callbackUrl  = new URL("http://my.callback.url")
       val userMetadata = new util.TreeMap[String, String]()
@@ -56,8 +59,11 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       val s3Client = mock[AmazonS3]
       Mockito.when(s3Client.getObjectMetadata(any(): String, any(): String)).thenReturn(objectMetadata)
 
+      val downloadUrl = new URL("http://remotehost/my-bucket/my-key")
+      Mockito.when(urlGenerator.generate(any())).thenReturn(downloadUrl)
+
       Given("a S3 file notification retriever and a valid set of retrieval details")
-      val retriever = new S3FileNotificationDetailsRetriever(s3Client, config)
+      val retriever = new S3FileNotificationDetailsRetriever(s3Client, config, urlGenerator)
 
       When("the retrieve method is called")
       val result = Await.result(retriever.retrieveUploadedFileDetails(location), 2.seconds)
@@ -66,7 +72,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       Mockito.verify(s3Client).getObjectMetadata(any(): String, any(): String)
 
       And("the expected callback URL is returned")
-      result shouldBe UploadedFile(callbackUrl, "my-key")
+      result shouldBe UploadedFile(callbackUrl, "my-key", downloadUrl)
     }
 
     "return wrapped failure if S3 call errors" in {
@@ -76,7 +82,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
         .thenThrow(new AmazonServiceException("Expected exception"))
 
       Given("a S3 file notification retriever and a valid set of retrieval details")
-      val retriever = new S3FileNotificationDetailsRetriever(s3Client, config)
+      val retriever = new S3FileNotificationDetailsRetriever(s3Client, config, urlGenerator)
 
       When("the retrieve method is called")
       val result = retriever.retrieveUploadedFileDetails(location)
@@ -100,7 +106,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       Mockito.when(s3Client.getObjectMetadata(any(): String, any(): String)).thenReturn(objectMetadata)
 
       Given("a S3 file notification retriever and a valid set of retrieval details")
-      val retriever = new S3FileNotificationDetailsRetriever(s3Client, config)
+      val retriever = new S3FileNotificationDetailsRetriever(s3Client, config, urlGenerator)
 
       When("the retrieve method is called")
       val result = retriever.retrieveUploadedFileDetails(location)
@@ -126,7 +132,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       Mockito.when(s3Client.getObjectMetadata(any(): String, any(): String)).thenReturn(objectMetadata)
 
       Given("a S3 file notification retriever and a valid set of retrieval details")
-      val retriever = new S3FileNotificationDetailsRetriever(s3Client, config)
+      val retriever = new S3FileNotificationDetailsRetriever(s3Client, config, urlGenerator)
 
       When("the retrieve method is called")
       val result = retriever.retrieveUploadedFileDetails(location)
