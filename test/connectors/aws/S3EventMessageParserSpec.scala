@@ -29,10 +29,17 @@ class S3EventMessageParserSpec extends UnitSpec with Matchers {
   val parser = new S3EventParser()
 
   "MessageParser" should {
-    "properly parse valid S3 event message" in {
+    "properly parse valid S3 event message triggered by POST" in {
 
-      Await.result(parser.parse(Message("ID", sampleMessage, "HANDLE")), 2 seconds) shouldBe FileUploadEvent(
+      Await.result(parser.parse(Message("ID", samplePostMessage, "HANDLE")), 2 seconds) shouldBe FileUploadEvent(
         S3ObjectLocation("hmrc-upscan-live-transient", "acabd94b-4d74-4b04-a0ca-1914950f9c02"))
+
+    }
+
+    "properly parse valid S3 event message triggered by copying object between buckets" in {
+
+      Await.result(parser.parse(Message("ID", sampleCopyMessage, "HANDLE")), 2 seconds) shouldBe FileUploadEvent(
+        S3ObjectLocation("fus-outbound-759b74ce43947f5f4c91aeddc3e5bad3", "16d77f7a-1f42-4bc2-aa7c-3e1b57b75b26"))
 
     }
 
@@ -56,7 +63,7 @@ class S3EventMessageParserSpec extends UnitSpec with Matchers {
     }
   }
 
-  val sampleMessage =
+  val samplePostMessage =
     """ 
                         |{
                         |  "Records": [
@@ -100,6 +107,49 @@ class S3EventMessageParserSpec extends UnitSpec with Matchers {
                         |
   """.stripMargin
 
+  val sampleCopyMessage =
+    """
+      |{
+      |  "Records": [
+      |    {
+      |      "eventVersion": "2.0",
+      |      "eventSource": "aws:s3",
+      |      "awsRegion": "eu-west-2",
+      |      "eventTime": "2018-03-20T15:16:04.019Z",
+      |      "eventName": "ObjectCreated:Copy",
+      |      "userIdentity": {
+      |        "principalId": "AWS:AROAI3II5VHGEMGMCYKJ2:botocore-session-1521558860"
+      |      },
+      |      "requestParameters": {
+      |        "sourceIPAddress": "163.171.33.130"
+      |      },
+      |      "responseElements": {
+      |        "x-amz-request-id": "0320AA5D161796DD",
+      |        "x-amz-id-2": "s3zU1l5uKGPieJ3Wd/BWZFd4wQdPcMXNMNrdEf2JU2vLOCv2TFheeGLzR06/9EZeCMrXY/JCWgE="
+      |      },
+      |      "s3": {
+      |        "s3SchemaVersion": "1.0",
+      |        "configurationId": "tf-s3-queue-20180307174600377300000002",
+      |        "bucket": {
+      |          "name": "fus-outbound-759b74ce43947f5f4c91aeddc3e5bad3",
+      |          "ownerIdentity": {
+      |            "principalId": "A1CP2HAXWD42V9"
+      |          },
+      |          "arn": "arn:aws:s3:::fus-outbound-759b74ce43947f5f4c91aeddc3e5bad3"
+      |        },
+      |        "object": {
+      |          "key": "16d77f7a-1f42-4bc2-aa7c-3e1b57b75b26",
+      |          "size": 1024,
+      |          "versionId": "null",
+      |          "sequencer": "005AB125B3E2B697B1"
+      |        }
+      |      }
+      |    }
+      |  ]
+      |}
+      |
+  """.stripMargin
+
   val testMessage =
     """
       |{
@@ -122,7 +172,7 @@ class S3EventMessageParserSpec extends UnitSpec with Matchers {
       |      "eventSource": "aws:s3",
       |      "awsRegion": "eu-west-2",
       |      "eventTime": "2018-02-23T08:02:46.764Z",
-      |      "eventName": "ObjectCreated:Delete",
+      |      "eventName": "ObjectDeleted:Delete",
       |      "userIdentity": {
       |        "principalId": "AWS:AIDAIIELOEELZHP2AGCQU"
       |      },
