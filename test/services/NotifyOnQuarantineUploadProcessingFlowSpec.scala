@@ -29,7 +29,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class NotifyOnSuccessfulUploadProcessingFlowSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
+class NotifyOnQuarantineUploadProcessingFlowSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
 
   val parser = new MessageParser {
     override def parse(message: Message) = message.body match {
@@ -39,17 +39,16 @@ class NotifyOnSuccessfulUploadProcessingFlowSpec extends UnitSpec with Matchers 
   }
 
   val callbackUrl = new URL("http://localhost:8080")
-  val downloadUrl = new URL("http://remotehost/bucket/123")
 
   val fileDetailsRetriever = new FileNotificationDetailsRetriever {
-    override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
-      Future.successful(UploadedFile(callbackUrl, objectLocation.objectKey, downloadUrl))
+    override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] = ???
 
-    override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] = ???
+    override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] =
+      Future.successful(QuarantinedFile(callbackUrl, objectLocation.objectKey, "This file has a nasty virus"))
   }
 
-  "SuccessfulUploadNotificationProcessingFlow" should {
-    "get messages from the queue consumer, and call notification service for valid messages" in {
+  "QuarantineUploadProcessingFlow" should {
+    "get messages from the queue consumer, and call notification service for valid quarantine messages" in {
       Given("there are only valid messages in a message queue")
       val validMessage = Message("ID", "VALID-BODY", "RECEIPT-1")
 
@@ -58,10 +57,10 @@ class NotifyOnSuccessfulUploadProcessingFlowSpec extends UnitSpec with Matchers 
       Mockito.when(queueConsumer.confirm(any())).thenReturn(Future.successful(()))
 
       val notificationService = mock[NotificationService]
-      Mockito.when(notificationService.notifySuccessfulCallback(any())).thenReturn(Future.successful(()))
+      Mockito.when(notificationService.notifyFailedCallback(any())).thenReturn(Future.successful(()))
 
       val queueOrchestrator =
-        new NotifyOnSuccessfulUploadProcessingFlow(queueConsumer, parser, fileDetailsRetriever, notificationService)
+        new NotifyOnQuarantineUploadProcessingFlow(queueConsumer, parser, fileDetailsRetriever, notificationService)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -70,7 +69,7 @@ class NotifyOnSuccessfulUploadProcessingFlowSpec extends UnitSpec with Matchers 
       Mockito.verify(queueConsumer).poll()
 
       And("callback recipient is notified")
-      Mockito.verify(notificationService).notifySuccessfulCallback(any())
+      Mockito.verify(notificationService).notifyFailedCallback(any())
 
       And("successfully processed messages are confirmed")
       Mockito.verify(queueConsumer).confirm(validMessage)
@@ -91,12 +90,12 @@ class NotifyOnSuccessfulUploadProcessingFlowSpec extends UnitSpec with Matchers 
 
       val notificationService = mock[NotificationService]
       Mockito
-        .when(notificationService.notifySuccessfulCallback(any()))
+        .when(notificationService.notifyFailedCallback(any()))
         .thenReturn(Future.successful(()))
         .thenReturn(Future.successful(()))
 
       val queueOrchestrator =
-        new NotifyOnSuccessfulUploadProcessingFlow(queueConsumer, parser, fileDetailsRetriever, notificationService)
+        new NotifyOnQuarantineUploadProcessingFlow(queueConsumer, parser, fileDetailsRetriever, notificationService)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -105,7 +104,7 @@ class NotifyOnSuccessfulUploadProcessingFlowSpec extends UnitSpec with Matchers 
       Mockito.verify(queueConsumer).poll()
 
       And("notification service is called only for valid messages")
-      Mockito.verify(notificationService, Mockito.times(2)).notifySuccessfulCallback(any())
+      Mockito.verify(notificationService, Mockito.times(2)).notifyFailedCallback(any())
 
       And("successfully processed messages are confirmed")
       Mockito.verify(queueConsumer).confirm(validMessage1)
@@ -131,19 +130,22 @@ class NotifyOnSuccessfulUploadProcessingFlowSpec extends UnitSpec with Matchers 
 
       val notificationService = mock[NotificationService]
       Mockito
-        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID1", downloadUrl)))
+        .when(
+          notificationService.notifyFailedCallback(QuarantinedFile(callbackUrl, "ID1", "This file has a nasty virus")))
         .thenReturn(Future.successful(()))
 
       Mockito
-        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID2", downloadUrl)))
+        .when(
+          notificationService.notifyFailedCallback(QuarantinedFile(callbackUrl, "ID2", "This file has a nasty virus")))
         .thenReturn(Future.failed(new Exception("Planned exception")))
 
       Mockito
-        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID3", downloadUrl)))
+        .when(
+          notificationService.notifyFailedCallback(QuarantinedFile(callbackUrl, "ID3", "This file has a nasty virus")))
         .thenReturn(Future.successful(()))
 
       val queueOrchestrator =
-        new NotifyOnSuccessfulUploadProcessingFlow(queueConsumer, parser, fileDetailsRetriever, notificationService)
+        new NotifyOnQuarantineUploadProcessingFlow(queueConsumer, parser, fileDetailsRetriever, notificationService)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -152,7 +154,7 @@ class NotifyOnSuccessfulUploadProcessingFlowSpec extends UnitSpec with Matchers 
       Mockito.verify(queueConsumer).poll()
 
       And("notification service is called for all valid messages")
-      Mockito.verify(notificationService, Mockito.times(3)).notifySuccessfulCallback(any())
+      Mockito.verify(notificationService, Mockito.times(3)).notifyFailedCallback(any())
 
       And("successfully processed messages are confirmed")
       Mockito.verify(queueConsumer).confirm(validMessage1)

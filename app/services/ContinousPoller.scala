@@ -24,25 +24,45 @@ import config.ServiceConfiguration
 import play.api.inject.ApplicationLifecycle
 import services.ContinousPollingActor.Poll
 
-import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 trait PollingJob {
   def run(): Future[Unit]
 }
 
-class ContinousPoller @Inject()(job: PollingJob, serviceConfiguration: ServiceConfiguration)(
-  implicit actorSystem: ActorSystem,
-  applicationLifecycle: ApplicationLifecycle) {
+trait PollingJobProvider {
+  def jobs(): Seq[PollingJob]
+}
 
-  private val pollingActor =
-    actorSystem.actorOf(ContinousPollingActor(job, serviceConfiguration.retryInterval), "Poller")
-  pollingActor ! Poll
+class ContinuousPollingJobProvider @Inject()(
+  successfulPollingJob: NotifyOnSuccessfulUploadProcessingFlow,
+  quarantinePollingJob: NotifyOnQuarantineUploadProcessingFlow)
+    extends PollingJobProvider {
+
+  def jobs(): Seq[PollingJob] = List(successfulPollingJob, quarantinePollingJob)
+}
+
+class ContinousPoller @Inject()(pollingJobProvider: PollingJobProvider, serviceConfiguration: ServiceConfiguration)(
+  implicit actorSystem: ActorSystem,
+  applicationLifecycle: ApplicationLifecycle,
+  ec: ExecutionContext) {
+
+  private val pollingActors = pollingJobProvider.jobs() map { job =>
+    actorSystem.actorOf(ContinousPollingActor(job, serviceConfiguration.retryInterval))
+  }
+  pollingActors foreach { _ ! Poll }
 
   applicationLifecycle.addStopHook { () =>
-    pollingActor ! PoisonPill
-    Future.successful(())
+    val actorStopResults = Future.sequence {
+      pollingActors map { pollingActor =>
+        pollingActor ! PoisonPill
+        Future.successful(())
+      }
+    }
+
+    actorStopResults.map(_ => ())
   }
 
 }

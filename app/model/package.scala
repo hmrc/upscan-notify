@@ -18,8 +18,39 @@ package model
 
 import java.net.URL
 
+import JsonWriteHelpers.urlFormats
+import play.api.libs.json.{JsString, JsValue, Json, Writes}
+
 case class Message(id: String, body: String, receiptHandle: String)
+
 case class UploadedFile(callbackUrl: URL, reference: String, downloadUrl: URL)
+case class QuarantinedFile(callbackUrl: URL, reference: String, error: String)
 
 case class S3ObjectLocation(bucket: String, objectKey: String)
 case class FileUploadEvent(location: S3ObjectLocation)
+
+sealed trait FileStatus {
+  val status: String
+}
+case object ReadyFileStatus extends FileStatus {
+  override val status: String = "READY"
+}
+case object FailedFileStatus extends FileStatus {
+  override val status: String = "FAILED"
+}
+
+object FileStatus {
+  implicit val fileStatusWrites: Writes[FileStatus] = new Writes[FileStatus] {
+    override def writes(o: FileStatus): JsValue = JsString(o.status)
+  }
+}
+
+case class ReadyCallbackBody(reference: String, downloadUrl: URL, fileStatus: FileStatus = ReadyFileStatus)
+object ReadyCallbackBody {
+  implicit val writesReadyCallback: Writes[ReadyCallbackBody] = Json.writes[ReadyCallbackBody]
+}
+
+case class FailedCallbackBody(reference: String, error: String, fileStatus: FileStatus = FailedFileStatus)
+object FailedCallbackBody {
+  implicit val writesFailedCallback: Writes[FailedCallbackBody] = Json.writes[FailedCallbackBody]
+}

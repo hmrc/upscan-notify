@@ -45,6 +45,8 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec with Matchers {
         override def callbackUrlMetadataKey: String = ???
 
         override def s3FileLifetime: FiniteDuration = ???
+
+        override def outboundQuarantineQueueUrl: String = ???
       }
 
       val credentials: AWSCredentialsProvider = new ProviderOfAWSCredentials(configuration).get()
@@ -73,6 +75,8 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec with Matchers {
         override def callbackUrlMetadataKey: String = ???
 
         override def s3FileLifetime: FiniteDuration = ???
+
+        override def outboundQuarantineQueueUrl: String = ???
       }
 
       val credentials: AWSCredentialsProvider = new ProviderOfAWSCredentials(configuration).get()
