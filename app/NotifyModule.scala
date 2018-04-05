@@ -29,9 +29,7 @@ class NotifyModule extends Module {
       bind[NotificationService].to[HttpNotificationService],
       bind[MessageParser].to[S3EventParser],
       bind[DownloadUrlGenerator].to[S3DownloadUrlGenerator],
-      bind[QueueConsumer].qualifiedWith("quarantine").to[QuarantineSqsQueueConsumer],
-      bind[QueueConsumer].qualifiedWith("successful").to[SuccessfulSqsQueueConsumer],
-      bind[PollingJobProvider].to[ContinuousPollingJobProvider],
+      bind[PollingJobFactory].to[SqsPollingJobsFactory],
       bind[ContinousPoller].toSelf.eagerly()
     )
 }

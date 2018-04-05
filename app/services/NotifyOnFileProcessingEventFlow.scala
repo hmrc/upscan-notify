@@ -16,18 +16,19 @@
 
 package services
 
-import javax.inject.{Inject, Named}
+import javax.inject.Inject
 
-import model.Message
+import connectors.aws.SuccessfulSqsQueueConsumer
+import model._
 import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait NotifyOnFileProcessingEventFlow extends PollingJob {
+trait NotifyOnFileProcessingEventFlow[T] extends PollingJob {
   val consumer: QueueConsumer
   val parser: MessageParser
-  val fileDetailsRetriever: FileNotificationDetailsRetriever
-  val notificationService: NotificationService
+  val retrieveEvent: (S3ObjectLocation) => Future[T]
+  val notifyCallback: (T) => Future[Unit]
   implicit val ec: ExecutionContext
 
   def run(): Future[Unit] = {
@@ -40,7 +41,12 @@ trait NotifyOnFileProcessingEventFlow extends PollingJob {
   }
 
   private def processMessage(message: Message): Future[Unit] = {
-    val outcome = handleMessage(message)
+    val outcome = for {
+      parsedMessage <- parser.parse(message)
+      notification  <- retrieveEvent.apply(parsedMessage.location)
+      _             <- notifyCallback.apply(notification)
+      _             <- consumer.confirm(message)
+    } yield ()
 
     outcome.onFailure {
       case error: Exception =>
@@ -49,38 +55,31 @@ trait NotifyOnFileProcessingEventFlow extends PollingJob {
 
     outcome.recover { case _ => () }
   }
-
-  protected def handleMessage(message: Message): Future[Unit]
 }
 
-class NotifyOnSuccessfulUploadProcessingFlow @Inject()(
-  @Named("successful") val consumer: QueueConsumer,
+class NotifyOnSuccessfulFileUploadProcessingFlow @Inject()(
+  val consumer: SuccessfulSqsQueueConsumer,
   val parser: MessageParser,
-  val fileDetailsRetriever: FileNotificationDetailsRetriever,
-  val notificationService: NotificationService)(implicit val ec: ExecutionContext)
-    extends NotifyOnFileProcessingEventFlow {
+  fileRetriever: FileNotificationDetailsRetriever,
+  notificationService: NotificationService
+)(implicit val ec: ExecutionContext)
+    extends NotifyOnFileProcessingEventFlow[UploadedFile] {
 
-  protected def handleMessage(message: Message) =
-    for {
-      parsedMessage <- parser.parse(message)
-      notification  <- fileDetailsRetriever.retrieveUploadedFileDetails(parsedMessage.location)
-      _             <- notificationService.notifySuccessfulCallback(notification)
-      _             <- consumer.confirm(message)
-    } yield ()
+  override val retrieveEvent: (S3ObjectLocation) => Future[UploadedFile] = fileRetriever.retrieveUploadedFileDetails
+
+  override val notifyCallback: (UploadedFile) => Future[Unit] = notificationService.notifySuccessfulCallback
 }
 
-class NotifyOnQuarantineUploadProcessingFlow @Inject()(
-  @Named("quarantine") val consumer: QueueConsumer,
+class NotifyOnQuarantineFileUploadProcessingFlow @Inject()(
+  val consumer: SuccessfulSqsQueueConsumer,
   val parser: MessageParser,
-  val fileDetailsRetriever: FileNotificationDetailsRetriever,
-  val notificationService: NotificationService)(implicit val ec: ExecutionContext)
-    extends NotifyOnFileProcessingEventFlow {
+  fileRetriever: FileNotificationDetailsRetriever,
+  notificationService: NotificationService
+)(implicit val ec: ExecutionContext)
+    extends NotifyOnFileProcessingEventFlow[QuarantinedFile] {
 
-  override protected def handleMessage(message: Message): Future[Unit] =
-    for {
-      parsedMessage <- parser.parse(message)
-      notification  <- fileDetailsRetriever.retrieveQuarantinedFileDetails(parsedMessage.location)
-      _             <- notificationService.notifyFailedCallback(notification)
-      _             <- consumer.confirm(message)
-    } yield ()
+  override val retrieveEvent: (S3ObjectLocation) => Future[QuarantinedFile] =
+    fileRetriever.retrieveQuarantinedFileDetails
+
+  override val notifyCallback: (QuarantinedFile) => Future[Unit] = notificationService.notifyFailedCallback
 }

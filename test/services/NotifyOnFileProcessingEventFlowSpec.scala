@@ -27,11 +27,11 @@ import uk.gov.hmrc.play.test.UnitSpec
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
-class NotifyOnQuarantineUploadProcessingFlowSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
+class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
 
-  val parser = new MessageParser {
+  val messageParser = new MessageParser {
     override def parse(message: Message) = message.body match {
       case "VALID-BODY" => Future.successful(FileUploadEvent(S3ObjectLocation("bucket", message.id)))
       case _            => Future.failed(new Exception("Invalid body"))
@@ -39,16 +39,17 @@ class NotifyOnQuarantineUploadProcessingFlowSpec extends UnitSpec with Matchers 
   }
 
   val callbackUrl = new URL("http://localhost:8080")
+  val downloadUrl = new URL("http://remotehost/bucket/123")
 
   val fileDetailsRetriever = new FileNotificationDetailsRetriever {
-    override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] = ???
+    override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
+      Future.successful(UploadedFile(callbackUrl, objectLocation.objectKey, downloadUrl))
 
-    override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] =
-      Future.successful(QuarantinedFile(callbackUrl, objectLocation.objectKey, "This file has a nasty virus"))
+    override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] = ???
   }
 
-  "QuarantineUploadProcessingFlow" should {
-    "get messages from the queue consumer, and call notification service for valid quarantine messages" in {
+  "SuccessfulUploadNotificationProcessingFlow" should {
+    "get messages from the queue consumer, and call notification service for valid messages" in {
       Given("there are only valid messages in a message queue")
       val validMessage = Message("ID", "VALID-BODY", "RECEIPT-1")
 
@@ -57,10 +58,16 @@ class NotifyOnQuarantineUploadProcessingFlowSpec extends UnitSpec with Matchers 
       Mockito.when(queueConsumer.confirm(any())).thenReturn(Future.successful(()))
 
       val notificationService = mock[NotificationService]
-      Mockito.when(notificationService.notifyFailedCallback(any())).thenReturn(Future.successful(()))
+      Mockito.when(notificationService.notifySuccessfulCallback(any())).thenReturn(Future.successful(()))
 
-      val queueOrchestrator =
-        new NotifyOnQuarantineUploadProcessingFlow(queueConsumer, parser, fileDetailsRetriever, notificationService)
+      val queueOrchestrator = new NotifyOnFileProcessingEventFlow[UploadedFile] {
+        override val consumer: QueueConsumer = queueConsumer
+        override val parser: MessageParser   = messageParser
+        override val retrieveEvent: (S3ObjectLocation) => Future[UploadedFile] =
+          fileDetailsRetriever.retrieveUploadedFileDetails
+        override val notifyCallback: (UploadedFile) => Future[Unit] = notificationService.notifySuccessfulCallback
+        override implicit val ec: ExecutionContext                  = ExecutionContext.Implicits.global
+      }
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -69,7 +76,7 @@ class NotifyOnQuarantineUploadProcessingFlowSpec extends UnitSpec with Matchers 
       Mockito.verify(queueConsumer).poll()
 
       And("callback recipient is notified")
-      Mockito.verify(notificationService).notifyFailedCallback(any())
+      Mockito.verify(notificationService).notifySuccessfulCallback(any())
 
       And("successfully processed messages are confirmed")
       Mockito.verify(queueConsumer).confirm(validMessage)
@@ -90,12 +97,18 @@ class NotifyOnQuarantineUploadProcessingFlowSpec extends UnitSpec with Matchers 
 
       val notificationService = mock[NotificationService]
       Mockito
-        .when(notificationService.notifyFailedCallback(any()))
+        .when(notificationService.notifySuccessfulCallback(any()))
         .thenReturn(Future.successful(()))
         .thenReturn(Future.successful(()))
 
-      val queueOrchestrator =
-        new NotifyOnQuarantineUploadProcessingFlow(queueConsumer, parser, fileDetailsRetriever, notificationService)
+      val queueOrchestrator = new NotifyOnFileProcessingEventFlow[UploadedFile] {
+        override val consumer: QueueConsumer = queueConsumer
+        override val parser: MessageParser   = messageParser
+        override val retrieveEvent: (S3ObjectLocation) => Future[UploadedFile] =
+          fileDetailsRetriever.retrieveUploadedFileDetails
+        override val notifyCallback: (UploadedFile) => Future[Unit] = notificationService.notifySuccessfulCallback
+        override implicit val ec: ExecutionContext                  = ExecutionContext.Implicits.global
+      }
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -104,7 +117,7 @@ class NotifyOnQuarantineUploadProcessingFlowSpec extends UnitSpec with Matchers 
       Mockito.verify(queueConsumer).poll()
 
       And("notification service is called only for valid messages")
-      Mockito.verify(notificationService, Mockito.times(2)).notifyFailedCallback(any())
+      Mockito.verify(notificationService, Mockito.times(2)).notifySuccessfulCallback(any())
 
       And("successfully processed messages are confirmed")
       Mockito.verify(queueConsumer).confirm(validMessage1)
@@ -130,22 +143,25 @@ class NotifyOnQuarantineUploadProcessingFlowSpec extends UnitSpec with Matchers 
 
       val notificationService = mock[NotificationService]
       Mockito
-        .when(
-          notificationService.notifyFailedCallback(QuarantinedFile(callbackUrl, "ID1", "This file has a nasty virus")))
+        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID1", downloadUrl)))
         .thenReturn(Future.successful(()))
 
       Mockito
-        .when(
-          notificationService.notifyFailedCallback(QuarantinedFile(callbackUrl, "ID2", "This file has a nasty virus")))
+        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID2", downloadUrl)))
         .thenReturn(Future.failed(new Exception("Planned exception")))
 
       Mockito
-        .when(
-          notificationService.notifyFailedCallback(QuarantinedFile(callbackUrl, "ID3", "This file has a nasty virus")))
+        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID3", downloadUrl)))
         .thenReturn(Future.successful(()))
 
-      val queueOrchestrator =
-        new NotifyOnQuarantineUploadProcessingFlow(queueConsumer, parser, fileDetailsRetriever, notificationService)
+      val queueOrchestrator = new NotifyOnFileProcessingEventFlow[UploadedFile] {
+        override val consumer: QueueConsumer = queueConsumer
+        override val parser: MessageParser   = messageParser
+        override val retrieveEvent: (S3ObjectLocation) => Future[UploadedFile] =
+          fileDetailsRetriever.retrieveUploadedFileDetails
+        override val notifyCallback: (UploadedFile) => Future[Unit] = notificationService.notifySuccessfulCallback
+        override implicit val ec: ExecutionContext                  = ExecutionContext.Implicits.global
+      }
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -154,7 +170,7 @@ class NotifyOnQuarantineUploadProcessingFlowSpec extends UnitSpec with Matchers 
       Mockito.verify(queueConsumer).poll()
 
       And("notification service is called for all valid messages")
-      Mockito.verify(notificationService, Mockito.times(3)).notifyFailedCallback(any())
+      Mockito.verify(notificationService, Mockito.times(3)).notifySuccessfulCallback(any())
 
       And("successfully processed messages are confirmed")
       Mockito.verify(queueConsumer).confirm(validMessage1)
@@ -165,5 +181,4 @@ class NotifyOnQuarantineUploadProcessingFlowSpec extends UnitSpec with Matchers 
 
     }
   }
-
 }

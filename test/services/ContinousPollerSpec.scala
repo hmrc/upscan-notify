@@ -20,7 +20,6 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.ActorSystem
 import config.ServiceConfiguration
-import org.mockito.Mockito
 import org.scalatest.concurrent.Eventually
 import org.scalatest.mockito.MockitoSugar
 import play.api.inject.DefaultApplicationLifecycle
@@ -63,8 +62,8 @@ class ContinousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
         override def run() = Future.successful(callCount.incrementAndGet())
       }
 
-      val provider = new PollingJobProvider {
-        override def jobs(): Seq[PollingJob] = List(orchestrator)
+      val provider = new PollingJobFactory {
+        override def getJobs(): List[PollingJob] = List(orchestrator)
       }
 
       val serviceLifecycle = new DefaultApplicationLifecycle()
@@ -94,10 +93,9 @@ class ContinousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
           }
       }
 
-      val provider = new PollingJobProvider {
-        override def jobs(): Seq[PollingJob] = List(orchestrator)
+      val provider = new PollingJobFactory {
+        override def getJobs(): List[PollingJob] = List(orchestrator)
       }
-
       val serviceLifecycle = new DefaultApplicationLifecycle()
 
       val queuePollingJob = new ContinousPoller(provider, serviceConfiguration)(
