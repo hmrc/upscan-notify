@@ -20,9 +20,10 @@ import java.net.URL
 import javax.inject.Inject
 
 import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.model.ObjectMetadata
+import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
 import config.ServiceConfiguration
-import model.{S3ObjectLocation, UploadedFile}
+import model.{QuarantinedFile, S3ObjectLocation, UploadedFile}
+import org.apache.commons.io.IOUtils
 import services.{DownloadUrlGenerator, FileNotificationDetailsRetriever}
 
 import scala.collection.JavaConverters._
@@ -43,20 +44,32 @@ class S3FileNotificationDetailsRetriever @Inject()(
       uploadedFile <- retrieveUploadedFile(metadata, objectLocation)
     } yield uploadedFile
 
+  override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] =
+    for {
+      s3Object <- Future(s3Client.getObject(objectLocation.bucket, objectLocation.objectKey))
+      error    <- Future.fromTry(Try(IOUtils.toString(s3Object.getObjectContent)))
+      url      <- Future.fromTry(retrieveCallbackUrl(s3Object.getObjectMetadata, objectLocation))
+    } yield {
+      QuarantinedFile(url, objectLocation.objectKey, error)
+    }
+
   private def retrieveUploadedFile(metadata: ObjectMetadata, objectLocation: S3ObjectLocation): Future[UploadedFile] =
+    Future.fromTry(retrieveCallbackUrl(metadata, objectLocation)) map { callbackUrl =>
+      val downloadUrl = downloadUrlGenerator.generate(objectLocation)
+      UploadedFile(callbackUrl, objectLocation.objectKey, downloadUrl)
+    }
+
+  private def retrieveCallbackUrl(metadata: ObjectMetadata, objectLocation: S3ObjectLocation): Try[URL] =
     metadata.getUserMetadata.asScala.get(metadataKey) match {
       case Some(callbackMetadata) =>
         Try(new URL(callbackMetadata)) match {
-          case Success(callbackUrl) =>
-            val downloadUrl = downloadUrlGenerator.generate(objectLocation)
-            Future.successful(UploadedFile(callbackUrl, objectLocation.objectKey, downloadUrl))
+          case Success(callbackUrl) => Success(callbackUrl)
           case Failure(error) =>
-            Future.failed(new Exception(
+            Failure(new Exception(
               s"Invalid metadata: $metadataKey: $callbackMetadata for file: ${objectLocation.objectKey}. Error: $error",
               error))
         }
       case None =>
-        Future.failed(
-          new NoSuchElementException(s"Metadata not found: $metadataKey for file: ${objectLocation.objectKey}"))
+        Failure(new NoSuchElementException(s"Metadata not found: $metadataKey for file: ${objectLocation.objectKey}"))
     }
 }

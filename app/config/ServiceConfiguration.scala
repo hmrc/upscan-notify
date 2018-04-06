@@ -25,6 +25,8 @@ trait ServiceConfiguration {
 
   def outboundSuccessfulQueueUrl: String
 
+  def outboundQuarantineQueueUrl: String
+
   def accessKeyId: String
 
   def secretAccessKey: String
@@ -43,6 +45,9 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
 
   override def outboundSuccessfulQueueUrl: String =
     getRequired(configuration.getString(_), "aws.sqs.queue.outbound.successful")
+
+  override def outboundQuarantineQueueUrl: String =
+    getRequired(configuration.getString(_), "aws.sqs.queue.outbound.quarantine")
 
   override def awsRegion = getRequired(configuration.getString(_), "aws.s3.region")
 

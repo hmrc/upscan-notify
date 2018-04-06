@@ -16,11 +16,9 @@
 
 package connectors
 
-import java.net.URL
 import javax.inject.Inject
 
-import model.UploadedFile
-import play.api.libs.json._
+import model.{FailedCallbackBody, QuarantinedFile, ReadyCallbackBody, UploadedFile}
 import services.NotificationService
 import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse}
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
@@ -30,23 +28,19 @@ import scala.concurrent.{ExecutionContext, Future}
 class HttpNotificationService @Inject()(httpClient: HttpClient)(implicit ec: ExecutionContext)
     extends NotificationService {
 
-  override def notifyCallback(uploadedFile: UploadedFile): Future[Unit] = {
-    val callback                   = CallbackBody.fromUploadedFile(uploadedFile)
+  override def notifySuccessfulCallback(uploadedFile: UploadedFile): Future[Unit] = {
+    val callback                   = ReadyCallbackBody(uploadedFile.reference, uploadedFile.downloadUrl)
     implicit val hc: HeaderCarrier = HeaderCarrier()
     httpClient
-      .POST[CallbackBody, HttpResponse](uploadedFile.callbackUrl.toString, callback)
+      .POST[ReadyCallbackBody, HttpResponse](uploadedFile.callbackUrl.toString, callback)
       .map(_ => Unit)
   }
-}
 
-case class CallbackBody(reference: String, downloadUrl: URL)
-
-object CallbackBody {
-  def fromUploadedFile(uploadedFile: UploadedFile) =
-    new CallbackBody(uploadedFile.reference, uploadedFile.downloadUrl)
-
-  implicit val urlFormats: Writes[URL] = new Writes[URL] {
-    override def writes(o: URL): JsValue = JsString(o.toString)
+  override def notifyFailedCallback(quarantinedFile: QuarantinedFile): Future[Unit] = {
+    val callback                   = FailedCallbackBody(quarantinedFile.reference, quarantinedFile.error)
+    implicit val hc: HeaderCarrier = HeaderCarrier()
+    httpClient
+      .POST[FailedCallbackBody, HttpResponse](quarantinedFile.callbackUrl.toString, callback)
+      .map(_ => Unit)
   }
-  implicit val formats: Writes[CallbackBody] = Json.writes[CallbackBody]
 }

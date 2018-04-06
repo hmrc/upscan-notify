@@ -20,13 +20,12 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.ActorSystem
 import config.ServiceConfiguration
-import org.mockito.Mockito
 import org.scalatest.concurrent.Eventually
 import org.scalatest.mockito.MockitoSugar
 import play.api.inject.DefaultApplicationLifecycle
 import uk.gov.hmrc.play.test.UnitSpec
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 
@@ -50,6 +49,8 @@ class ContinousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
     override def callbackUrlMetadataKey: String = ???
 
     override def s3FileLifetime: FiniteDuration = ???
+
+    override def outboundQuarantineQueueUrl: String = ???
   }
 
   "QueuePollingJob" should {
@@ -61,9 +62,16 @@ class ContinousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
         override def run() = Future.successful(callCount.incrementAndGet())
       }
 
+      val provider = new PollingJobFactory {
+        override def getJobs(): List[PollingJob] = List(orchestrator)
+      }
+
       val serviceLifecycle = new DefaultApplicationLifecycle()
 
-      val queuePollingJob = new ContinousPoller(orchestrator, serviceConfiguration)(actorSystem, serviceLifecycle)
+      val queuePollingJob = new ContinousPoller(provider, serviceConfiguration)(
+        actorSystem,
+        serviceLifecycle,
+        ExecutionContext.Implicits.global)
 
       eventually {
         callCount.get() > 5
@@ -85,9 +93,15 @@ class ContinousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
           }
       }
 
+      val provider = new PollingJobFactory {
+        override def getJobs(): List[PollingJob] = List(orchestrator)
+      }
       val serviceLifecycle = new DefaultApplicationLifecycle()
 
-      val queuePollingJob = new ContinousPoller(orchestrator, serviceConfiguration)(actorSystem, serviceLifecycle)
+      val queuePollingJob = new ContinousPoller(provider, serviceConfiguration)(
+        actorSystem,
+        serviceLifecycle,
+        ExecutionContext.Implicits.global)
 
       eventually {
         callCount.get() > 5

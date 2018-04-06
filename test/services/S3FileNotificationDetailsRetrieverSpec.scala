@@ -16,15 +16,17 @@
 
 package services
 
+import java.io.{ByteArrayInputStream, InputStream}
 import java.net.URL
 import java.util
 
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.model.ObjectMetadata
+import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object, S3ObjectInputStream}
 import config.ServiceConfiguration
 import connectors.aws.S3FileNotificationDetailsRetriever
-import model.{S3ObjectLocation, UploadedFile}
+import model.{QuarantinedFile, S3ObjectLocation, UploadedFile}
+import org.apache.http.client.methods.HttpRequestBase
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.scalatest.concurrent.ScalaFutures
@@ -48,7 +50,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
 
     val urlGenerator = mock[DownloadUrlGenerator]
 
-    "return callback URL from S3 metadata" in {
+    "return callback URL from S3 metadata for uploaded file" in {
       val callbackUrl  = new URL("http://my.callback.url")
       val userMetadata = new util.TreeMap[String, String]()
       userMetadata.put(awsMetadataKey, callbackUrl.toString)
@@ -75,7 +77,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       result shouldBe UploadedFile(callbackUrl, "my-key", downloadUrl)
     }
 
-    "return wrapped failure if S3 call errors" in {
+    "return wrapped failure if S3 call errors for uploaded file" in {
       val s3Client = mock[AmazonS3]
       Mockito
         .when(s3Client.getObjectMetadata(any(): String, any(): String))
@@ -96,7 +98,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       }
     }
 
-    "return wrapped failure if the metadata doesn't contain callback URL" in {
+    "return wrapped failure if the metadata doesn't contain callback URL for uploaded file" in {
       val userMetadata = new util.TreeMap[String, String]()
 
       val objectMetadata = mock[ObjectMetadata]
@@ -121,7 +123,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       }
     }
 
-    "return wrapped failure if the callback metadata is not a valid URL" in {
+    "return wrapped failure if the callback metadata is not a valid URL for uploaded file" in {
       val userMetadata = new util.TreeMap[String, String]()
       userMetadata.put(awsMetadataKey, "this-is-not-a-url")
 
@@ -140,6 +142,127 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       ScalaFutures.whenReady(result.failed) { error =>
         Then("the S3 client should be called")
         Mockito.verify(s3Client).getObjectMetadata(any(): String, any(): String)
+
+        And("a wrapped error returned")
+        error shouldBe an[Exception]
+        error.getMessage
+          .contains(s"Invalid metadata: aws-metadata-key: this-is-not-a-url for file: ${location.objectKey}") shouldBe true
+      }
+    }
+
+    "return callback URL from S3 metadata for quarantined file" in {
+      val callbackUrl  = new URL("http://my.callback.url")
+      val userMetadata = new util.TreeMap[String, String]()
+      userMetadata.put(awsMetadataKey, callbackUrl.toString)
+
+      val objectMetadata = mock[ObjectMetadata]
+      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+
+      val inputStream = new ByteArrayInputStream("This file has a virus".getBytes())
+      val s3Object    = mock[S3Object]
+      Mockito
+        .when(s3Object.getObjectContent)
+        .thenReturn(new S3ObjectInputStream(inputStream, mock[HttpRequestBase]))
+      Mockito.when(s3Object.getObjectMetadata).thenReturn(objectMetadata)
+
+      val s3Client = mock[AmazonS3]
+      Mockito.when(s3Client.getObject(any(): String, any(): String)).thenReturn(s3Object)
+
+      Given("a S3 file notification retriever and a valid set of retrieval details")
+      val retriever = new S3FileNotificationDetailsRetriever(s3Client, config, urlGenerator)
+
+      When("the retrieve method is called")
+      val result = Await.result(retriever.retrieveQuarantinedFileDetails(location), 2.seconds)
+
+      Then("the S3 client should be called")
+      Mockito.verify(s3Client).getObject(any(): String, any(): String)
+
+      And("the expected callback URL is returned")
+      result shouldBe QuarantinedFile(callbackUrl, "my-key", "This file has a virus")
+    }
+
+    "return wrapped failure if S3 call errors for quarantined file" in {
+      val s3Client = mock[AmazonS3]
+      Mockito
+        .when(s3Client.getObject(any(): String, any(): String))
+        .thenThrow(new AmazonServiceException("Expected exception"))
+
+      Given("a S3 file notification retriever and a valid set of retrieval details")
+      val retriever = new S3FileNotificationDetailsRetriever(s3Client, config, urlGenerator)
+
+      When("the retrieve method is called")
+      val result = retriever.retrieveQuarantinedFileDetails(location)
+
+      ScalaFutures.whenReady(result.failed) { error =>
+        Then("the S3 client should be called")
+        Mockito.verify(s3Client).getObject(any(): String, any(): String)
+
+        And("a wrapped error returned")
+        error shouldBe a[AmazonServiceException]
+      }
+    }
+
+    "return wrapped failure if the metadata doesn't contain callback URL for quarantined file" in {
+      val userMetadata = new util.TreeMap[String, String]()
+
+      val objectMetadata = mock[ObjectMetadata]
+      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+
+      val inputStream = new ByteArrayInputStream("This file has a virus".getBytes())
+      val s3Object    = mock[S3Object]
+      Mockito
+        .when(s3Object.getObjectContent)
+        .thenReturn(new S3ObjectInputStream(inputStream, mock[HttpRequestBase]))
+      Mockito.when(s3Object.getObjectMetadata).thenReturn(objectMetadata)
+
+      val s3Client = mock[AmazonS3]
+      Mockito.when(s3Client.getObject(any(): String, any(): String)).thenReturn(s3Object)
+
+      Given("a S3 file notification retriever and a valid set of retrieval details")
+      val retriever = new S3FileNotificationDetailsRetriever(s3Client, config, urlGenerator)
+
+      When("the retrieve method is called")
+      val result = retriever.retrieveQuarantinedFileDetails(location)
+
+      Then("the S3 client should be called")
+      Mockito.verify(s3Client).getObject(any(): String, any(): String)
+
+      ScalaFutures.whenReady(result.failed) { error =>
+        Then("the S3 client should be called")
+        Mockito.verify(s3Client).getObject(any(): String, any(): String)
+
+        And("a wrapped error returned")
+        error            shouldBe a[NoSuchElementException]
+        error.getMessage shouldBe s"Metadata not found: $awsMetadataKey for file: ${location.objectKey}"
+      }
+    }
+
+    "return wrapped failure if the callback metadata is not a valid URL for quarantined file" in {
+      val userMetadata = new util.TreeMap[String, String]()
+      userMetadata.put(awsMetadataKey, "this-is-not-a-url")
+
+      val objectMetadata = mock[ObjectMetadata]
+      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+
+      val inputStream = new ByteArrayInputStream("This file has a virus".getBytes())
+      val s3Object    = mock[S3Object]
+      Mockito
+        .when(s3Object.getObjectContent)
+        .thenReturn(new S3ObjectInputStream(inputStream, mock[HttpRequestBase]))
+      Mockito.when(s3Object.getObjectMetadata).thenReturn(objectMetadata)
+
+      val s3Client = mock[AmazonS3]
+      Mockito.when(s3Client.getObject(any(): String, any(): String)).thenReturn(s3Object)
+
+      Given("a S3 file notification retriever and a valid set of retrieval details")
+      val retriever = new S3FileNotificationDetailsRetriever(s3Client, config, urlGenerator)
+
+      When("the retrieve method is called")
+      val result = retriever.retrieveQuarantinedFileDetails(location)
+
+      ScalaFutures.whenReady(result.failed) { error =>
+        Then("the S3 client should be called")
+        Mockito.verify(s3Client).getObject(any(): String, any(): String)
 
         And("a wrapped error returned")
         error shouldBe an[Exception]

@@ -24,7 +24,7 @@ import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.typesafe.config.Config
-import model.UploadedFile
+import model.{QuarantinedFile, UploadedFile}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, GivenWhenThen, Matchers}
 import play.api.libs.ws.ahc.AhcWSClient
@@ -68,7 +68,7 @@ class HttpNotificationServiceSpec
         ))
 
   "HttpNotificationService" should {
-    "post JSON to the passed in callback URL" in {
+    "post JSON to the passed in callback URL for upload success callback" in {
 
       Given("there is working host that can receive callback")
       val callbackUrl = new URL("http://localhost:11111/myservice/123")
@@ -76,21 +76,49 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnValidResponse()
 
       When("the service is called")
-      val notification = UploadedFile(callbackUrl, "file-reference", downloadUrl)
+      val notification = UploadedFile(callbackUrl, "upload-file-reference", downloadUrl)
       val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
-      val result       = Try(Await.result(service.notifyCallback(notification), 30.seconds))
+      val result       = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return success")
       result.isSuccess shouldBe true
 
-      And("callback URL is called with an empty body (body will be generated later)")
+      And("callback URL is called with expected JSON body")
       callbackServer.verify(
         postRequestedFor(urlEqualTo("/myservice/123"))
           .withRequestBody(equalToJson("""
-          |{ "reference" : "file-reference",
-          |  "downloadUrl" : "http://remotehost/bucket/123"
+          |{ "reference" : "upload-file-reference",
+          |  "downloadUrl" : "http://remotehost/bucket/123",
+          |  "fileStatus": "READY"
           |}
         """.stripMargin)))
+
+    }
+
+    "post JSON to the passed in callback URL for upload failure callback" in {
+
+      Given("there is working host that can receive callback")
+      val callbackUrl = new URL("http://localhost:11111/myservice/123")
+      val downloadUrl = new URL("http://remotehost/bucket/123")
+      stubCallbackReceiverToReturnValidResponse()
+
+      When("the service is called")
+      val notification = QuarantinedFile(callbackUrl, "quarantine-file-reference", "This file has a virus")
+      val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
+      val result       = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
+
+      Then("service should return success")
+      result.isSuccess shouldBe true
+
+      And("callback URL is called with expected JSON body")
+      callbackServer.verify(
+        postRequestedFor(urlEqualTo("/myservice/123"))
+          .withRequestBody(equalToJson("""
+         |{ "reference" : "quarantine-file-reference",
+         |  "error" : "This file has a virus",
+         |  "fileStatus": "FAILED"
+         |}
+       """.stripMargin)))
 
     }
 
@@ -104,7 +132,7 @@ class HttpNotificationServiceSpec
       When("the service is called")
       val notification = UploadedFile(callbackUrl, "file-reference", downloadUrl)
       val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
-      val result       = Try(Await.result(service.notifyCallback(notification), 30.seconds))
+      val result       = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return an error")
       result.isSuccess shouldBe false
@@ -120,7 +148,7 @@ class HttpNotificationServiceSpec
       When("the service is called")
       val notification = UploadedFile(callbackUrl, "file-reference", downloadUrl)
       val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
-      val result       = Try(Await.result(service.notifyCallback(notification), 30.seconds))
+      val result       = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return an error")
       result.isSuccess shouldBe false

@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package services
+package model
 
-import model.{QuarantinedFile, UploadedFile}
+import java.net.URL
 
-import scala.concurrent.Future
+import play.api.libs.json.{JsString, JsValue, Writes}
 
-trait NotificationService {
-  def notifySuccessfulCallback(notification: UploadedFile): Future[Unit]
-  def notifyFailedCallback(notification: QuarantinedFile): Future[Unit]
+object JsonWriteHelpers {
+  implicit val urlFormats: Writes[URL] = new Writes[URL] {
+    override def writes(o: URL): JsValue = JsString(o.toString)
+  }
 }
