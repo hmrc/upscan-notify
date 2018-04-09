@@ -30,6 +30,8 @@ import scala.util.{Failure, Success}
 
 trait PollingJob {
   def run(): Future[Unit]
+
+  def jobName(): String = this.getClass.getName
 }
 
 trait PollingJobFactory {
@@ -77,12 +79,13 @@ class ContinousPollingActor(job: PollingJob, retryInterval: FiniteDuration) exte
   override def receive: Receive = {
 
     case Poll =>
-      log.debug("Polling")
+      log.debug(s"Polling for flow: ${job.jobName()}")
       job.run() andThen {
         case Success(r) =>
+          log.debug(s"Polling succeeded for flow: ${job.jobName()}")
           self ! Poll
         case Failure(f) =>
-          log.error(f, "Polling failed")
+          log.error(f, s"Polling failed for flow: ${job.jobName()}")
           context.system.scheduler.scheduleOnce(retryInterval, self, Poll)
       }
   }
