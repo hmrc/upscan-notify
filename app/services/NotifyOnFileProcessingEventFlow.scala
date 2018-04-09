@@ -18,7 +18,7 @@ package services
 
 import javax.inject.Inject
 
-import connectors.aws.SuccessfulSqsQueueConsumer
+import connectors.aws.{QuarantineSqsQueueConsumer, SuccessfulSqsQueueConsumer}
 import model._
 import play.api.Logger
 
@@ -71,7 +71,7 @@ class NotifyOnSuccessfulFileUploadProcessingFlow @Inject()(
 }
 
 class NotifyOnQuarantineFileUploadProcessingFlow @Inject()(
-  val consumer: SuccessfulSqsQueueConsumer,
+  val consumer: QuarantineSqsQueueConsumer,
   val parser: MessageParser,
   fileRetriever: FileNotificationDetailsRetriever,
   notificationService: NotificationService
