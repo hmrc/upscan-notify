@@ -23,6 +23,7 @@ import model._
 import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 trait NotifyOnFileProcessingEventFlow[T] extends PollingJob {
   val consumer: QueueConsumer
@@ -45,11 +46,11 @@ trait NotifyOnFileProcessingEventFlow[T] extends PollingJob {
       parsedMessage <- parser.parse(message)
       notification  <- retrieveEvent.apply(parsedMessage.location)
       _             <- notifyCallback.apply(notification)
-      _             <- consumer.confirm(message)
     } yield ()
 
-    outcome.onFailure {
-      case error: Exception =>
+    outcome.onComplete {
+      case Success(_) => consumer.confirm(message)
+      case Failure(error) =>
         Logger.warn(s"Failed to process message '${message.id}', cause ${error.getMessage}", error)
     }
 

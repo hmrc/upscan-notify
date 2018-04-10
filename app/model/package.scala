@@ -50,7 +50,7 @@ object ReadyCallbackBody {
   implicit val writesReadyCallback: Writes[ReadyCallbackBody] = Json.writes[ReadyCallbackBody]
 }
 
-case class FailedCallbackBody(reference: String, error: String, fileStatus: FileStatus = FailedFileStatus)
+case class FailedCallbackBody(reference: String, details: String, fileStatus: FileStatus = FailedFileStatus)
 object FailedCallbackBody {
   implicit val writesFailedCallback: Writes[FailedCallbackBody] = Json.writes[FailedCallbackBody]
 }

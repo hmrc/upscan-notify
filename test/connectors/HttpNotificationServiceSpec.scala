@@ -115,7 +115,7 @@ class HttpNotificationServiceSpec
         postRequestedFor(urlEqualTo("/myservice/123"))
           .withRequestBody(equalToJson("""
          |{ "reference" : "quarantine-file-reference",
-         |  "error" : "This file has a virus",
+         |  "details" : "This file has a virus",
          |  "fileStatus": "FAILED"
          |}
        """.stripMargin)))
