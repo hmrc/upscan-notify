@@ -16,11 +16,11 @@
 
 package services
 
+import javax.inject.Inject
 import model._
 import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 trait MessageProcessingJob extends PollingJob {
 
@@ -28,7 +28,7 @@ trait MessageProcessingJob extends PollingJob {
 
   def consumer: QueueConsumer
 
-  def process(message: Message): Future[Unit]
+  def processMessage(message: Message): Future[Unit]
 
   def run(): Future[Unit] = {
     val outcomes = for {
@@ -41,16 +41,50 @@ trait MessageProcessingJob extends PollingJob {
 
   private def handleMessage(message: Message): Future[Unit] = {
     val outcome = for {
-      _ <- process(message)
+      _ <- processMessage(message)
+      _ <- consumer.confirm(message)
     } yield ()
 
-    outcome.onComplete {
-      case Success(_) => consumer.confirm(message)
-      case Failure(error) =>
+    outcome.recover {
+      case error =>
         Logger.warn(s"Failed to process message '${message.id}', cause ${error.getMessage}", error)
     }
-
-    outcome.recover { case _ => () }
   }
 
+}
+
+trait SuccessfulQueueConsumer extends QueueConsumer
+trait QuarantineQueueConsumer extends QueueConsumer
+
+class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
+  val consumer: SuccessfulQueueConsumer,
+  parser: MessageParser,
+  fileRetriever: FileNotificationDetailsRetriever,
+  notificationService: NotificationService
+)(implicit val executionContext: ExecutionContext)
+    extends MessageProcessingJob {
+
+  override def processMessage(message: Message): Future[Unit] =
+    for {
+      parsedMessage <- parser.parse(message)
+      notification  <- fileRetriever.retrieveUploadedFileDetails(parsedMessage.location)
+      _             <- notificationService.notifySuccessfulCallback(notification)
+    } yield ()
+
+}
+
+class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
+  val consumer: QuarantineQueueConsumer,
+  parser: MessageParser,
+  fileRetriever: FileNotificationDetailsRetriever,
+  notificationService: NotificationService
+)(implicit val executionContext: ExecutionContext)
+    extends MessageProcessingJob {
+
+  override def processMessage(message: Message): Future[Unit] =
+    for {
+      parsedMessage <- parser.parse(message)
+      notification  <- fileRetriever.retrieveQuarantinedFileDetails(parsedMessage.location)
+      _             <- notificationService.notifyFailedCallback(notification)
+    } yield ()
 }

@@ -17,6 +17,7 @@
 import config.{PlayBasedServiceConfiguration, ServiceConfiguration}
 import connectors.HttpNotificationService
 import connectors.aws._
+import javax.inject.{Inject, Provider}
 import play.api.inject.{Binding, Module}
 import play.api.{Configuration, Environment}
 import services._
@@ -29,6 +30,15 @@ class NotifyModule extends Module {
       bind[NotificationService].to[HttpNotificationService],
       bind[MessageParser].to[S3EventParser],
       bind[PollingJobs].toProvider[SqsPollingJobsProvider],
-      bind[ContinousPoller].toSelf.eagerly()
+      bind[ContinuousPoller].toSelf.eagerly()
     )
+}
+
+class SqsPollingJobsProvider @Inject()(
+  successfulFileUploadProcessingJob: NotifyOnSuccessfulFileUploadMessageProcessingJob,
+  quarantineFileUploadProcessingJob: NotifyOnQuarantineFileUploadMessageProcessingJob
+) extends Provider[PollingJobs] {
+
+  override def get(): PollingJobs =
+    PollingJobs(List(successfulFileUploadProcessingJob, quarantineFileUploadProcessingJob))
 }

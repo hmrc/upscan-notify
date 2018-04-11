@@ -27,7 +27,7 @@ import uk.gov.hmrc.play.test.UnitSpec
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, Future}
 
 class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
 
@@ -53,21 +53,18 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       Given("there are only valid messages in a message queue")
       val validMessage = Message("ID", "VALID-BODY", "RECEIPT-1")
 
-      val queueConsumer = mock[QueueConsumer]
+      val queueConsumer = mock[SuccessfulQueueConsumer]
       Mockito.when(queueConsumer.poll()).thenReturn(List(validMessage))
       Mockito.when(queueConsumer.confirm(any())).thenReturn(Future.successful(()))
 
       val notificationService = mock[NotificationService]
       Mockito.when(notificationService.notifySuccessfulCallback(any())).thenReturn(Future.successful(()))
 
-      val queueOrchestrator = new NotifyOnFileProcessingEventFlow[UploadedFile] {
-        override val consumer: QueueConsumer = queueConsumer
-        override val parser: MessageParser   = messageParser
-        override val retrieveEvent: (S3ObjectLocation) => Future[UploadedFile] =
-          fileDetailsRetriever.retrieveUploadedFileDetails
-        override val notifyCallback: (UploadedFile) => Future[Unit] = notificationService.notifySuccessfulCallback
-        override implicit val ec: ExecutionContext                  = ExecutionContext.Implicits.global
-      }
+      val queueOrchestrator = new NotifyOnSuccessfulFileUploadMessageProcessingJob(
+        queueConsumer,
+        messageParser,
+        fileDetailsRetriever,
+        notificationService)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -88,8 +85,11 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       val invalidMessage = Message("ID2", "INVALID-BODY", "RECEIPT-2")
       val validMessage2  = Message("ID3", "VALID-BODY", "RECEIPT-3")
 
-      val queueConsumer = mock[QueueConsumer]
-      Mockito.when(queueConsumer.poll()).thenReturn(List(validMessage1, invalidMessage, validMessage2))
+      val queueConsumer = mock[SuccessfulQueueConsumer]
+      Mockito
+        .when(queueConsumer.poll())
+        .thenReturn(Future.successful(List(validMessage1, invalidMessage, validMessage2)))
+
       Mockito
         .when(queueConsumer.confirm(any()))
         .thenReturn(Future.successful(()))
@@ -101,14 +101,11 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         .thenReturn(Future.successful(()))
         .thenReturn(Future.successful(()))
 
-      val queueOrchestrator = new NotifyOnFileProcessingEventFlow[UploadedFile] {
-        override val consumer: QueueConsumer = queueConsumer
-        override val parser: MessageParser   = messageParser
-        override val retrieveEvent: (S3ObjectLocation) => Future[UploadedFile] =
-          fileDetailsRetriever.retrieveUploadedFileDetails
-        override val notifyCallback: (UploadedFile) => Future[Unit] = notificationService.notifySuccessfulCallback
-        override implicit val ec: ExecutionContext                  = ExecutionContext.Implicits.global
-      }
+      val queueOrchestrator = new NotifyOnSuccessfulFileUploadMessageProcessingJob(
+        queueConsumer,
+        messageParser,
+        fileDetailsRetriever,
+        notificationService)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -134,7 +131,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       val validMessage2 = Message("ID2", "VALID-BODY", "RECEIPT-2")
       val validMessage3 = Message("ID3", "VALID-BODY", "RECEIPT-3")
 
-      val queueConsumer = mock[QueueConsumer]
+      val queueConsumer = mock[SuccessfulQueueConsumer]
       Mockito.when(queueConsumer.poll()).thenReturn(List(validMessage1, validMessage2, validMessage3))
       Mockito
         .when(queueConsumer.confirm(any()))
@@ -154,14 +151,11 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID3", downloadUrl)))
         .thenReturn(Future.successful(()))
 
-      val queueOrchestrator = new NotifyOnFileProcessingEventFlow[UploadedFile] {
-        override val consumer: QueueConsumer = queueConsumer
-        override val parser: MessageParser   = messageParser
-        override val retrieveEvent: (S3ObjectLocation) => Future[UploadedFile] =
-          fileDetailsRetriever.retrieveUploadedFileDetails
-        override val notifyCallback: (UploadedFile) => Future[Unit] = notificationService.notifySuccessfulCallback
-        override implicit val ec: ExecutionContext                  = ExecutionContext.Implicits.global
-      }
+      val queueOrchestrator = new NotifyOnSuccessfulFileUploadMessageProcessingJob(
+        queueConsumer,
+        messageParser,
+        fileDetailsRetriever,
+        notificationService)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)

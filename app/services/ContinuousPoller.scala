@@ -22,7 +22,7 @@ import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
 import akka.event.Logging
 import config.ServiceConfiguration
 import play.api.inject.ApplicationLifecycle
-import services.ContinousPollingActor.Poll
+import services.ContinuousPollingActor.Poll
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -36,13 +36,13 @@ trait PollingJob {
 
 case class PollingJobs(jobs: Seq[PollingJob])
 
-class ContinousPoller @Inject()(pollingJobs: PollingJobs, serviceConfiguration: ServiceConfiguration)(
+class ContinuousPoller @Inject()(pollingJobs: PollingJobs, serviceConfiguration: ServiceConfiguration)(
   implicit actorSystem: ActorSystem,
   applicationLifecycle: ApplicationLifecycle,
   ec: ExecutionContext) {
 
   private val pollingActors = pollingJobs.jobs map { job =>
-    actorSystem.actorOf(ContinousPollingActor(job, serviceConfiguration.retryInterval))
+    actorSystem.actorOf(ContinuousPollingActor(job, serviceConfiguration.retryInterval))
   }
   pollingActors foreach { _ ! Poll }
 
@@ -59,7 +59,7 @@ class ContinousPoller @Inject()(pollingJobs: PollingJobs, serviceConfiguration: 
 
 }
 
-class ContinousPollingActor(job: PollingJob, retryInterval: FiniteDuration) extends Actor {
+class ContinuousPollingActor(job: PollingJob, retryInterval: FiniteDuration) extends Actor {
 
   import context.dispatcher
 
@@ -81,10 +81,10 @@ class ContinousPollingActor(job: PollingJob, retryInterval: FiniteDuration) exte
 
 }
 
-object ContinousPollingActor {
+object ContinuousPollingActor {
 
   def apply(orchestrator: PollingJob, retryInterval: FiniteDuration): Props =
-    Props(new ContinousPollingActor(orchestrator, retryInterval))
+    Props(new ContinuousPollingActor(orchestrator, retryInterval))
 
   case object Poll
 }
