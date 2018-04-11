@@ -28,8 +28,7 @@ class NotifyModule extends Module {
       bind[FileNotificationDetailsRetriever].to[S3FileNotificationDetailsRetriever],
       bind[NotificationService].to[HttpNotificationService],
       bind[MessageParser].to[S3EventParser],
-      bind[DownloadUrlGenerator].to[S3DownloadUrlGenerator],
-      bind[PollingJobFactory].to[SqsPollingJobsFactory],
+      bind[PollingJobs].toProvider[SqsPollingJobsProvider],
       bind[ContinousPoller].toSelf.eagerly()
     )
 }

@@ -34,25 +34,14 @@ trait PollingJob {
   def jobName(): String = this.getClass.getName
 }
 
-trait PollingJobFactory {
-  def getJobs(): List[PollingJob]
-}
+case class PollingJobs(jobs: Seq[PollingJob])
 
-class SqsPollingJobsFactory @Inject()(
-  successfulFileUploadProcessingFlow: NotifyOnSuccessfulFileUploadProcessingFlow,
-  quarantineFileUploadProcessingFlow: NotifyOnQuarantineFileUploadProcessingFlow
-) extends PollingJobFactory {
-
-  override def getJobs(): List[PollingJob] =
-    List(successfulFileUploadProcessingFlow, quarantineFileUploadProcessingFlow)
-}
-
-class ContinousPoller @Inject()(pollingJobFactory: PollingJobFactory, serviceConfiguration: ServiceConfiguration)(
+class ContinousPoller @Inject()(pollingJobs: PollingJobs, serviceConfiguration: ServiceConfiguration)(
   implicit actorSystem: ActorSystem,
   applicationLifecycle: ApplicationLifecycle,
   ec: ExecutionContext) {
 
-  private val pollingActors = pollingJobFactory.getJobs() map { job =>
+  private val pollingActors = pollingJobs.jobs map { job =>
     actorSystem.actorOf(ContinousPollingActor(job, serviceConfiguration.retryInterval))
   }
   pollingActors foreach { _ ! Poll }

@@ -24,7 +24,6 @@ import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object, S3ObjectInputStream}
 import config.ServiceConfiguration
-import connectors.aws.S3FileNotificationDetailsRetriever
 import model.{QuarantinedFile, S3ObjectLocation, UploadedFile}
 import org.apache.http.client.methods.HttpRequestBase
 import org.mockito.ArgumentMatchers.any

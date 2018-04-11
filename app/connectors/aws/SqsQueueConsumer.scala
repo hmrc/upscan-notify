@@ -17,12 +17,11 @@
 package connectors.aws
 
 import javax.inject.Inject
-
 import com.amazonaws.services.sqs.AmazonSQS
 import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, ReceiveMessageResult}
 import config.ServiceConfiguration
 import model.Message
-import services.QueueConsumer
+import services.{QuarantineQueueConsumer, QueueConsumer, SuccessfulQueueConsumer}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -53,12 +52,14 @@ trait SqsQueueConsumer extends QueueConsumer {
 
 class SuccessfulSqsQueueConsumer @Inject()(val sqsClient: AmazonSQS, configuration: ServiceConfiguration)(
   implicit val ec: ExecutionContext)
-    extends SqsQueueConsumer {
+    extends SuccessfulQueueConsumer
+    with SqsQueueConsumer {
   override val queueUrl: String = configuration.outboundSuccessfulQueueUrl
 }
 
 class QuarantineSqsQueueConsumer @Inject()(val sqsClient: AmazonSQS, configuration: ServiceConfiguration)(
   implicit val ec: ExecutionContext)
-    extends SqsQueueConsumer {
+    extends QuarantineQueueConsumer
+    with SqsQueueConsumer {
   override val queueUrl: String = configuration.outboundQuarantineQueueUrl
 }
