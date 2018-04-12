@@ -1,0 +1,141 @@
+/*
+ * Copyright 2018 HM Revenue & Customs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package connectors.aws
+
+import java.io.ByteArrayInputStream
+import java.nio.charset.Charset
+import java.util
+
+import com.amazonaws.AmazonServiceException
+import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3.model.S3ObjectInputStream
+import model.S3ObjectLocation
+import org.mockito.Mockito
+import org.scalatest.Matchers
+import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.mockito.MockitoSugar
+import uk.gov.hmrc.play.test.UnitSpec
+
+import scala.concurrent.ExecutionContext.Implicits.global
+
+class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
+  "FileManager" should {
+    "allow to fetch objects metadata" in {
+
+      val fileLocation = S3ObjectLocation("bucket", "objectKey")
+
+      val s3client    = mock[AmazonS3]
+      val fileManager = new S3FileManager(s3client)
+
+      val userMetadata = new util.TreeMap[String, String]()
+      userMetadata.put("key1", "value1")
+      userMetadata.put("key2", "value2")
+
+      val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
+      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+
+      Mockito
+        .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
+        .thenReturn(objectMetadata)
+
+      val result = fileManager.retrieveMetadata(fileLocation)
+
+      ScalaFutures.whenReady(result) { result =>
+        result.metadata shouldBe Map("key1" -> "value1", "key2" -> "value2")
+      }
+
+    }
+
+    "properly handle exceptions when fetching metadata" in {
+
+      val fileLocation = S3ObjectLocation("bucket", "objectKey")
+
+      val s3client    = mock[AmazonS3]
+      val fileManager = new S3FileManager(s3client)
+
+      val userMetadata = new util.TreeMap[String, String]()
+      userMetadata.put("key1", "value1")
+      userMetadata.put("key2", "value2")
+
+      val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
+      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+
+      Mockito
+        .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
+        .thenThrow(new RuntimeException("Exception"))
+
+      val result = fileManager.retrieveMetadata(fileLocation)
+
+      ScalaFutures.whenReady(result.failed) { result =>
+        result.getMessage shouldBe "Exception"
+      }
+
+    }
+
+    "allow to fetch objects metadata and content" in {
+
+      val fileLocation = S3ObjectLocation("bucket", "objectKey")
+
+      val s3client    = mock[AmazonS3]
+      val fileManager = new S3FileManager(s3client)
+
+      val userMetadata = new util.TreeMap[String, String]()
+      userMetadata.put("key1", "value1")
+      userMetadata.put("key2", "value2")
+
+      val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
+      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+
+      val s3object = mock[com.amazonaws.services.s3.model.S3Object]
+      Mockito.when(s3object.getObjectMetadata).thenReturn(objectMetadata)
+      Mockito
+        .when(s3object.getObjectContent)
+        .thenReturn(new S3ObjectInputStream(new ByteArrayInputStream("TEST".getBytes(Charset.defaultCharset())), null))
+
+      Mockito
+        .when(s3client.getObject(fileLocation.bucket, fileLocation.objectKey))
+        .thenReturn(s3object)
+
+      val result = fileManager.retrieveObject(fileLocation)
+
+      ScalaFutures.whenReady(result) { result =>
+        result.metadata.metadata shouldBe Map("key1" -> "value1", "key2" -> "value2")
+        result.content           shouldBe "TEST"
+      }
+
+    }
+
+    "properly handle exceptions when fetching metadata and content" in {
+
+      val fileLocation = S3ObjectLocation("bucket", "objectKey")
+
+      val s3client    = mock[AmazonS3]
+      val fileManager = new S3FileManager(s3client)
+
+      Mockito
+        .when(s3client.getObject(fileLocation.bucket, fileLocation.objectKey))
+        .thenThrow(new RuntimeException("Exception"))
+
+      val result = fileManager.retrieveObject(fileLocation)
+
+      ScalaFutures.whenReady(result.failed) { result =>
+        result.getMessage shouldBe "Exception"
+      }
+    }
+
+  }
+}
