@@ -24,7 +24,7 @@ import services.QueueConsumer
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-class SqsQueueConsumer(val sqsClient: AmazonSQS, queueUrl: String)(implicit val ec: ExecutionContext)
+abstract class SqsQueueConsumer(val sqsClient: AmazonSQS, queueUrl: String)(implicit val ec: ExecutionContext)
     extends QueueConsumer {
 
   override def poll(): Future[List[Message]] = {
