@@ -17,13 +17,13 @@
 package connectors.aws
 
 import javax.inject.{Inject, Provider}
-
 import com.amazonaws.auth.{AWSCredentialsProvider, AWSStaticCredentialsProvider, BasicAWSCredentials, BasicSessionCredentials}
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
 import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClientBuilder}
 import config.ServiceConfiguration
 import play.api.inject.{Binding, Module}
 import play.api.{Configuration, Environment}
+import services.{DownloadUrlGenerator, FileManager, MessageParser}
 
 class AWSClientModule extends Module {
 
@@ -31,7 +31,10 @@ class AWSClientModule extends Module {
     Seq(
       bind[AWSCredentialsProvider].toProvider[ProviderOfAWSCredentials],
       bind[AmazonSQS].toProvider[SqsClientProvider],
-      bind[AmazonS3].toProvider[S3ClientProvider]
+      bind[AmazonS3].toProvider[S3ClientProvider],
+      bind[FileManager].to[S3FileManager],
+      bind[MessageParser].to[S3EventParser],
+      bind[DownloadUrlGenerator].to[S3DownloadUrlGenerator]
     )
 
 }

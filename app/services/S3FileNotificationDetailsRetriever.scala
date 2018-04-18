@@ -14,24 +14,19 @@
  * limitations under the License.
  */
 
-package connectors.aws
+package services
 
 import java.net.URL
-import javax.inject.Inject
 
-import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
 import config.ServiceConfiguration
+import javax.inject.Inject
 import model.{QuarantinedFile, S3ObjectLocation, UploadedFile}
-import org.apache.commons.io.IOUtils
-import services.{DownloadUrlGenerator, FileNotificationDetailsRetriever}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 class S3FileNotificationDetailsRetriever @Inject()(
-  s3Client: AmazonS3,
+  fileManager: FileManager,
   config: ServiceConfiguration,
   downloadUrlGenerator: DownloadUrlGenerator)(implicit ec: ExecutionContext)
     extends FileNotificationDetailsRetriever {
@@ -40,27 +35,19 @@ class S3FileNotificationDetailsRetriever @Inject()(
 
   override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
     for {
-      metadata     <- Future(s3Client.getObjectMetadata(objectLocation.bucket, objectLocation.objectKey))
-      uploadedFile <- retrieveUploadedFile(metadata, objectLocation)
-    } yield uploadedFile
+      metadata    <- fileManager.retrieveMetadata(objectLocation)
+      callbackUrl <- Future.fromTry(retrieveCallbackUrl(metadata, objectLocation))
+      downloadUrl = downloadUrlGenerator.generate(objectLocation)
+    } yield UploadedFile(callbackUrl, objectLocation.objectKey, downloadUrl)
 
   override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] =
     for {
-      s3Object <- Future(s3Client.getObject(objectLocation.bucket, objectLocation.objectKey))
-      error    <- Future.fromTry(Try(IOUtils.toString(s3Object.getObjectContent)))
-      url      <- Future.fromTry(retrieveCallbackUrl(s3Object.getObjectMetadata, objectLocation))
-    } yield {
-      QuarantinedFile(url, objectLocation.objectKey, error)
-    }
-
-  private def retrieveUploadedFile(metadata: ObjectMetadata, objectLocation: S3ObjectLocation): Future[UploadedFile] =
-    Future.fromTry(retrieveCallbackUrl(metadata, objectLocation)) map { callbackUrl =>
-      val downloadUrl = downloadUrlGenerator.generate(objectLocation)
-      UploadedFile(callbackUrl, objectLocation.objectKey, downloadUrl)
-    }
+      quarantineFile <- fileManager.retrieveObject(objectLocation)
+      callbackUrl    <- Future.fromTry(retrieveCallbackUrl(quarantineFile.metadata, objectLocation))
+    } yield QuarantinedFile(callbackUrl, objectLocation.objectKey, quarantineFile.content)
 
   private def retrieveCallbackUrl(metadata: ObjectMetadata, objectLocation: S3ObjectLocation): Try[URL] =
-    metadata.getUserMetadata.asScala.get(metadataKey) match {
+    metadata.metadata.get(metadataKey) match {
       case Some(callbackMetadata) =>
         Try(new URL(callbackMetadata)) match {
           case Success(callbackUrl) => Success(callbackUrl)

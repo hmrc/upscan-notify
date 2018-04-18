@@ -16,21 +16,16 @@
 
 package connectors.aws
 
-import javax.inject.Inject
-
 import com.amazonaws.services.sqs.AmazonSQS
 import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, ReceiveMessageResult}
-import config.ServiceConfiguration
 import model.Message
 import services.QueueConsumer
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-trait SqsQueueConsumer extends QueueConsumer {
-  val sqsClient: AmazonSQS
-  implicit val ec: ExecutionContext
-  val queueUrl: String
+abstract class SqsQueueConsumer(val sqsClient: AmazonSQS, queueUrl: String)(implicit val ec: ExecutionContext)
+    extends QueueConsumer {
 
   override def poll(): Future[List[Message]] = {
     val receiveMessageRequest = new ReceiveMessageRequest(queueUrl)
@@ -49,16 +44,4 @@ trait SqsQueueConsumer extends QueueConsumer {
     val deleteMessageRequest = new DeleteMessageRequest(queueUrl, message.receiptHandle)
     Future(sqsClient.deleteMessage(deleteMessageRequest))
   }
-}
-
-class SuccessfulSqsQueueConsumer @Inject()(val sqsClient: AmazonSQS, configuration: ServiceConfiguration)(
-  implicit val ec: ExecutionContext)
-    extends SqsQueueConsumer {
-  override val queueUrl: String = configuration.outboundSuccessfulQueueUrl
-}
-
-class QuarantineSqsQueueConsumer @Inject()(val sqsClient: AmazonSQS, configuration: ServiceConfiguration)(
-  implicit val ec: ExecutionContext)
-    extends SqsQueueConsumer {
-  override val queueUrl: String = configuration.outboundQuarantineQueueUrl
 }
