@@ -16,6 +16,7 @@
 
 package services
 
+import com.kenshoo.play.metrics.Metrics
 import javax.inject.Inject
 import model._
 import play.api.Logger
@@ -60,7 +61,8 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
   val consumer: SuccessfulQueueConsumer,
   parser: MessageParser,
   fileRetriever: FileNotificationDetailsRetriever,
-  notificationService: NotificationService
+  notificationService: NotificationService,
+  metrics: Metrics
 )(implicit val executionContext: ExecutionContext)
     extends MessageProcessingJob {
 
@@ -69,7 +71,10 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
       parsedMessage <- parser.parse(message)
       notification  <- fileRetriever.retrieveUploadedFileDetails(parsedMessage.location)
       _             <- notificationService.notifySuccessfulCallback(notification)
-    } yield ()
+
+    } yield {
+      metrics.defaultRegistry.counter("successfulUploadNotificationSent").inc()
+    }
 
 }
 
@@ -77,7 +82,8 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
   val consumer: QuarantineQueueConsumer,
   parser: MessageParser,
   fileRetriever: FileNotificationDetailsRetriever,
-  notificationService: NotificationService
+  notificationService: NotificationService,
+  metrics: Metrics
 )(implicit val executionContext: ExecutionContext)
     extends MessageProcessingJob {
 
@@ -86,5 +92,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
       parsedMessage <- parser.parse(message)
       notification  <- fileRetriever.retrieveQuarantinedFileDetails(parsedMessage.location)
       _             <- notificationService.notifyFailedCallback(notification)
-    } yield ()
+    } yield {
+      metrics.defaultRegistry.counter("quarantinedUploadNotificationSent").inc()
+    }
 }
