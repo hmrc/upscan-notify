@@ -18,6 +18,8 @@ package services
 
 import java.net.URL
 
+import com.codahale.metrics.MetricRegistry
+import com.kenshoo.play.metrics.Metrics
 import model._
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
@@ -41,6 +43,12 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
   val callbackUrl = new URL("http://localhost:8080")
   val downloadUrl = new URL("http://remotehost/bucket/123")
 
+  def metricsStub() = new Metrics {
+    override val defaultRegistry: MetricRegistry = new MetricRegistry
+
+    override def toJson: String = ???
+  }
+
   val fileDetailsRetriever = new FileNotificationDetailsRetriever {
     override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
       Future.successful(UploadedFile(callbackUrl, objectLocation.objectKey, downloadUrl))
@@ -60,11 +68,14 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       val notificationService = mock[NotificationService]
       Mockito.when(notificationService.notifySuccessfulCallback(any())).thenReturn(Future.successful(()))
 
+      val metrics = metricsStub()
+
       val queueOrchestrator = new NotifyOnSuccessfulFileUploadMessageProcessingJob(
         queueConsumer,
         messageParser,
         fileDetailsRetriever,
-        notificationService)
+        notificationService,
+        metrics)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -77,6 +88,9 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
       And("successfully processed messages are confirmed")
       Mockito.verify(queueConsumer).confirm(validMessage)
+
+      And("counter of successful processed messages is incremented")
+      metrics.defaultRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 1
     }
 
     "get messages from the queue consumer, and call notification service for valid messages and ignore invalid messages" in {
@@ -101,11 +115,14 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         .thenReturn(Future.successful(()))
         .thenReturn(Future.successful(()))
 
+      val metrics = metricsStub()
+
       val queueOrchestrator = new NotifyOnSuccessfulFileUploadMessageProcessingJob(
         queueConsumer,
         messageParser,
         fileDetailsRetriever,
-        notificationService)
+        notificationService,
+        metrics)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -122,6 +139,9 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
       And("invalid messages are not confirmed")
       Mockito.verifyNoMoreInteractions(queueConsumer)
+
+      And("counter of successful processed messages is incremented by count of successfuly processed messages")
+      metrics.defaultRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 2
     }
 
     "do not confirm valid messages for which notification has failed" in {
@@ -151,11 +171,14 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID3", downloadUrl)))
         .thenReturn(Future.successful(()))
 
+      val metrics = metricsStub()
+
       val queueOrchestrator = new NotifyOnSuccessfulFileUploadMessageProcessingJob(
         queueConsumer,
         messageParser,
         fileDetailsRetriever,
-        notificationService)
+        notificationService,
+        metrics)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -172,6 +195,9 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
       And("invalid messages are not confirmed")
       Mockito.verifyNoMoreInteractions(queueConsumer)
+
+      And("counter of successful processed messages is incremented by count of successfuly processed messages")
+      metrics.defaultRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 2
 
     }
   }
