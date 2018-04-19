@@ -51,7 +51,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
   val fileDetailsRetriever = new FileNotificationDetailsRetriever {
     override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
-      Future.successful(UploadedFile(callbackUrl, objectLocation.objectKey, downloadUrl))
+      Future.successful(UploadedFile(callbackUrl, objectLocation.objectKey, downloadUrl, 10L))
 
     override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] = ???
   }
@@ -91,6 +91,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
       And("counter of successful processed messages is incremented")
       metrics.defaultRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 1
+      metrics.defaultRegistry.histogram("fileSize").getSnapshot.getValues          shouldBe Array(10L)
     }
 
     "get messages from the queue consumer, and call notification service for valid messages and ignore invalid messages" in {
@@ -142,6 +143,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
       And("counter of successful processed messages is incremented by count of successfuly processed messages")
       metrics.defaultRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 2
+      metrics.defaultRegistry.histogram("fileSize").getSnapshot.getValues          shouldBe Array(10L, 10L)
     }
 
     "do not confirm valid messages for which notification has failed" in {
@@ -160,15 +162,15 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
       val notificationService = mock[NotificationService]
       Mockito
-        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID1", downloadUrl)))
+        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID1", downloadUrl, 10L)))
         .thenReturn(Future.successful(()))
 
       Mockito
-        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID2", downloadUrl)))
+        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID2", downloadUrl, 10L)))
         .thenReturn(Future.failed(new Exception("Planned exception")))
 
       Mockito
-        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID3", downloadUrl)))
+        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID3", downloadUrl, 10L)))
         .thenReturn(Future.successful(()))
 
       val metrics = metricsStub()
@@ -198,6 +200,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
       And("counter of successful processed messages is incremented by count of successfuly processed messages")
       metrics.defaultRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 2
+      metrics.defaultRegistry.histogram("fileSize").getSnapshot.getValues          shouldBe Array(10L, 10L)
 
     }
   }

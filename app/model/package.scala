@@ -23,7 +23,7 @@ import play.api.libs.json.{JsString, JsValue, Json, Writes}
 
 case class Message(id: String, body: String, receiptHandle: String)
 
-case class UploadedFile(callbackUrl: URL, reference: String, downloadUrl: URL)
+case class UploadedFile(callbackUrl: URL, reference: String, downloadUrl: URL, size: Long)
 case class QuarantinedFile(callbackUrl: URL, reference: String, error: String)
 
 case class S3ObjectLocation(bucket: String, objectKey: String)

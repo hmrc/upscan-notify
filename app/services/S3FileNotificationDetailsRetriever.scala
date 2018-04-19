@@ -38,7 +38,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
       metadata    <- fileManager.retrieveMetadata(objectLocation)
       callbackUrl <- Future.fromTry(retrieveCallbackUrl(metadata, objectLocation))
       downloadUrl = downloadUrlGenerator.generate(objectLocation)
-    } yield UploadedFile(callbackUrl, objectLocation.objectKey, downloadUrl)
+    } yield UploadedFile(callbackUrl, objectLocation.objectKey, downloadUrl, metadata.size)
 
   override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] =
     for {
@@ -47,7 +47,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
     } yield QuarantinedFile(callbackUrl, objectLocation.objectKey, quarantineFile.content)
 
   private def retrieveCallbackUrl(metadata: ObjectMetadata, objectLocation: S3ObjectLocation): Try[URL] =
-    metadata.metadata.get(metadataKey) match {
+    metadata.userMetadata.get(metadataKey) match {
       case Some(callbackMetadata) =>
         Try(new URL(callbackMetadata)) match {
           case Success(callbackUrl) => Success(callbackUrl)

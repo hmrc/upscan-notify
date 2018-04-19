@@ -55,7 +55,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       val result = fileManager.retrieveMetadata(fileLocation)
 
       ScalaFutures.whenReady(result) { result =>
-        result.metadata shouldBe Map("key1" -> "value1", "key2" -> "value2")
+        result.userMetadata shouldBe Map("key1" -> "value1", "key2" -> "value2")
       }
 
     }
@@ -113,8 +113,8 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       val result = fileManager.retrieveObject(fileLocation)
 
       ScalaFutures.whenReady(result) { result =>
-        result.metadata.metadata shouldBe Map("key1" -> "value1", "key2" -> "value2")
-        result.content           shouldBe "TEST"
+        result.metadata.userMetadata shouldBe Map("key1" -> "value1", "key2" -> "value2")
+        result.content               shouldBe "TEST"
       }
 
     }

@@ -73,6 +73,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
       _             <- notificationService.notifySuccessfulCallback(notification)
 
     } yield {
+      metrics.defaultRegistry.histogram("fileSize").update(notification.size)
       metrics.defaultRegistry.counter("successfulUploadNotificationSent").inc()
     }
 
