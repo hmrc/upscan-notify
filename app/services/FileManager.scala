@@ -20,7 +20,7 @@ import model.S3ObjectLocation
 
 import scala.concurrent.Future
 
-case class ObjectMetadata(metadata: Map[String, String])
+case class ObjectMetadata(userMetadata: Map[String, String], size: Long)
 
 case class ObjectWithMetadata(content: String, metadata: ObjectMetadata)
 

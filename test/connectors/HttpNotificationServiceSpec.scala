@@ -76,7 +76,7 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnValidResponse()
 
       When("the service is called")
-      val notification = UploadedFile(callbackUrl, "upload-file-reference", downloadUrl)
+      val notification = UploadedFile(callbackUrl, "upload-file-reference", downloadUrl, 0L)
       val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
       val result       = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
@@ -130,7 +130,7 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnInvalidResponse()
 
       When("the service is called")
-      val notification = UploadedFile(callbackUrl, "file-reference", downloadUrl)
+      val notification = UploadedFile(callbackUrl, "file-reference", downloadUrl, 0L)
       val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
       val result       = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
@@ -146,7 +146,7 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnInvalidResponse()
 
       When("the service is called")
-      val notification = UploadedFile(callbackUrl, "file-reference", downloadUrl)
+      val notification = UploadedFile(callbackUrl, "file-reference", downloadUrl, 0L)
       val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
       val result       = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 

@@ -29,14 +29,20 @@ import collection.JavaConverters._
 class S3FileManager @Inject()(s3Client: AmazonS3)(implicit ec: ExecutionContext) extends FileManager {
 
   override def retrieveMetadata(objectLocation: S3ObjectLocation): Future[ObjectMetadata] =
-    Future(
-      ObjectMetadata(
-        s3Client.getObjectMetadata(objectLocation.bucket, objectLocation.objectKey).getUserMetadata.asScala.toMap))
+    Future {
+      val metadata = s3Client.getObjectMetadata(objectLocation.bucket, objectLocation.objectKey)
+      ObjectMetadata(userMetadata = metadata.getUserMetadata.asScala.toMap, size = metadata.getContentLength)
+    }
 
   override def retrieveObject(objectLocation: S3ObjectLocation): Future[ObjectWithMetadata] =
     for {
       s3Object <- Future(s3Client.getObject(objectLocation.bucket, objectLocation.objectKey))
       content  <- Future.fromTry(Try(IOUtils.toString(s3Object.getObjectContent)))
-    } yield ObjectWithMetadata(content, ObjectMetadata(s3Object.getObjectMetadata.getUserMetadata.asScala.toMap))
+    } yield
+      ObjectWithMetadata(
+        content,
+        ObjectMetadata(
+          userMetadata = s3Object.getObjectMetadata.getUserMetadata.asScala.toMap,
+          size         = s3Object.getObjectMetadata.getContentLength))
 
 }
