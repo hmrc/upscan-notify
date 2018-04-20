@@ -19,12 +19,17 @@ package model
 import java.net.URL
 
 import JsonWriteHelpers.urlFormats
-import play.api.libs.json.{JsString, JsValue, Json, Writes}
+import play.api.libs.json._
+
+case class FileReference(reference: String)
+object FileReference {
+  implicit val fileReferenceWrites: Writes[FileReference] = Json.writes[FileReference]
+}
 
 case class Message(id: String, body: String, receiptHandle: String)
 
-case class UploadedFile(callbackUrl: URL, reference: String, downloadUrl: URL, size: Long)
-case class QuarantinedFile(callbackUrl: URL, reference: String, error: String)
+case class UploadedFile(callbackUrl: URL, reference: FileReference, downloadUrl: URL, size: Long)
+case class QuarantinedFile(callbackUrl: URL, reference: FileReference, error: String)
 
 case class S3ObjectLocation(bucket: String, objectKey: String)
 case class FileUploadEvent(location: S3ObjectLocation)
@@ -45,12 +50,24 @@ object FileStatus {
   }
 }
 
-case class ReadyCallbackBody(reference: String, downloadUrl: URL, fileStatus: FileStatus = ReadyFileStatus)
+case class ReadyCallbackBody(reference: FileReference, downloadUrl: URL, fileStatus: FileStatus = ReadyFileStatus)
 object ReadyCallbackBody {
-  implicit val writesReadyCallback: Writes[ReadyCallbackBody] = Json.writes[ReadyCallbackBody]
+  implicit val writesReadyCallback: Writes[ReadyCallbackBody] = new Writes[ReadyCallbackBody] {
+    def writes(body: ReadyCallbackBody):JsObject = Json.obj(
+      "reference"     -> body.reference.reference,
+      "downloadUrl"   -> body.downloadUrl,
+      "fileStatus"    -> body.fileStatus
+    )
+  }
 }
 
-case class FailedCallbackBody(reference: String, details: String, fileStatus: FileStatus = FailedFileStatus)
+case class FailedCallbackBody(reference: FileReference, details: String, fileStatus: FileStatus = FailedFileStatus)
 object FailedCallbackBody {
-  implicit val writesFailedCallback: Writes[FailedCallbackBody] = Json.writes[FailedCallbackBody]
+  implicit val writesFailedCallback: Writes[FailedCallbackBody] = new Writes[FailedCallbackBody] {
+    def writes(body: FailedCallbackBody):JsObject = Json.obj(
+      "reference"     -> body.reference.reference,
+      "details"       -> body.details,
+      "fileStatus"    -> body.fileStatus
+    )
+  }
 }

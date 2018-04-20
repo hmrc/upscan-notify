@@ -51,7 +51,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
   val fileDetailsRetriever = new FileNotificationDetailsRetriever {
     override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
-      Future.successful(UploadedFile(callbackUrl, objectLocation.objectKey, downloadUrl, 10L))
+      Future.successful(UploadedFile(callbackUrl, FileReference(objectLocation.objectKey), downloadUrl, 10L))
 
     override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] = ???
   }
@@ -162,15 +162,15 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
       val notificationService = mock[NotificationService]
       Mockito
-        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID1", downloadUrl, 10L)))
+        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, FileReference("ID1"), downloadUrl, 10L)))
         .thenReturn(Future.successful(()))
 
       Mockito
-        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID2", downloadUrl, 10L)))
+        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, FileReference("ID2"), downloadUrl, 10L)))
         .thenReturn(Future.failed(new Exception("Planned exception")))
 
       Mockito
-        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, "ID3", downloadUrl, 10L)))
+        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, FileReference("ID3"), downloadUrl, 10L)))
         .thenReturn(Future.successful(()))
 
       val metrics = metricsStub()

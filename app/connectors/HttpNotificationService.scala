@@ -17,30 +17,46 @@
 package connectors
 
 import javax.inject.Inject
-
 import model.{FailedCallbackBody, QuarantinedFile, ReadyCallbackBody, UploadedFile}
+import play.api.Logger
 import services.NotificationService
-import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse}
+import uk.gov.hmrc.http.HttpResponse
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
+import uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext.fromLoggingDetails
+import util.logging.LoggingDetails
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-class HttpNotificationService @Inject()(httpClient: HttpClient)(implicit ec: ExecutionContext)
+class HttpNotificationService @Inject()(httpClient: HttpClient)
     extends NotificationService {
 
   override def notifySuccessfulCallback(uploadedFile: UploadedFile): Future[Unit] = {
-    val callback                   = ReadyCallbackBody(uploadedFile.reference, uploadedFile.downloadUrl)
-    implicit val hc: HeaderCarrier = HeaderCarrier()
+
+    implicit val ld = LoggingDetails.fromFileReference(uploadedFile.reference)
+    val callback = ReadyCallbackBody(uploadedFile.reference, uploadedFile.downloadUrl)
+
     httpClient
       .POST[ReadyCallbackBody, HttpResponse](uploadedFile.callbackUrl.toString, callback)
-      .map(_ => Unit)
+      .map { httpResponse =>
+        Logger.info(
+          s"""File ready notification sent to service with callbackUrl: [${uploadedFile.callbackUrl}].
+             | Response status was: [${httpResponse.status}].""".stripMargin
+        )
+      }
   }
 
   override def notifyFailedCallback(quarantinedFile: QuarantinedFile): Future[Unit] = {
-    val callback                   = FailedCallbackBody(quarantinedFile.reference, quarantinedFile.error)
-    implicit val hc: HeaderCarrier = HeaderCarrier()
+
+    implicit val ld = LoggingDetails.fromFileReference(quarantinedFile.reference)
+    val callback = FailedCallbackBody(quarantinedFile.reference, quarantinedFile.error)
+
     httpClient
       .POST[FailedCallbackBody, HttpResponse](quarantinedFile.callbackUrl.toString, callback)
-      .map(_ => Unit)
+      .map { httpResponse =>
+        Logger.info(
+          s"""File failed notification sent to service with callbackUrl: [${quarantinedFile.callbackUrl}].
+             | Response status was: [${httpResponse.status}].""".stripMargin
+        )
+      }
   }
 }

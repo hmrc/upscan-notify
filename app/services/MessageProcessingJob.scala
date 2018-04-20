@@ -71,12 +71,10 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
       parsedMessage <- parser.parse(message)
       notification  <- fileRetriever.retrieveUploadedFileDetails(parsedMessage.location)
       _             <- notificationService.notifySuccessfulCallback(notification)
-
     } yield {
       metrics.defaultRegistry.histogram("fileSize").update(notification.size)
       metrics.defaultRegistry.counter("successfulUploadNotificationSent").inc()
     }
-
 }
 
 class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(

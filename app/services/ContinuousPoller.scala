@@ -17,10 +17,10 @@
 package services
 
 import javax.inject.Inject
-
 import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
 import akka.event.Logging
 import config.ServiceConfiguration
+import play.api.Logger
 import play.api.inject.ApplicationLifecycle
 import services.ContinuousPollingActor.Poll
 
@@ -42,13 +42,19 @@ class ContinuousPoller @Inject()(pollingJobs: PollingJobs, serviceConfiguration:
   ec: ExecutionContext) {
 
   private val pollingActors = pollingJobs.jobs map { job =>
+    Logger.info(s"Creating ContinuousPollingActor for PollingJob: [${job.jobName}].")
     actorSystem.actorOf(ContinuousPollingActor(job, serviceConfiguration.retryInterval))
   }
-  pollingActors foreach { _ ! Poll }
+
+  pollingActors foreach { pollingActor =>
+    Logger.info(s"Sending initial Poll message to Actor: [${pollingActor.toString}].")
+    pollingActor ! Poll
+  }
 
   applicationLifecycle.addStopHook { () =>
     val actorStopResults = Future.sequence {
       pollingActors map { pollingActor =>
+        Logger.info(s"Sending PoisonPill message to Actor: [${pollingActor.toString}].")
         pollingActor ! PoisonPill
         Future.successful(())
       }
@@ -68,13 +74,13 @@ class ContinuousPollingActor(job: PollingJob, retryInterval: FiniteDuration) ext
   override def receive: Receive = {
 
     case Poll =>
-      log.debug(s"Polling for flow: ${job.jobName()}")
-      job.run() andThen {
+      log.debug(s"Polling for flow: [${job.jobName}].")
+      job.run andThen {
         case Success(r) =>
-          log.debug(s"Polling succeeded for flow: ${job.jobName()}")
+          log.debug(s"Polling succeeded for flow: [${job.jobName}].")
           self ! Poll
         case Failure(f) =>
-          log.error(f, s"Polling failed for flow: ${job.jobName()}")
+          log.error(f, s"Polling failed for flow: [${job.jobName}].")
           context.system.scheduler.scheduleOnce(retryInterval, self, Poll)
       }
   }

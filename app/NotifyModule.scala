@@ -25,7 +25,7 @@ import services._
 class NotifyModule extends Module {
   override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] =
     Seq(
-      bind[ServiceConfiguration].to[PlayBasedServiceConfiguration].eagerly(),
+      bind[ServiceConfiguration].to[PlayBasedServiceConfiguration],
       bind[FileNotificationDetailsRetriever].to[S3FileNotificationDetailsRetriever],
       bind[NotificationService].to[HttpNotificationService],
       bind[MessageParser].to[S3EventParser],

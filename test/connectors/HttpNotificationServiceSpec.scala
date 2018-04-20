@@ -24,7 +24,7 @@ import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.typesafe.config.Config
-import model.{QuarantinedFile, UploadedFile}
+import model.{FileReference, QuarantinedFile, UploadedFile}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, GivenWhenThen, Matchers}
 import play.api.libs.ws.ahc.AhcWSClient
@@ -32,9 +32,8 @@ import uk.gov.hmrc.play.bootstrap.http.HttpClient
 import uk.gov.hmrc.play.http.ws.WSHttp
 import uk.gov.hmrc.play.test.UnitSpec
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.Await
 import scala.util.Try
 
 class HttpNotificationServiceSpec
@@ -76,8 +75,8 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnValidResponse()
 
       When("the service is called")
-      val notification = UploadedFile(callbackUrl, "upload-file-reference", downloadUrl, 0L)
-      val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
+      val notification = UploadedFile(callbackUrl, FileReference("upload-file-reference"), downloadUrl, 0L)
+      val service      = new HttpNotificationService(new TestHttpClient)
       val result       = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return success")
@@ -103,8 +102,8 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnValidResponse()
 
       When("the service is called")
-      val notification = QuarantinedFile(callbackUrl, "quarantine-file-reference", "This file has a virus")
-      val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
+      val notification = QuarantinedFile(callbackUrl, FileReference("quarantine-file-reference"), "This file has a virus")
+      val service      = new HttpNotificationService(new TestHttpClient)
       val result       = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
 
       Then("service should return success")
@@ -130,8 +129,8 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnInvalidResponse()
 
       When("the service is called")
-      val notification = UploadedFile(callbackUrl, "file-reference", downloadUrl, 0L)
-      val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
+      val notification = UploadedFile(callbackUrl, FileReference("file-reference"), downloadUrl, 0L)
+      val service      = new HttpNotificationService(new TestHttpClient)
       val result       = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return an error")
@@ -146,8 +145,8 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnInvalidResponse()
 
       When("the service is called")
-      val notification = UploadedFile(callbackUrl, "file-reference", downloadUrl, 0L)
-      val service      = new HttpNotificationService(new TestHttpClient)(ExecutionContext.Implicits.global)
+      val notification = UploadedFile(callbackUrl, FileReference("file-reference"), downloadUrl, 0L)
+      val service      = new HttpNotificationService(new TestHttpClient)
       val result       = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return an error")
@@ -163,5 +162,4 @@ class TestHttpClient extends HttpClient with WSHttp {
   override val wsClient                           = AhcWSClient()
   override lazy val configuration: Option[Config] = None
   override val hooks                              = Seq.empty
-
 }
