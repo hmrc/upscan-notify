@@ -20,15 +20,15 @@ import java.net.URL
 
 import com.amazonaws.AmazonServiceException
 import config.ServiceConfiguration
-import model.{QuarantinedFile, S3ObjectLocation, UploadedFile}
+import model.{FileReference, QuarantinedFile, S3ObjectLocation, UploadedFile}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{GivenWhenThen, Matchers}
+import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.play.test.UnitSpec
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
@@ -62,7 +62,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       val result = Await.result(retriever.retrieveUploadedFileDetails(location), 2.seconds)
 
       And("the expected callback URL is returned")
-      result shouldBe UploadedFile(callbackUrl, "my-key", downloadUrl, 10L)
+      result shouldBe UploadedFile(callbackUrl, FileReference("my-key"), downloadUrl, 10L)
     }
 
     "return wrapped failure if S3 call errors for uploaded file" in {
@@ -98,7 +98,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       ScalaFutures.whenReady(result.failed) { error =>
         And("a wrapped error returned")
         error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"Metadata not found: $awsMetadataKey for file: ${location.objectKey}"
+        error.getMessage shouldBe s"Metadata not found: [$awsMetadataKey], for objectKey: [${location.objectKey}]."
       }
     }
 
@@ -119,7 +119,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
         Then("a wrapped error returned")
         error shouldBe an[Exception]
         error.getMessage
-          .contains(s"Invalid metadata: aws-metadata-key: this-is-not-a-url for file: ${location.objectKey}") shouldBe true
+          .contains(s"Invalid metadata: [aws-metadata-key: this-is-not-a-url], for objectKey: [${location.objectKey}].") shouldBe true
       }
     }
 
@@ -139,7 +139,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       val result = Await.result(retriever.retrieveQuarantinedFileDetails(location), 2.seconds)
 
       Then("the expected callback URL is returned")
-      result shouldBe QuarantinedFile(new URL(callbackUrl), "my-key", "This file has a virus")
+      result shouldBe QuarantinedFile(new URL(callbackUrl), FileReference("my-key"), "This file has a virus")
     }
 
     "return wrapped failure if S3 call errors for quarantined file" in {
@@ -176,7 +176,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       ScalaFutures.whenReady(result.failed) { error =>
         Then("a wrapped error returned")
         error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"Metadata not found: $awsMetadataKey for file: ${location.objectKey}"
+        error.getMessage shouldBe s"Metadata not found: [$awsMetadataKey], for objectKey: [${location.objectKey}]."
       }
     }
 
@@ -199,7 +199,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
         Then("a wrapped error returned")
         error shouldBe an[Exception]
         error.getMessage
-          .contains(s"Invalid metadata: aws-metadata-key: this-is-not-a-url for file: ${location.objectKey}") shouldBe true
+          .contains(s"Invalid metadata: [aws-metadata-key: this-is-not-a-url], for objectKey: [${location.objectKey}].") shouldBe true
       }
     }
   }

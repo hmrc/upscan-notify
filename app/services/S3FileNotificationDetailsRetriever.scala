@@ -20,31 +20,48 @@ import java.net.URL
 
 import config.ServiceConfiguration
 import javax.inject.Inject
-import model.{QuarantinedFile, S3ObjectLocation, UploadedFile}
+import model.{FileReference, QuarantinedFile, S3ObjectLocation, UploadedFile}
+import play.api.Logger
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
+import uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext.fromLoggingDetails
+import util.logging.LoggingDetails
 
 class S3FileNotificationDetailsRetriever @Inject()(
   fileManager: FileManager,
   config: ServiceConfiguration,
-  downloadUrlGenerator: DownloadUrlGenerator)(implicit ec: ExecutionContext)
+  downloadUrlGenerator: DownloadUrlGenerator)
     extends FileNotificationDetailsRetriever {
 
   private val metadataKey = config.callbackUrlMetadataKey
 
-  override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
+  override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] = {
+    implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
+
     for {
-      metadata    <- fileManager.retrieveMetadata(objectLocation)
+      metadata <- fileManager.retrieveMetadata(objectLocation)
       callbackUrl <- Future.fromTry(retrieveCallbackUrl(metadata, objectLocation))
       downloadUrl = downloadUrlGenerator.generate(objectLocation)
-    } yield UploadedFile(callbackUrl, objectLocation.objectKey, downloadUrl, metadata.size)
+    } yield {
+      val retrieved = UploadedFile(callbackUrl, FileReference(objectLocation.objectKey), downloadUrl, metadata.size)
+      Logger.debug(s"Retrieved file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
+      retrieved
+    }
+  }
 
-  override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] =
+  override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] = {
+    implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
+
     for {
       quarantineFile <- fileManager.retrieveObject(objectLocation)
-      callbackUrl    <- Future.fromTry(retrieveCallbackUrl(quarantineFile.metadata, objectLocation))
-    } yield QuarantinedFile(callbackUrl, objectLocation.objectKey, quarantineFile.content)
+      callbackUrl <- Future.fromTry(retrieveCallbackUrl(quarantineFile.metadata, objectLocation))
+    } yield {
+      val retrieved = QuarantinedFile(callbackUrl, FileReference(objectLocation.objectKey), quarantineFile.content)
+      Logger.debug(s"Retrieved quarantined file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
+      retrieved
+    }
+  }
 
   private def retrieveCallbackUrl(metadata: ObjectMetadata, objectLocation: S3ObjectLocation): Try[URL] =
     metadata.userMetadata.get(metadataKey) match {
@@ -53,10 +70,10 @@ class S3FileNotificationDetailsRetriever @Inject()(
           case Success(callbackUrl) => Success(callbackUrl)
           case Failure(error) =>
             Failure(new Exception(
-              s"Invalid metadata: $metadataKey: $callbackMetadata for file: ${objectLocation.objectKey}. Error: $error",
+              s"Invalid metadata: [$metadataKey: $callbackMetadata], for objectKey: [${objectLocation.objectKey}]. Error: $error",
               error))
         }
       case None =>
-        Failure(new NoSuchElementException(s"Metadata not found: $metadataKey for file: ${objectLocation.objectKey}"))
+        Failure(new NoSuchElementException(s"Metadata not found: [$metadataKey], for objectKey: [${objectLocation.objectKey}]."))
     }
 }

@@ -76,7 +76,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
       val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue") {}
 
       When("the consumer poll method is called")
-      val messages: List[Message] = Await.result(consumer.poll(), 2.seconds)
+      val messages: Seq[Message] = Await.result(consumer.poll(), 2.seconds)
 
       Then("the SQS endpoint should be called")
       Mockito.verify(sqsClient).receiveMessage(any(): ReceiveMessageRequest)
@@ -97,7 +97,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
       val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue") {}
 
       When("the consumer poll method is called")
-      val messages: List[Message] = Await.result(consumer.poll(), 2.seconds)
+      val messages: Seq[Message] = Await.result(consumer.poll(), 2.seconds)
 
       Then("the SQS endpoint should be called")
       Mockito.verify(sqsClient).receiveMessage(any(): ReceiveMessageRequest)

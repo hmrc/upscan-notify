@@ -21,7 +21,7 @@ import model.Message
 import scala.concurrent.Future
 
 trait QueueConsumer {
-  def poll(): Future[List[Message]]
+  def poll(): Future[Seq[Message]]
 
   def confirm(message: Message): Future[Unit]
 }
