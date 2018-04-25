@@ -17,6 +17,7 @@
 package model
 
 import java.net.URL
+import java.time.Instant
 
 import JsonWriteHelpers.urlFormats
 import play.api.libs.json._
@@ -28,7 +29,12 @@ object FileReference {
 
 case class Message(id: String, body: String, receiptHandle: String)
 
-case class UploadedFile(callbackUrl: URL, reference: FileReference, downloadUrl: URL, size: Long)
+case class UploadedFile(
+  callbackUrl: URL,
+  reference: FileReference,
+  downloadUrl: URL,
+  size: Long,
+  uploadTimestamp: Option[Instant])
 case class QuarantinedFile(callbackUrl: URL, reference: FileReference, error: String)
 
 case class S3ObjectLocation(bucket: String, objectKey: String)
@@ -53,10 +59,10 @@ object FileStatus {
 case class ReadyCallbackBody(reference: FileReference, downloadUrl: URL, fileStatus: FileStatus = ReadyFileStatus)
 object ReadyCallbackBody {
   implicit val writesReadyCallback: Writes[ReadyCallbackBody] = new Writes[ReadyCallbackBody] {
-    def writes(body: ReadyCallbackBody):JsObject = Json.obj(
-      "reference"     -> body.reference.reference,
-      "downloadUrl"   -> body.downloadUrl,
-      "fileStatus"    -> body.fileStatus
+    def writes(body: ReadyCallbackBody): JsObject = Json.obj(
+      "reference"   -> body.reference.reference,
+      "downloadUrl" -> body.downloadUrl,
+      "fileStatus"  -> body.fileStatus
     )
   }
 }
@@ -64,10 +70,10 @@ object ReadyCallbackBody {
 case class FailedCallbackBody(reference: FileReference, details: String, fileStatus: FileStatus = FailedFileStatus)
 object FailedCallbackBody {
   implicit val writesFailedCallback: Writes[FailedCallbackBody] = new Writes[FailedCallbackBody] {
-    def writes(body: FailedCallbackBody):JsObject = Json.obj(
-      "reference"     -> body.reference.reference,
-      "details"       -> body.details,
-      "fileStatus"    -> body.fileStatus
+    def writes(body: FailedCallbackBody): JsObject = Json.obj(
+      "reference"  -> body.reference.reference,
+      "details"    -> body.details,
+      "fileStatus" -> body.fileStatus
     )
   }
 }

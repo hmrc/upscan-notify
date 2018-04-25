@@ -17,6 +17,7 @@
 package services
 
 import java.net.URL
+import java.time.{Clock, Instant, ZoneId, ZoneOffset}
 
 import com.codahale.metrics.MetricRegistry
 import com.kenshoo.play.metrics.Metrics
@@ -40,6 +41,11 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
     }
   }
 
+  val startTime   = Instant.parse("2018-04-24T09:45:10Z")
+  val currentTime = Instant.parse("2018-04-24T09:45:15Z")
+
+  val clock = Clock.fixed(currentTime, ZoneOffset.UTC)
+
   val callbackUrl = new URL("http://localhost:8080")
   val downloadUrl = new URL("http://remotehost/bucket/123")
 
@@ -51,7 +57,8 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
   val fileDetailsRetriever = new FileNotificationDetailsRetriever {
     override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
-      Future.successful(UploadedFile(callbackUrl, FileReference(objectLocation.objectKey), downloadUrl, 10L))
+      Future.successful(
+        UploadedFile(callbackUrl, FileReference(objectLocation.objectKey), downloadUrl, 10L, Some(startTime)))
 
     override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] = ???
   }
@@ -75,7 +82,8 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         messageParser,
         fileDetailsRetriever,
         notificationService,
-        metrics)
+        metrics,
+        clock)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -92,6 +100,10 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       And("counter of successful processed messages is incremented")
       metrics.defaultRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 1
       metrics.defaultRegistry.histogram("fileSize").getSnapshot.getValues          shouldBe Array(10L)
+      metrics.defaultRegistry
+        .timer("totalFileProcessingTime")
+        .getSnapshot
+        .getValues shouldBe Array(5L * 1000L * 1000L * 1000L) //5 seconds in nanoseconds
     }
 
     "get messages from the queue consumer, and call notification service for valid messages and ignore invalid messages" in {
@@ -123,7 +135,8 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         messageParser,
         fileDetailsRetriever,
         notificationService,
-        metrics)
+        metrics,
+        clock)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -162,15 +175,18 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
       val notificationService = mock[NotificationService]
       Mockito
-        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, FileReference("ID1"), downloadUrl, 10L)))
+        .when(notificationService.notifySuccessfulCallback(
+          UploadedFile(callbackUrl, FileReference("ID1"), downloadUrl, 10L, Some(startTime))))
         .thenReturn(Future.successful(()))
 
       Mockito
-        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, FileReference("ID2"), downloadUrl, 10L)))
+        .when(notificationService.notifySuccessfulCallback(
+          UploadedFile(callbackUrl, FileReference("ID2"), downloadUrl, 10L, Some(startTime))))
         .thenReturn(Future.failed(new Exception("Planned exception")))
 
       Mockito
-        .when(notificationService.notifySuccessfulCallback(UploadedFile(callbackUrl, FileReference("ID3"), downloadUrl, 10L)))
+        .when(notificationService.notifySuccessfulCallback(
+          UploadedFile(callbackUrl, FileReference("ID3"), downloadUrl, 10L, Some(startTime))))
         .thenReturn(Future.successful(()))
 
       val metrics = metricsStub()
@@ -180,7 +196,8 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         messageParser,
         fileDetailsRetriever,
         notificationService,
-        metrics)
+        metrics,
+        clock)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -201,7 +218,6 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       And("counter of successful processed messages is incremented by count of successfuly processed messages")
       metrics.defaultRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 2
       metrics.defaultRegistry.histogram("fileSize").getSnapshot.getValues          shouldBe Array(10L, 10L)
-
     }
   }
 }

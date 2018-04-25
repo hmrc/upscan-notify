@@ -17,16 +17,17 @@
 package services
 
 import java.net.URL
+import java.time.Instant
 
 import config.ServiceConfiguration
 import javax.inject.Inject
 import model.{FileReference, QuarantinedFile, S3ObjectLocation, UploadedFile}
 import play.api.Logger
+import uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext.fromLoggingDetails
+import util.logging.LoggingDetails
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
-import uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext.fromLoggingDetails
-import util.logging.LoggingDetails
 
 class S3FileNotificationDetailsRetriever @Inject()(
   fileManager: FileManager,
@@ -34,18 +35,34 @@ class S3FileNotificationDetailsRetriever @Inject()(
   downloadUrlGenerator: DownloadUrlGenerator)
     extends FileNotificationDetailsRetriever {
 
-  private val metadataKey = config.callbackUrlMetadataKey
+  val metadataKeyCallbackUrl = "callback-url"
+
+  val metadataKeyInitiateDate = "initiate-date"
+
+  private def extractUploadTimestamp(metadata: ObjectMetadata) =
+    for {
+      initiateDateValue <- metadata.userMetadata.get(metadataKeyInitiateDate)
+      parsedTimestamp <- Try(Instant.parse(initiateDateValue)) match {
+                          case Success(date) => Some(date)
+                          case Failure(ex) =>
+                            Logger.warn(s"Failed to parse '$metadataKeyInitiateDate' metadata field")
+                            None
+                        }
+    } yield parsedTimestamp
 
   override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] = {
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
     for {
       metadata <- fileManager.retrieveMetadata(objectLocation)
+      uploadTimestamp = extractUploadTimestamp(metadata)
       callbackUrl <- Future.fromTry(retrieveCallbackUrl(metadata, objectLocation))
       downloadUrl = downloadUrlGenerator.generate(objectLocation)
     } yield {
-      val retrieved = UploadedFile(callbackUrl, FileReference(objectLocation.objectKey), downloadUrl, metadata.size)
-      Logger.debug(s"Retrieved file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
+      val retrieved =
+        UploadedFile(callbackUrl, FileReference(objectLocation.objectKey), downloadUrl, metadata.size, uploadTimestamp)
+      Logger.debug(
+        s"Retrieved file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
       retrieved
     }
   }
@@ -55,25 +72,28 @@ class S3FileNotificationDetailsRetriever @Inject()(
 
     for {
       quarantineFile <- fileManager.retrieveObject(objectLocation)
-      callbackUrl <- Future.fromTry(retrieveCallbackUrl(quarantineFile.metadata, objectLocation))
+      callbackUrl    <- Future.fromTry(retrieveCallbackUrl(quarantineFile.metadata, objectLocation))
     } yield {
       val retrieved = QuarantinedFile(callbackUrl, FileReference(objectLocation.objectKey), quarantineFile.content)
-      Logger.debug(s"Retrieved quarantined file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
+      Logger.debug(
+        s"Retrieved quarantined file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
       retrieved
     }
   }
 
   private def retrieveCallbackUrl(metadata: ObjectMetadata, objectLocation: S3ObjectLocation): Try[URL] =
-    metadata.userMetadata.get(metadataKey) match {
+    metadata.userMetadata.get(metadataKeyCallbackUrl) match {
       case Some(callbackMetadata) =>
         Try(new URL(callbackMetadata)) match {
           case Success(callbackUrl) => Success(callbackUrl)
           case Failure(error) =>
             Failure(new Exception(
-              s"Invalid metadata: [$metadataKey: $callbackMetadata], for objectKey: [${objectLocation.objectKey}]. Error: $error",
+              s"Invalid metadata: [$metadataKeyCallbackUrl: $callbackMetadata], for objectKey: [${objectLocation.objectKey}]. Error: $error",
               error))
         }
       case None =>
-        Failure(new NoSuchElementException(s"Metadata not found: [$metadataKey], for objectKey: [${objectLocation.objectKey}]."))
+        Failure(
+          new NoSuchElementException(
+            s"Metadata not found: [$metadataKeyCallbackUrl], for objectKey: [${objectLocation.objectKey}]."))
     }
 }
