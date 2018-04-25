@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import java.time.Clock
+
 import config.{PlayBasedServiceConfiguration, ServiceConfiguration}
 import connectors.HttpNotificationService
 import connectors.aws._
@@ -30,7 +32,8 @@ class NotifyModule extends Module {
       bind[NotificationService].to[HttpNotificationService],
       bind[MessageParser].to[S3EventParser],
       bind[PollingJobs].toProvider[SqsPollingJobsProvider],
-      bind[ContinuousPoller].toSelf.eagerly()
+      bind[ContinuousPoller].toSelf.eagerly(),
+      bind[Clock].toInstance(Clock.systemDefaultZone())
     )
 }
 

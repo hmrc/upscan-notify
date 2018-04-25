@@ -16,6 +16,10 @@
 
 package services
 
+import java.time.temporal.ChronoUnit
+import java.time.{Clock, Duration, Instant}
+import java.util.concurrent.TimeUnit
+
 import com.kenshoo.play.metrics.Metrics
 import javax.inject.Inject
 import model._
@@ -62,8 +66,8 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
   parser: MessageParser,
   fileRetriever: FileNotificationDetailsRetriever,
   notificationService: NotificationService,
-  metrics: Metrics
-)(implicit val executionContext: ExecutionContext)
+  metrics: Metrics,
+  clock: Clock)(implicit val executionContext: ExecutionContext)
     extends MessageProcessingJob {
 
   override def processMessage(message: Message): Future[Unit] =
@@ -72,6 +76,17 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
       notification  <- fileRetriever.retrieveUploadedFileDetails(parsedMessage.location)
       _             <- notificationService.notifySuccessfulCallback(notification)
     } yield {
+      for (uploadTimestamp <- notification.uploadTimestamp) {
+        val totalProcessingTime = Duration.between(uploadTimestamp, clock.instant())
+        if (totalProcessingTime.isNegative) {
+          Logger.warn(
+            "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
+        } else {
+          metrics.defaultRegistry
+            .timer("totalFileProcessingTime")
+            .update(totalProcessingTime.toNanos, TimeUnit.NANOSECONDS)
+        }
+      }
       metrics.defaultRegistry.histogram("fileSize").update(notification.size)
       metrics.defaultRegistry.counter("successfulUploadNotificationSent").inc()
     }

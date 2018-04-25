@@ -75,7 +75,7 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnValidResponse()
 
       When("the service is called")
-      val notification = UploadedFile(callbackUrl, FileReference("upload-file-reference"), downloadUrl, 0L)
+      val notification = UploadedFile(callbackUrl, FileReference("upload-file-reference"), downloadUrl, 0L, None)
       val service      = new HttpNotificationService(new TestHttpClient)
       val result       = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
@@ -102,9 +102,10 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnValidResponse()
 
       When("the service is called")
-      val notification = QuarantinedFile(callbackUrl, FileReference("quarantine-file-reference"), "This file has a virus")
-      val service      = new HttpNotificationService(new TestHttpClient)
-      val result       = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
+      val notification =
+        QuarantinedFile(callbackUrl, FileReference("quarantine-file-reference"), "This file has a virus")
+      val service = new HttpNotificationService(new TestHttpClient)
+      val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
 
       Then("service should return success")
       result.isSuccess shouldBe true
@@ -129,7 +130,7 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnInvalidResponse()
 
       When("the service is called")
-      val notification = UploadedFile(callbackUrl, FileReference("file-reference"), downloadUrl, 0L)
+      val notification = UploadedFile(callbackUrl, FileReference("file-reference"), downloadUrl, 0L, None)
       val service      = new HttpNotificationService(new TestHttpClient)
       val result       = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
@@ -145,7 +146,7 @@ class HttpNotificationServiceSpec
       stubCallbackReceiverToReturnInvalidResponse()
 
       When("the service is called")
-      val notification = UploadedFile(callbackUrl, FileReference("file-reference"), downloadUrl, 0L)
+      val notification = UploadedFile(callbackUrl, FileReference("file-reference"), downloadUrl, 0L, None)
       val service      = new HttpNotificationService(new TestHttpClient)
       val result       = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 

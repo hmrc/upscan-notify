@@ -42,8 +42,6 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec with Matchers {
 
         override def retryInterval = ???
 
-        override def callbackUrlMetadataKey: String = ???
-
         override def s3FileLifetime: FiniteDuration = ???
 
         override def outboundQuarantineQueueUrl: String = ???
@@ -71,8 +69,6 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec with Matchers {
         override def outboundSuccessfulQueueUrl: String = ???
 
         override def retryInterval = ???
-
-        override def callbackUrlMetadataKey: String = ???
 
         override def s3FileLifetime: FiniteDuration = ???
 

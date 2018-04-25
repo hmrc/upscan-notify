@@ -35,8 +35,6 @@ trait ServiceConfiguration {
 
   def awsRegion: String
 
-  def callbackUrlMetadataKey: String
-
   def s3FileLifetime: FiniteDuration
 
 }
@@ -56,9 +54,6 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
   override def secretAccessKey = getRequired(configuration.getString(_), "aws.secretAccessKey")
 
   override def sessionToken = configuration.getString("aws.sessionToken")
-
-  override def callbackUrlMetadataKey: String =
-    getRequired(configuration.getString(_), "aws.s3.callbackUrlMetadataKey")
 
   override def retryInterval = getRequired(configuration.getMilliseconds, "aws.sqs.retry.interval").milliseconds
 
