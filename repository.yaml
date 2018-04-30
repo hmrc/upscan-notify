@@ -1,5 +1,5 @@
---- 
 leakDetectionExemptions:
   - ruleId: 'ip_addresses'
     filePaths:
+      - '/project/plugins.sbt'
       - '/test/connectors/aws/S3EventMessageParserSpec.scala'
