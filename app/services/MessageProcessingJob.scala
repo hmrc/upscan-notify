@@ -16,16 +16,24 @@
 
 package services
 
-import java.time.temporal.ChronoUnit
-import java.time.{Clock, Duration, Instant}
+import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
 
+import cats.data.EitherT
+import cats.implicits._
 import com.kenshoo.play.metrics.Metrics
 import javax.inject.Inject
 import model._
 import play.api.Logger
+import uk.gov.hmrc.http.logging.LoggingDetails
+import util.logging.LoggingDetails
+import util.logging.WithLoggingDetails.withLoggingDetails
 
 import scala.concurrent.{ExecutionContext, Future}
+
+case class MessageContext(ld: LoggingDetails)
+
+case class ExceptionWithContext(e: Exception, context: Option[MessageContext])
 
 trait MessageProcessingJob extends PollingJob {
 
@@ -33,7 +41,7 @@ trait MessageProcessingJob extends PollingJob {
 
   def consumer: QueueConsumer
 
-  def processMessage(message: Message): Future[Unit]
+  def processMessage(message: Message): EitherT[Future, ExceptionWithContext, MessageContext]
 
   def run(): Future[Unit] = {
     val outcomes = for {
@@ -45,15 +53,32 @@ trait MessageProcessingJob extends PollingJob {
   }
 
   private def handleMessage(message: Message): Future[Unit] = {
-    val outcome = for {
-      _ <- processMessage(message)
-      _ <- consumer.confirm(message)
+    val outcome: EitherT[Future, ExceptionWithContext, Unit] = for {
+      context <- processMessage(message)
+      _       <- toEitherT(consumer.confirm(message), context = Some(context))
     } yield ()
 
-    outcome.recover {
-      case error =>
-        Logger.warn(s"Failed to process message '${message.id}', cause ${error.getMessage}", error)
+    outcome.value.map {
+      case Left(ExceptionWithContext(exception, Some(context))) =>
+        withLoggingDetails(context.ld) {
+          Logger.warn(
+            s"Failed to process message '${message.id}' for file '${context.ld.mdcData
+              .getOrElse("file-reference", "???")}', cause ${exception.getMessage}",
+            exception
+          )
+        }
+      case Left(ExceptionWithContext(exception, None)) =>
+        Logger.warn(s"Failed to process message '${message.id}', cause ${exception.getMessage}", exception)
+      case Right(_) =>
+        ()
     }
+  }
+
+  def toEitherT[T](f: Future[T], context: Option[MessageContext] = None): EitherT[Future, ExceptionWithContext, T] = {
+    val futureEither: Future[Either[ExceptionWithContext, T]] =
+      f.map(Right(_))
+        .recover { case error: Exception => Left(ExceptionWithContext(error, context)) }
+    EitherT(futureEither)
   }
 
 }
@@ -70,11 +95,12 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
   clock: Clock)(implicit val executionContext: ExecutionContext)
     extends MessageProcessingJob {
 
-  override def processMessage(message: Message): Future[Unit] =
+  override def processMessage(message: Message): EitherT[Future, ExceptionWithContext, MessageContext] =
     for {
-      parsedMessage <- parser.parse(message)
-      notification  <- fileRetriever.retrieveUploadedFileDetails(parsedMessage.location)
-      _             <- notificationService.notifySuccessfulCallback(notification)
+      parsedMessage <- toEitherT(parser.parse(message))
+      context = MessageContext(LoggingDetails.fromS3ObjectLocation(parsedMessage.location))
+      notification <- toEitherT(fileRetriever.retrieveUploadedFileDetails(parsedMessage.location), Some(context))
+      _            <- toEitherT(notificationService.notifySuccessfulCallback(notification), Some(context))
     } yield {
       for (uploadTimestamp <- notification.uploadTimestamp) {
         val totalProcessingTime = Duration.between(uploadTimestamp, clock.instant())
@@ -89,6 +115,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
       }
       metrics.defaultRegistry.histogram("fileSize").update(notification.size)
       metrics.defaultRegistry.counter("successfulUploadNotificationSent").inc()
+      context
     }
 }
 
@@ -101,12 +128,17 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
 )(implicit val executionContext: ExecutionContext)
     extends MessageProcessingJob {
 
-  override def processMessage(message: Message): Future[Unit] =
+  override def processMessage(message: Message): EitherT[Future, ExceptionWithContext, MessageContext] =
     for {
-      parsedMessage <- parser.parse(message)
-      notification  <- fileRetriever.retrieveQuarantinedFileDetails(parsedMessage.location)
-      _             <- notificationService.notifyFailedCallback(notification)
+      parsedMessage <- toEitherT(parser.parse(message))
+      context = MessageContext(LoggingDetails.fromS3ObjectLocation(parsedMessage.location))
+      notification <- toEitherT(
+                       fileRetriever.retrieveQuarantinedFileDetails(parsedMessage.location),
+                       Some(context)
+                     )
+      _ <- toEitherT(notificationService.notifyFailedCallback(notification), Some(context))
     } yield {
       metrics.defaultRegistry.counter("quarantinedUploadNotificationSent").inc()
+      context
     }
 }
