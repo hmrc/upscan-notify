@@ -103,7 +103,12 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       metrics.defaultRegistry
         .timer("totalFileProcessingTime")
         .getSnapshot
-        .getValues shouldBe Array(5L * 1000L * 1000L * 1000L) //5 seconds in nanoseconds
+        .getValues shouldBe Array((5 seconds).toNanos) //5 seconds in nanoseconds
+
+      metrics.defaultRegistry
+        .timer("fileProcessingTimeExcludingNotification")
+        .getSnapshot
+        .getValues shouldBe Array((5 seconds).toNanos) //5 seconds in nanoseconds
     }
 
     "get messages from the queue consumer, and call notification service for valid messages and ignore invalid messages" in {

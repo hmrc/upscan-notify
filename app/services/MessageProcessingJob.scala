@@ -100,23 +100,41 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
       parsedMessage <- toEitherT(parser.parse(message))
       context = MessageContext(LoggingDetails.fromS3ObjectLocation(parsedMessage.location))
       notification <- toEitherT(fileRetriever.retrieveUploadedFileDetails(parsedMessage.location), Some(context))
-      _            <- toEitherT(notificationService.notifySuccessfulCallback(notification), Some(context))
+      _ = collectMetricsBeforeNotification(notification)
+      _ <- toEitherT(notificationService.notifySuccessfulCallback(notification), Some(context))
     } yield {
-      for (uploadTimestamp <- notification.uploadTimestamp) {
-        val totalProcessingTime = Duration.between(uploadTimestamp, clock.instant())
-        if (totalProcessingTime.isNegative) {
-          Logger.warn(
-            "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
-        } else {
-          metrics.defaultRegistry
-            .timer("totalFileProcessingTime")
-            .update(totalProcessingTime.toNanos, TimeUnit.NANOSECONDS)
-        }
-      }
-      metrics.defaultRegistry.histogram("fileSize").update(notification.size)
-      metrics.defaultRegistry.counter("successfulUploadNotificationSent").inc()
+      collectMetricsAfterNotification(notification)
       context
     }
+
+  private def collectMetricsBeforeNotification(notification: UploadedFile): Unit =
+    for (uploadTimestamp <- notification.uploadTimestamp) {
+      val totalProcessingTime = Duration.between(uploadTimestamp, clock.instant())
+      if (totalProcessingTime.isNegative) {
+        Logger.warn(
+          "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
+      } else {
+        metrics.defaultRegistry
+          .timer("fileProcessingTimeExcludingNotification")
+          .update(totalProcessingTime.toNanos, TimeUnit.NANOSECONDS)
+      }
+    }
+
+  private def collectMetricsAfterNotification(notification: UploadedFile): Unit = {
+    for (uploadTimestamp <- notification.uploadTimestamp) {
+      val totalProcessingTime = Duration.between(uploadTimestamp, clock.instant())
+      if (totalProcessingTime.isNegative) {
+        Logger.warn(
+          "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
+      } else {
+        metrics.defaultRegistry
+          .timer("totalFileProcessingTime")
+          .update(totalProcessingTime.toNanos, TimeUnit.NANOSECONDS)
+      }
+    }
+    metrics.defaultRegistry.histogram("fileSize").update(notification.size)
+    metrics.defaultRegistry.counter("successfulUploadNotificationSent").inc()
+  }
 }
 
 class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
