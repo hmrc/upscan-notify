@@ -61,14 +61,14 @@ trait MessageProcessingJob extends PollingJob {
     outcome.value.map {
       case Left(ExceptionWithContext(exception, Some(context))) =>
         withLoggingDetails(context.ld) {
-          Logger.warn(
+          Logger.error(
             s"Failed to process message '${message.id}' for file '${context.ld.mdcData
               .getOrElse("file-reference", "???")}', cause ${exception.getMessage}",
             exception
           )
         }
       case Left(ExceptionWithContext(exception, None)) =>
-        Logger.warn(s"Failed to process message '${message.id}', cause ${exception.getMessage}", exception)
+        Logger.error(s"Failed to process message '${message.id}', cause ${exception.getMessage}", exception)
       case Right(_) =>
         ()
     }
