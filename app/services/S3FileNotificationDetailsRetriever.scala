@@ -45,7 +45,8 @@ class S3FileNotificationDetailsRetriever @Inject()(
       parsedTimestamp <- Try(Instant.parse(initiateDateValue)) match {
                           case Success(date) => Some(date)
                           case Failure(ex) =>
-                            Logger.warn(s"Failed to parse '$metadataKeyInitiateDate' metadata field")
+                            Logger.error(
+                              s"Failed to parse '$metadataKeyInitiateDate' metadata field, value : $initiateDateValue")
                             None
                         }
     } yield parsedTimestamp
