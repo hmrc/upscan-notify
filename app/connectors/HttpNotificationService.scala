@@ -17,7 +17,8 @@
 package connectors
 
 import javax.inject.Inject
-import model.{FailedCallbackBody, QuarantinedFile, ReadyCallbackBody, UploadedFile}
+
+import model._
 import play.api.Logger
 import services.NotificationService
 import uk.gov.hmrc.http.HttpResponse
@@ -27,13 +28,12 @@ import util.logging.LoggingDetails
 
 import scala.concurrent.Future
 
-class HttpNotificationService @Inject()(httpClient: HttpClient)
-    extends NotificationService {
+class HttpNotificationService @Inject()(httpClient: HttpClient) extends NotificationService {
 
   override def notifySuccessfulCallback(uploadedFile: UploadedFile): Future[Unit] = {
 
     implicit val ld = LoggingDetails.fromFileReference(uploadedFile.reference)
-    val callback = ReadyCallbackBody(uploadedFile.reference, uploadedFile.downloadUrl)
+    val callback    = ReadyCallbackBody(uploadedFile.reference, uploadedFile.downloadUrl)
 
     httpClient
       .POST[ReadyCallbackBody, HttpResponse](uploadedFile.callbackUrl.toString, callback)
@@ -48,7 +48,7 @@ class HttpNotificationService @Inject()(httpClient: HttpClient)
   override def notifyFailedCallback(quarantinedFile: QuarantinedFile): Future[Unit] = {
 
     implicit val ld = LoggingDetails.fromFileReference(quarantinedFile.reference)
-    val callback = FailedCallbackBody(quarantinedFile.reference, quarantinedFile.error)
+    val callback    = FailedCallbackBody(quarantinedFile.reference, FailedFileStatus, quarantinedFile.error)
 
     httpClient
       .POST[FailedCallbackBody, HttpResponse](quarantinedFile.callbackUrl.toString, callback)

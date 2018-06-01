@@ -24,7 +24,7 @@ import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.typesafe.config.Config
-import model.{FileReference, QuarantinedFile, UploadedFile}
+import model.{ErrorDetails, FileReference, QuarantinedFile, UploadedFile}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, GivenWhenThen, Matchers}
 import play.api.libs.ws.ahc.AhcWSClient
@@ -94,7 +94,7 @@ class HttpNotificationServiceSpec
 
     }
 
-    "post JSON to the passed in callback URL for upload failure callback" in {
+    "post JSON to the passed in callback URL for upload failure callback when file is quarantined" in {
 
       Given("there is working host that can receive callback")
       val callbackUrl = new URL("http://localhost:11111/myservice/123")
@@ -103,7 +103,11 @@ class HttpNotificationServiceSpec
 
       When("the service is called")
       val notification =
-        QuarantinedFile(callbackUrl, FileReference("quarantine-file-reference"), "This file has a virus")
+        QuarantinedFile(
+          callbackUrl,
+          FileReference("quarantine-file-reference"),
+          ErrorDetails("QUARANTINE", "This file has a virus")
+        )
       val service = new HttpNotificationService(new TestHttpClient)
       val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
 
@@ -114,11 +118,51 @@ class HttpNotificationServiceSpec
       callbackServer.verify(
         postRequestedFor(urlEqualTo("/myservice/123"))
           .withRequestBody(equalToJson("""
-         |{ "reference" : "quarantine-file-reference",
-         |  "details" : "This file has a virus",
-         |  "fileStatus": "FAILED"
+         |{
+         |   "reference" : "quarantine-file-reference",
+         |   "fileStatus" : "FAILED",
+         |   "failureDetails" : {
+         |     "failureReason" : "QUARANTINE",
+         |     "message" : "This file has a virus"
+         |   }
          |}
        """.stripMargin)))
+
+    }
+
+    "post JSON to the passed in callback URL for upload failure callback when file is rejected" in {
+
+      Given("there is working host that can receive callback")
+      val callbackUrl = new URL("http://localhost:11111/myservice/123")
+      val downloadUrl = new URL("http://remotehost/bucket/123")
+      stubCallbackReceiverToReturnValidResponse()
+
+      When("the service is called")
+      val notification =
+        QuarantinedFile(
+          callbackUrl,
+          FileReference("rejected-file-reference"),
+          ErrorDetails("REJECTED", "MIME type [some-type] not allowed for service [some-service]")
+        )
+      val service = new HttpNotificationService(new TestHttpClient)
+      val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
+
+      Then("service should return success")
+      result.isSuccess shouldBe true
+
+      And("callback URL is called with expected JSON body")
+      callbackServer.verify(
+        postRequestedFor(urlEqualTo("/myservice/123"))
+          .withRequestBody(equalToJson("""
+                                         |{
+                                         |   "reference" : "rejected-file-reference",
+                                         |   "fileStatus" : "FAILED",
+                                         |   "failureDetails" : {
+                                         |     "failureReason" : "REJECTED",
+                                         |     "message" : "MIME type [some-type] not allowed for service [some-service]"
+                                         |   }
+                                         |}
+                                       """.stripMargin)))
 
     }
 

@@ -22,7 +22,7 @@ import java.time.format.DateTimeFormatter
 
 import com.amazonaws.AmazonServiceException
 import config.ServiceConfiguration
-import model.{FileReference, QuarantinedFile, S3ObjectLocation, UploadedFile}
+import model._
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.scalatest.concurrent.ScalaFutures
@@ -152,7 +152,8 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
 
       val callbackUrl    = "http://my.callback.url"
       val objectMetadata = ObjectMetadata(Map("callback-url" -> callbackUrl), 10L)
-      val s3Object       = ObjectWithMetadata("This file has a virus", objectMetadata)
+      val s3Object =
+        ObjectWithMetadata("""{"failureReason": "QUARANTINE", "message": "This file has a virus"}""", objectMetadata)
 
       val fileManager = mock[FileManager]
       Mockito.when(fileManager.retrieveObject(any())).thenReturn(Future.successful(s3Object))
@@ -164,7 +165,56 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       val result = Await.result(retriever.retrieveQuarantinedFileDetails(location), 2.seconds)
 
       Then("the expected callback URL is returned")
-      result shouldBe QuarantinedFile(new URL(callbackUrl), FileReference("my-key"), "This file has a virus")
+      result shouldBe QuarantinedFile(
+        new URL(callbackUrl),
+        FileReference("my-key"),
+        ErrorDetails("QUARANTINE", "This file has a virus"))
+    }
+
+    "return callback URL from S3 metadata for rejected file" in {
+
+      val callbackUrl    = "http://my.callback.url"
+      val objectMetadata = ObjectMetadata(Map("callback-url" -> callbackUrl), 10L)
+      val s3Object =
+        ObjectWithMetadata("""{"failureReason": "REJECTED", "message": "MIME type not allowed"}""", objectMetadata)
+
+      val fileManager = mock[FileManager]
+      Mockito.when(fileManager.retrieveObject(any())).thenReturn(Future.successful(s3Object))
+
+      Given("a S3 file notification retriever and a valid set of retrieval details")
+      val retriever = new S3FileNotificationDetailsRetriever(fileManager, config, urlGenerator)
+
+      When("the retrieve method is called")
+      val result = Await.result(retriever.retrieveQuarantinedFileDetails(location), 2.seconds)
+
+      Then("the expected callback URL is returned")
+      result shouldBe QuarantinedFile(
+        new URL(callbackUrl),
+        FileReference("my-key"),
+        ErrorDetails("REJECTED", "MIME type not allowed"))
+    }
+
+    "return callback URL from S3 metadata for file with unknown error" in {
+
+      val callbackUrl    = "http://my.callback.url"
+      val objectMetadata = ObjectMetadata(Map("callback-url" -> callbackUrl), 10L)
+      val s3Object =
+        ObjectWithMetadata("""Something unexpected happened here""", objectMetadata)
+
+      val fileManager = mock[FileManager]
+      Mockito.when(fileManager.retrieveObject(any())).thenReturn(Future.successful(s3Object))
+
+      Given("a S3 file notification retriever and a valid set of retrieval details")
+      val retriever = new S3FileNotificationDetailsRetriever(fileManager, config, urlGenerator)
+
+      When("the retrieve method is called")
+      val result = Await.result(retriever.retrieveQuarantinedFileDetails(location), 2.seconds)
+
+      Then("the expected callback URL is returned")
+      result shouldBe QuarantinedFile(
+        new URL(callbackUrl),
+        FileReference("my-key"),
+        ErrorDetails("UNKNOWN", "Something unexpected happened here"))
     }
 
     "return wrapped failure if S3 call errors for quarantined file" in {

@@ -35,7 +35,7 @@ case class UploadedFile(
   downloadUrl: URL,
   size: Long,
   uploadTimestamp: Option[Instant])
-case class QuarantinedFile(callbackUrl: URL, reference: FileReference, error: String)
+case class QuarantinedFile(callbackUrl: URL, reference: FileReference, error: ErrorDetails)
 
 case class S3ObjectLocation(bucket: String, objectKey: String)
 case class FileUploadEvent(location: S3ObjectLocation)
@@ -56,6 +56,12 @@ object FileStatus {
   }
 }
 
+case class ErrorDetails(failureReason: String, message: String)
+
+object ErrorDetails {
+  implicit val formatsErrorDetails: Format[ErrorDetails] = Json.format[ErrorDetails]
+}
+
 case class ReadyCallbackBody(reference: FileReference, downloadUrl: URL, fileStatus: FileStatus = ReadyFileStatus)
 object ReadyCallbackBody {
   implicit val writesReadyCallback: Writes[ReadyCallbackBody] = new Writes[ReadyCallbackBody] {
@@ -67,13 +73,16 @@ object ReadyCallbackBody {
   }
 }
 
-case class FailedCallbackBody(reference: FileReference, details: String, fileStatus: FileStatus = FailedFileStatus)
+case class FailedCallbackBody(
+  reference: FileReference,
+  fileStatus: FileStatus = FailedFileStatus,
+  details: ErrorDetails)
 object FailedCallbackBody {
   implicit val writesFailedCallback: Writes[FailedCallbackBody] = new Writes[FailedCallbackBody] {
     def writes(body: FailedCallbackBody): JsObject = Json.obj(
-      "reference"  -> body.reference.reference,
-      "details"    -> body.details,
-      "fileStatus" -> body.fileStatus
+      "reference"      -> body.reference.reference,
+      "fileStatus"     -> body.fileStatus,
+      "failureDetails" -> body.details
     )
   }
 }
