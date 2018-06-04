@@ -21,8 +21,10 @@ import java.time.Instant
 
 import config.ServiceConfiguration
 import javax.inject.Inject
-import model.{FileReference, QuarantinedFile, S3ObjectLocation, UploadedFile}
+
+import model._
 import play.api.Logger
+import play.api.libs.json.{JsError, JsSuccess, Json}
 import uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext.fromLoggingDetails
 import util.logging.LoggingDetails
 
@@ -75,10 +77,24 @@ class S3FileNotificationDetailsRetriever @Inject()(
       quarantineFile <- fileManager.retrieveObject(objectLocation)
       callbackUrl    <- Future.fromTry(retrieveCallbackUrl(quarantineFile.metadata, objectLocation))
     } yield {
-      val retrieved = QuarantinedFile(callbackUrl, FileReference(objectLocation.objectKey), quarantineFile.content)
+      val retrieved =
+        QuarantinedFile(callbackUrl, FileReference(objectLocation.objectKey), parseContents(quarantineFile.content))
       Logger.debug(
         s"Retrieved quarantined file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
       retrieved
+    }
+  }
+
+  private def parseContents(contents: String): ErrorDetails = {
+    def unknownError(): ErrorDetails = ErrorDetails("UNKNOWN", contents)
+
+    Try(Json.parse(contents)) match {
+      case Success(json) =>
+        json.validate[ErrorDetails] match {
+          case JsSuccess(details, _) => details
+          case _: JsError            => unknownError()
+        }
+      case Failure(_) => unknownError()
     }
   }
 
