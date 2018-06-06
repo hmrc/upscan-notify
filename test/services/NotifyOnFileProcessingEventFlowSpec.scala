@@ -17,7 +17,7 @@
 package services
 
 import java.net.URL
-import java.time.{Clock, Instant, ZoneId, ZoneOffset}
+import java.time._
 
 import com.codahale.metrics.MetricRegistry
 import com.kenshoo.play.metrics.Metrics
@@ -58,7 +58,12 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
   val fileDetailsRetriever = new FileNotificationDetailsRetriever {
     override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
       Future.successful(
-        UploadedFile(callbackUrl, FileReference(objectLocation.objectKey), downloadUrl, 10L, Some(startTime)))
+        UploadedFile(
+          callbackUrl,
+          FileReference(objectLocation.objectKey),
+          downloadUrl,
+          10L,
+          UploadDetails(startTime, "1a2b3c4d5e")))
 
     override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] = ???
   }
@@ -181,17 +186,17 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       val notificationService = mock[NotificationService]
       Mockito
         .when(notificationService.notifySuccessfulCallback(
-          UploadedFile(callbackUrl, FileReference("ID1"), downloadUrl, 10L, Some(startTime))))
+          UploadedFile(callbackUrl, FileReference("ID1"), downloadUrl, 10L, UploadDetails(startTime, "1a2b3c4d5e"))))
         .thenReturn(Future.successful(()))
 
       Mockito
         .when(notificationService.notifySuccessfulCallback(
-          UploadedFile(callbackUrl, FileReference("ID2"), downloadUrl, 10L, Some(startTime))))
+          UploadedFile(callbackUrl, FileReference("ID2"), downloadUrl, 10L, UploadDetails(startTime, "1a2b3c4d5e"))))
         .thenReturn(Future.failed(new Exception("Planned exception")))
 
       Mockito
         .when(notificationService.notifySuccessfulCallback(
-          UploadedFile(callbackUrl, FileReference("ID3"), downloadUrl, 10L, Some(startTime))))
+          UploadedFile(callbackUrl, FileReference("ID3"), downloadUrl, 10L, UploadDetails(startTime, "1a2b3c4d5e"))))
         .thenReturn(Future.successful(()))
 
       val metrics = metricsStub()

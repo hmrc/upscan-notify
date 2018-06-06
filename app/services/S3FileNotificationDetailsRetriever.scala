@@ -16,12 +16,9 @@
 
 package services
 
-import java.net.URL
-import java.time.Instant
-
-import config.ServiceConfiguration
 import javax.inject.Inject
 
+import config.ServiceConfiguration
 import model._
 import play.api.Logger
 import play.api.libs.json.{JsError, JsSuccess, Json}
@@ -41,29 +38,22 @@ class S3FileNotificationDetailsRetriever @Inject()(
 
   val metadataKeyInitiateDate = "initiate-date"
 
-  private def extractUploadTimestamp(metadata: ObjectMetadata) =
-    for {
-      initiateDateValue <- metadata.userMetadata.get(metadataKeyInitiateDate)
-      parsedTimestamp <- Try(Instant.parse(initiateDateValue)) match {
-                          case Success(date) => Some(date)
-                          case Failure(ex) =>
-                            Logger.error(
-                              s"Failed to parse '$metadataKeyInitiateDate' metadata field, value : $initiateDateValue")
-                            None
-                        }
-    } yield parsedTimestamp
+  val metadataKeyChecksum = "checksum"
 
   override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] = {
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
     for {
-      metadata <- fileManager.retrieveMetadata(objectLocation)
-      uploadTimestamp = extractUploadTimestamp(metadata)
-      callbackUrl <- Future.fromTry(retrieveCallbackUrl(metadata, objectLocation))
+      metadata <- fileManager.retrieveReadyMetadata(objectLocation)
       downloadUrl = downloadUrlGenerator.generate(objectLocation)
     } yield {
       val retrieved =
-        UploadedFile(callbackUrl, FileReference(objectLocation.objectKey), downloadUrl, metadata.size, uploadTimestamp)
+        UploadedFile(
+          metadata.callbackUrl,
+          FileReference(objectLocation.objectKey),
+          downloadUrl,
+          metadata.size,
+          UploadDetails(metadata.uploadedTimestamp, metadata.checksum))
       Logger.debug(
         s"Retrieved file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
       retrieved
@@ -74,11 +64,13 @@ class S3FileNotificationDetailsRetriever @Inject()(
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
     for {
-      quarantineFile <- fileManager.retrieveObject(objectLocation)
-      callbackUrl    <- Future.fromTry(retrieveCallbackUrl(quarantineFile.metadata, objectLocation))
+      quarantineFile <- fileManager.retrieveFailedObject(objectLocation)
     } yield {
       val retrieved =
-        QuarantinedFile(callbackUrl, FileReference(objectLocation.objectKey), parseContents(quarantineFile.content))
+        QuarantinedFile(
+          quarantineFile.metadata.callbackUrl,
+          FileReference(objectLocation.objectKey),
+          parseContents(quarantineFile.content))
       Logger.debug(
         s"Retrieved quarantined file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
       retrieved
@@ -97,20 +89,4 @@ class S3FileNotificationDetailsRetriever @Inject()(
       case Failure(_) => unknownError()
     }
   }
-
-  private def retrieveCallbackUrl(metadata: ObjectMetadata, objectLocation: S3ObjectLocation): Try[URL] =
-    metadata.userMetadata.get(metadataKeyCallbackUrl) match {
-      case Some(callbackMetadata) =>
-        Try(new URL(callbackMetadata)) match {
-          case Success(callbackUrl) => Success(callbackUrl)
-          case Failure(error) =>
-            Failure(new Exception(
-              s"Invalid metadata: [$metadataKeyCallbackUrl: $callbackMetadata], for objectKey: [${objectLocation.objectKey}]. Error: $error",
-              error))
-        }
-      case None =>
-        Failure(
-          new NoSuchElementException(
-            s"Metadata not found: [$metadataKeyCallbackUrl], for objectKey: [${objectLocation.objectKey}]."))
-    }
 }
