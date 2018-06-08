@@ -24,17 +24,27 @@ import play.api.libs.json._
 
 case class FileReference(reference: String)
 object FileReference {
-  implicit val fileReferenceWrites: Writes[FileReference] = Json.writes[FileReference]
+  implicit val fileReferenceWrites: Writes[FileReference] = new Writes[FileReference] {
+    override def writes(o: FileReference): JsValue = JsString(o.reference)
+  }
 }
 
 case class Message(id: String, body: String, receiptHandle: String)
+
+case class UploadDetails(uploadTimestamp: Instant, checksum: String)
+
+object UploadDetails {
+  implicit val formatsUploadDetails: Format[UploadDetails] = Json.format[UploadDetails]
+}
 
 case class UploadedFile(
   callbackUrl: URL,
   reference: FileReference,
   downloadUrl: URL,
   size: Long,
-  uploadTimestamp: Option[Instant])
+  uploadDetails: UploadDetails
+)
+
 case class QuarantinedFile(callbackUrl: URL, reference: FileReference, error: ErrorDetails)
 
 case class S3ObjectLocation(bucket: String, objectKey: String)
@@ -62,27 +72,23 @@ object ErrorDetails {
   implicit val formatsErrorDetails: Format[ErrorDetails] = Json.format[ErrorDetails]
 }
 
-case class ReadyCallbackBody(reference: FileReference, downloadUrl: URL, fileStatus: FileStatus = ReadyFileStatus)
+case class ReadyCallbackBody(
+  reference: FileReference,
+  downloadUrl: URL,
+  fileStatus: FileStatus = ReadyFileStatus,
+  uploadDetails: UploadDetails
+)
+
 object ReadyCallbackBody {
-  implicit val writesReadyCallback: Writes[ReadyCallbackBody] = new Writes[ReadyCallbackBody] {
-    def writes(body: ReadyCallbackBody): JsObject = Json.obj(
-      "reference"   -> body.reference.reference,
-      "downloadUrl" -> body.downloadUrl,
-      "fileStatus"  -> body.fileStatus
-    )
-  }
+  implicit val writesReadyCallback: Writes[ReadyCallbackBody] = Json.writes[ReadyCallbackBody]
 }
 
 case class FailedCallbackBody(
   reference: FileReference,
   fileStatus: FileStatus = FailedFileStatus,
-  details: ErrorDetails)
+  failureDetails: ErrorDetails
+)
+
 object FailedCallbackBody {
-  implicit val writesFailedCallback: Writes[FailedCallbackBody] = new Writes[FailedCallbackBody] {
-    def writes(body: FailedCallbackBody): JsObject = Json.obj(
-      "reference"      -> body.reference.reference,
-      "fileStatus"     -> body.fileStatus,
-      "failureDetails" -> body.details
-    )
-  }
+  implicit val writesFailedCallback: Writes[FailedCallbackBody] = Json.writes[FailedCallbackBody]
 }

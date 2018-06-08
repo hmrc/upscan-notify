@@ -16,18 +16,29 @@
 
 package services
 
+import java.net.URL
+import java.time.Instant
+
 import model.S3ObjectLocation
 
 import scala.concurrent.Future
 
-case class ObjectMetadata(userMetadata: Map[String, String], size: Long)
+case class ReadyObjectMetadata(callbackUrl: URL, uploadedTimestamp: Instant, checksum: String, size: Long)
 
-case class ObjectWithMetadata(content: String, metadata: ObjectMetadata)
+case class FailedObjectMetadata(callbackUrl: URL, size: Long)
+
+case class ReadyObjectWithMetadata(content: String, metadata: ReadyObjectMetadata)
+
+case class FailedObjectWithMetadata(content: String, metadata: FailedObjectMetadata)
 
 trait FileManager {
 
-  def retrieveMetadata(objectLocation: S3ObjectLocation): Future[ObjectMetadata]
+  def retrieveReadyMetadata(objectLocation: S3ObjectLocation): Future[ReadyObjectMetadata]
 
-  def retrieveObject(objectLocation: S3ObjectLocation): Future[ObjectWithMetadata]
+  def retrieveFailedMetadata(objectLocation: S3ObjectLocation): Future[FailedObjectMetadata]
+
+  def retrieveReadyObject(objectLocation: S3ObjectLocation): Future[ReadyObjectWithMetadata]
+
+  def retrieveFailedObject(objectLocation: S3ObjectLocation): Future[FailedObjectWithMetadata]
 
 }

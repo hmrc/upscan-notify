@@ -17,6 +17,7 @@
 package connectors
 
 import java.net.URL
+import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
@@ -24,7 +25,7 @@ import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.typesafe.config.Config
-import model.{ErrorDetails, FileReference, QuarantinedFile, UploadedFile}
+import model._
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, GivenWhenThen, Matchers}
 import play.api.libs.ws.ahc.AhcWSClient
@@ -32,8 +33,8 @@ import uk.gov.hmrc.play.bootstrap.http.HttpClient
 import uk.gov.hmrc.play.http.ws.WSHttp
 import uk.gov.hmrc.play.test.UnitSpec
 
-import scala.concurrent.duration._
 import scala.concurrent.Await
+import scala.concurrent.duration._
 import scala.util.Try
 
 class HttpNotificationServiceSpec
@@ -73,11 +74,17 @@ class HttpNotificationServiceSpec
       val callbackUrl = new URL("http://localhost:11111/myservice/123")
       val downloadUrl = new URL("http://remotehost/bucket/123")
       stubCallbackReceiverToReturnValidResponse()
+      val initiateDate = Instant.parse("2018-04-24T09:30:00Z")
 
       When("the service is called")
-      val notification = UploadedFile(callbackUrl, FileReference("upload-file-reference"), downloadUrl, 0L, None)
-      val service      = new HttpNotificationService(new TestHttpClient)
-      val result       = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
+      val notification = UploadedFile(
+        callbackUrl,
+        FileReference("upload-file-reference"),
+        downloadUrl,
+        0L,
+        UploadDetails(initiateDate, "1a2b3c4d5e"))
+      val service = new HttpNotificationService(new TestHttpClient)
+      val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return success")
       result.isSuccess shouldBe true
@@ -88,7 +95,11 @@ class HttpNotificationServiceSpec
           .withRequestBody(equalToJson("""
           |{ "reference" : "upload-file-reference",
           |  "downloadUrl" : "http://remotehost/bucket/123",
-          |  "fileStatus": "READY"
+          |  "fileStatus": "READY",
+          |  "uploadDetails": {
+          |	    "uploadTimestamp": "2018-04-24T09:30:00Z",
+          |	    "checksum": "1a2b3c4d5e"
+          |  }
           |}
         """.stripMargin)))
 
@@ -98,7 +109,6 @@ class HttpNotificationServiceSpec
 
       Given("there is working host that can receive callback")
       val callbackUrl = new URL("http://localhost:11111/myservice/123")
-      val downloadUrl = new URL("http://remotehost/bucket/123")
       stubCallbackReceiverToReturnValidResponse()
 
       When("the service is called")
@@ -115,17 +125,18 @@ class HttpNotificationServiceSpec
       result.isSuccess shouldBe true
 
       And("callback URL is called with expected JSON body")
+
       callbackServer.verify(
         postRequestedFor(urlEqualTo("/myservice/123"))
           .withRequestBody(equalToJson("""
-         |{
+         | {
          |   "reference" : "quarantine-file-reference",
          |   "fileStatus" : "FAILED",
          |   "failureDetails" : {
          |     "failureReason" : "QUARANTINE",
          |     "message" : "This file has a virus"
          |   }
-         |}
+         | }
        """.stripMargin)))
 
     }
@@ -134,7 +145,6 @@ class HttpNotificationServiceSpec
 
       Given("there is working host that can receive callback")
       val callbackUrl = new URL("http://localhost:11111/myservice/123")
-      val downloadUrl = new URL("http://remotehost/bucket/123")
       stubCallbackReceiverToReturnValidResponse()
 
       When("the service is called")
@@ -154,16 +164,15 @@ class HttpNotificationServiceSpec
       callbackServer.verify(
         postRequestedFor(urlEqualTo("/myservice/123"))
           .withRequestBody(equalToJson("""
-                                         |{
-                                         |   "reference" : "rejected-file-reference",
-                                         |   "fileStatus" : "FAILED",
-                                         |   "failureDetails" : {
-                                         |     "failureReason" : "REJECTED",
-                                         |     "message" : "MIME type [some-type] not allowed for service [some-service]"
-                                         |   }
-                                         |}
-                                       """.stripMargin)))
-
+           | {
+           |   "reference" : "rejected-file-reference",
+           |   "fileStatus" : "FAILED",
+           |   "failureDetails" : {
+           |     "failureReason" : "REJECTED",
+           |     "message" : "MIME type [some-type] not allowed for service [some-service]"
+           |   }
+           | }
+           """.stripMargin)))
     }
 
     "return error when called host returns HTTP error response" in {
@@ -172,11 +181,18 @@ class HttpNotificationServiceSpec
       val callbackUrl = new URL("http://localhost:11111/myservice/123")
       val downloadUrl = new URL("http://remotehost/bucket/123")
       stubCallbackReceiverToReturnInvalidResponse()
+      val initiateDate = Instant.parse("2018-04-24T09:30:00Z")
 
       When("the service is called")
-      val notification = UploadedFile(callbackUrl, FileReference("file-reference"), downloadUrl, 0L, None)
-      val service      = new HttpNotificationService(new TestHttpClient)
-      val result       = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
+      val notification =
+        UploadedFile(
+          callbackUrl,
+          FileReference("file-reference"),
+          downloadUrl,
+          0L,
+          UploadDetails(initiateDate, "1a2b3c4d5e"))
+      val service = new HttpNotificationService(new TestHttpClient)
+      val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return an error")
       result.isSuccess shouldBe false
@@ -188,11 +204,18 @@ class HttpNotificationServiceSpec
       val callbackUrl = new URL("http://invalid-host-name:11111/myservice/123")
       val downloadUrl = new URL("http://remotehost/bucket/123")
       stubCallbackReceiverToReturnInvalidResponse()
+      val initiateDate = Instant.parse("2018-04-24T09:30:00Z")
 
       When("the service is called")
-      val notification = UploadedFile(callbackUrl, FileReference("file-reference"), downloadUrl, 0L, None)
-      val service      = new HttpNotificationService(new TestHttpClient)
-      val result       = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
+      val notification =
+        UploadedFile(
+          callbackUrl,
+          FileReference("file-reference"),
+          downloadUrl,
+          0L,
+          UploadDetails(initiateDate, "1a2b3c4d5e"))
+      val service = new HttpNotificationService(new TestHttpClient)
+      val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return an error")
       result.isSuccess shouldBe false

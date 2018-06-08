@@ -107,30 +107,27 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
       context
     }
 
-  private def collectMetricsBeforeNotification(notification: UploadedFile): Unit =
-    for (uploadTimestamp <- notification.uploadTimestamp) {
-      val totalProcessingTime = Duration.between(uploadTimestamp, clock.instant())
-      if (totalProcessingTime.isNegative) {
-        Logger.warn(
-          "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
-      } else {
-        metrics.defaultRegistry
-          .timer("fileProcessingTimeExcludingNotification")
-          .update(totalProcessingTime.toNanos, TimeUnit.NANOSECONDS)
-      }
+  private def collectMetricsBeforeNotification(notification: UploadedFile): Unit = {
+    val totalProcessingTime = Duration.between(notification.uploadDetails.uploadTimestamp, clock.instant())
+    if (totalProcessingTime.isNegative) {
+      Logger.warn(
+        "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
+    } else {
+      metrics.defaultRegistry
+        .timer("fileProcessingTimeExcludingNotification")
+        .update(totalProcessingTime.toNanos, TimeUnit.NANOSECONDS)
     }
+  }
 
   private def collectMetricsAfterNotification(notification: UploadedFile): Unit = {
-    for (uploadTimestamp <- notification.uploadTimestamp) {
-      val totalProcessingTime = Duration.between(uploadTimestamp, clock.instant())
-      if (totalProcessingTime.isNegative) {
-        Logger.warn(
-          "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
-      } else {
-        metrics.defaultRegistry
-          .timer("totalFileProcessingTime")
-          .update(totalProcessingTime.toNanos, TimeUnit.NANOSECONDS)
-      }
+    val totalProcessingTime = Duration.between(notification.uploadDetails.uploadTimestamp, clock.instant())
+    if (totalProcessingTime.isNegative) {
+      Logger.warn(
+        "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
+    } else {
+      metrics.defaultRegistry
+        .timer("totalFileProcessingTime")
+        .update(totalProcessingTime.toNanos, TimeUnit.NANOSECONDS)
     }
     metrics.defaultRegistry.histogram("fileSize").update(notification.size)
     metrics.defaultRegistry.counter("successfulUploadNotificationSent").inc()

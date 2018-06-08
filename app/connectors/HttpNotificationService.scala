@@ -33,7 +33,10 @@ class HttpNotificationService @Inject()(httpClient: HttpClient) extends Notifica
   override def notifySuccessfulCallback(uploadedFile: UploadedFile): Future[Unit] = {
 
     implicit val ld = LoggingDetails.fromFileReference(uploadedFile.reference)
-    val callback    = ReadyCallbackBody(uploadedFile.reference, uploadedFile.downloadUrl)
+    val callback = ReadyCallbackBody(
+      reference     = uploadedFile.reference,
+      downloadUrl   = uploadedFile.downloadUrl,
+      uploadDetails = uploadedFile.uploadDetails)
 
     httpClient
       .POST[ReadyCallbackBody, HttpResponse](uploadedFile.callbackUrl.toString, callback)
@@ -48,7 +51,7 @@ class HttpNotificationService @Inject()(httpClient: HttpClient) extends Notifica
   override def notifyFailedCallback(quarantinedFile: QuarantinedFile): Future[Unit] = {
 
     implicit val ld = LoggingDetails.fromFileReference(quarantinedFile.reference)
-    val callback    = FailedCallbackBody(quarantinedFile.reference, FailedFileStatus, quarantinedFile.error)
+    val callback    = FailedCallbackBody(reference = quarantinedFile.reference, failureDetails = quarantinedFile.error)
 
     httpClient
       .POST[FailedCallbackBody, HttpResponse](quarantinedFile.callbackUrl.toString, callback)
