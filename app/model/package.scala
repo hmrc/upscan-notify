@@ -33,6 +33,8 @@ case class Message(id: String, body: String, receiptHandle: String)
 
 case class UploadDetails(uploadTimestamp: Instant, checksum: String)
 
+case class RequestContext(requestId: Option[String], sessionId: Option[String])
+
 object UploadDetails {
   implicit val formatsUploadDetails: Format[UploadDetails] = Json.format[UploadDetails]
 }
@@ -42,10 +44,15 @@ case class UploadedFile(
   reference: FileReference,
   downloadUrl: URL,
   size: Long,
-  uploadDetails: UploadDetails
+  uploadDetails: UploadDetails,
+  requestContext: RequestContext
 )
 
-case class QuarantinedFile(callbackUrl: URL, reference: FileReference, error: ErrorDetails)
+case class QuarantinedFile(
+  callbackUrl: URL,
+  reference: FileReference,
+  error: ErrorDetails,
+  requestContext: RequestContext)
 
 case class S3ObjectLocation(bucket: String, objectKey: String)
 case class FileUploadEvent(location: S3ObjectLocation)

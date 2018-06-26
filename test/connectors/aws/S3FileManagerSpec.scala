@@ -53,6 +53,8 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       userMetadata.put("callback-url", callbackUrl.toString)
       userMetadata.put("initiate-date", DateTimeFormatter.ISO_INSTANT.format(initiateDate))
       userMetadata.put("checksum", checksum)
+      userMetadata.put("request-id", "REQUEST_ID")
+      userMetadata.put("session-id", "SESSION_ID")
 
       val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
       Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
@@ -64,7 +66,13 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       val result = fileManager.retrieveReadyMetadata(fileLocation)
 
       ScalaFutures.whenReady(result) { result =>
-        result shouldBe ReadyObjectMetadata(callbackUrl, initiateDate, checksum, 0L)
+        result shouldBe ReadyObjectMetadata(
+          callbackUrl,
+          initiateDate,
+          checksum,
+          0L,
+          Some("REQUEST_ID"),
+          Some("SESSION_ID"))
       }
     }
 
@@ -231,6 +239,8 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       userMetadata.put("callback-url", callbackUrl.toString)
       userMetadata.put("initiate-date", DateTimeFormatter.ISO_INSTANT.format(initiateDate))
       userMetadata.put("checksum", checksum)
+      userMetadata.put("request-id", "REQUEST_ID")
+      userMetadata.put("session-id", "SESSION_ID")
 
       val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
       Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
@@ -248,8 +258,14 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       val result = fileManager.retrieveReadyObject(fileLocation)
 
       ScalaFutures.whenReady(result) { result =>
-        result.metadata shouldBe ReadyObjectMetadata(callbackUrl, initiateDate, checksum, 0L)
-        result.content  shouldBe "TEST"
+        result.metadata shouldBe ReadyObjectMetadata(
+          callbackUrl,
+          initiateDate,
+          checksum,
+          0L,
+          Some("REQUEST_ID"),
+          Some("SESSION_ID"))
+        result.content shouldBe "TEST"
       }
 
     }

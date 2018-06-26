@@ -55,15 +55,20 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
     override def toJson: String = ???
   }
 
+  val sampleRequestContext = RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"))
+
+  def sampleUploadedFile(objectLocation: S3ObjectLocation) =
+    UploadedFile(
+      callbackUrl,
+      FileReference(objectLocation.objectKey),
+      downloadUrl,
+      10L,
+      UploadDetails(startTime, "1a2b3c4d5e"),
+      sampleRequestContext)
+
   val fileDetailsRetriever = new FileNotificationDetailsRetriever {
     override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
-      Future.successful(
-        UploadedFile(
-          callbackUrl,
-          FileReference(objectLocation.objectKey),
-          downloadUrl,
-          10L,
-          UploadDetails(startTime, "1a2b3c4d5e")))
+      Future.successful(sampleUploadedFile(objectLocation))
 
     override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] = ???
   }
@@ -82,13 +87,16 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
       val metrics = metricsStub()
 
+      val auditingService = mock[UpscanAuditingService]
+
       val queueOrchestrator = new NotifyOnSuccessfulFileUploadMessageProcessingJob(
         queueConsumer,
         messageParser,
         fileDetailsRetriever,
         notificationService,
         metrics,
-        clock)
+        clock,
+        auditingService)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -114,6 +122,12 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         .timer("fileProcessingTimeExcludingNotification")
         .getSnapshot
         .getValues shouldBe Array((5 seconds).toNanos) //5 seconds in nanoseconds
+
+      And("audit events are emitted for all the events")
+
+      Mockito
+        .verify(auditingService)
+        .notifyFileUploadedSuccessfully(sampleUploadedFile(S3ObjectLocation("bucket", "ID")))
     }
 
     "get messages from the queue consumer, and call notification service for valid messages and ignore invalid messages" in {
@@ -140,13 +154,16 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
       val metrics = metricsStub()
 
+      val auditingService = mock[UpscanAuditingService]
+
       val queueOrchestrator = new NotifyOnSuccessfulFileUploadMessageProcessingJob(
         queueConsumer,
         messageParser,
         fileDetailsRetriever,
         notificationService,
         metrics,
-        clock)
+        clock,
+        auditingService)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
@@ -185,21 +202,44 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
       val notificationService = mock[NotificationService]
       Mockito
-        .when(notificationService.notifySuccessfulCallback(
-          UploadedFile(callbackUrl, FileReference("ID1"), downloadUrl, 10L, UploadDetails(startTime, "1a2b3c4d5e"))))
+        .when(
+          notificationService.notifySuccessfulCallback(
+            UploadedFile(
+              callbackUrl,
+              FileReference("ID1"),
+              downloadUrl,
+              10L,
+              UploadDetails(startTime, "1a2b3c4d5e"),
+              sampleRequestContext)))
         .thenReturn(Future.successful(()))
 
       Mockito
-        .when(notificationService.notifySuccessfulCallback(
-          UploadedFile(callbackUrl, FileReference("ID2"), downloadUrl, 10L, UploadDetails(startTime, "1a2b3c4d5e"))))
+        .when(
+          notificationService.notifySuccessfulCallback(
+            UploadedFile(
+              callbackUrl,
+              FileReference("ID2"),
+              downloadUrl,
+              10L,
+              UploadDetails(startTime, "1a2b3c4d5e"),
+              sampleRequestContext)))
         .thenReturn(Future.failed(new Exception("Planned exception")))
 
       Mockito
-        .when(notificationService.notifySuccessfulCallback(
-          UploadedFile(callbackUrl, FileReference("ID3"), downloadUrl, 10L, UploadDetails(startTime, "1a2b3c4d5e"))))
+        .when(
+          notificationService.notifySuccessfulCallback(
+            UploadedFile(
+              callbackUrl,
+              FileReference("ID3"),
+              downloadUrl,
+              10L,
+              UploadDetails(startTime, "1a2b3c4d5e"),
+              sampleRequestContext)))
         .thenReturn(Future.successful(()))
 
       val metrics = metricsStub()
+
+      val auditingService = mock[UpscanAuditingService]
 
       val queueOrchestrator = new NotifyOnSuccessfulFileUploadMessageProcessingJob(
         queueConsumer,
@@ -207,7 +247,8 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         fileDetailsRetriever,
         notificationService,
         metrics,
-        clock)
+        clock,
+        auditingService)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)

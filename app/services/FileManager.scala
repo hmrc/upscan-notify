@@ -20,12 +20,20 @@ import java.net.URL
 import java.time.Instant
 
 import model.S3ObjectLocation
+import play.api.Logger
 
 import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
 
-case class ReadyObjectMetadata(callbackUrl: URL, uploadedTimestamp: Instant, checksum: String, size: Long)
+case class ReadyObjectMetadata(
+  callbackUrl: URL,
+  uploadedTimestamp: Instant,
+  checksum: String,
+  size: Long,
+  requestId: Option[String],
+  sessionId: Option[String])
 
-case class FailedObjectMetadata(callbackUrl: URL, size: Long)
+case class FailedObjectMetadata(callbackUrl: URL, size: Long, requestId: Option[String], sessionId: Option[String])
 
 case class ReadyObjectWithMetadata(content: String, metadata: ReadyObjectMetadata)
 

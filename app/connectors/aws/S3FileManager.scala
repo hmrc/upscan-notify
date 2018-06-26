@@ -18,10 +18,10 @@ package connectors.aws
 
 import java.net.URL
 import java.time.Instant
-import javax.inject.Inject
 
+import javax.inject.Inject
 import com.amazonaws.services.s3.AmazonS3
-import model.{S3ObjectLocation, UploadDetails}
+import model.{RequestContext, S3ObjectLocation, UploadDetails}
 import org.apache.commons.io.IOUtils
 import play.api.Logger
 import services._
@@ -47,8 +47,15 @@ class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
       metadata      <- Future(s3Client.getObjectMetadata(objectLocation.bucket, objectLocation.objectKey))
       callbackUrl   <- Future.fromTry(retrieveCallbackUrl(metadata.getUserMetadata.asScala.toMap, objectLocation))
       uploadDetails <- Future.fromTry(retrieveUploadDetails(metadata.getUserMetadata.asScala.toMap, objectLocation))
+      requestContext = retrieveUserContext(metadata.getUserMetadata.asScala.toMap)
     } yield {
-      ReadyObjectMetadata(callbackUrl, uploadDetails.uploadTimestamp, uploadDetails.checksum, metadata.getContentLength)
+      ReadyObjectMetadata(
+        callbackUrl,
+        uploadDetails.uploadTimestamp,
+        uploadDetails.checksum,
+        metadata.getContentLength,
+        requestContext.requestId,
+        requestContext.sessionId)
     }
   }
 
@@ -61,13 +68,17 @@ class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
       metadata = s3Object.getObjectMetadata.getUserMetadata.asScala.toMap
       callbackUrl   <- Future.fromTry(retrieveCallbackUrl(metadata, objectLocation))
       uploadDetails <- Future.fromTry(retrieveUploadDetails(metadata, objectLocation))
+      requestContext = retrieveUserContext(metadata)
     } yield {
       Logger.debug(s"Fetched object with metadata for objectKey: [${objectLocation.objectKey}].")
       val readyObjectMetadata = ReadyObjectMetadata(
         callbackUrl,
         uploadDetails.uploadTimestamp,
         uploadDetails.checksum,
-        s3Object.getObjectMetadata.getContentLength)
+        s3Object.getObjectMetadata.getContentLength,
+        requestContext.requestId,
+        requestContext.sessionId
+      )
 
       ReadyObjectWithMetadata(content, readyObjectMetadata)
     }
@@ -79,8 +90,9 @@ class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
     for {
       metadata    <- Future(s3Client.getObjectMetadata(objectLocation.bucket, objectLocation.objectKey))
       callbackUrl <- Future.fromTry(retrieveCallbackUrl(metadata.getUserMetadata.asScala.toMap, objectLocation))
+      requestContext = retrieveUserContext(metadata.getUserMetadata.asScala.toMap)
     } yield {
-      FailedObjectMetadata(callbackUrl, metadata.getContentLength)
+      FailedObjectMetadata(callbackUrl, metadata.getContentLength, requestContext.requestId, requestContext.sessionId)
     }
   }
 
@@ -92,15 +104,26 @@ class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
       content  <- Future.fromTry(Try(IOUtils.toString(s3Object.getObjectContent)))
       metadata = s3Object.getObjectMetadata.getUserMetadata.asScala.toMap
       callbackUrl <- Future.fromTry(retrieveCallbackUrl(metadata, objectLocation))
+      requestContext = retrieveUserContext(metadata)
     } yield {
       Logger.debug(s"Fetched object with metadata for objectKey: [${objectLocation.objectKey}].")
-      val failedObjectMetadata = FailedObjectMetadata(callbackUrl, s3Object.getObjectMetadata.getContentLength)
+      val failedObjectMetadata = FailedObjectMetadata(
+        callbackUrl,
+        s3Object.getObjectMetadata.getContentLength,
+        requestContext.requestId,
+        requestContext.sessionId)
       FailedObjectWithMetadata(content, failedObjectMetadata)
     }
   }
 
   private def retrieveCallbackUrl(metadata: Map[String, String], location: S3ObjectLocation): Try[URL] =
     retrieveAndParseMetadata(metadata, { new URL(_) }, metadataKeyCallbackUrl, location)
+
+  private def retrieveUserContext(metadata: Map[String, String]): RequestContext = {
+    val requestId = metadata.get("request-id")
+    val sessionId = metadata.get("session-id")
+    RequestContext(requestId, sessionId)
+  }
 
   private def retrieveUploadDetails(metadata: Map[String, String], location: S3ObjectLocation): Try[UploadDetails] =
     for {

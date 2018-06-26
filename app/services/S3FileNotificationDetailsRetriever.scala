@@ -17,7 +17,6 @@
 package services
 
 import javax.inject.Inject
-
 import config.ServiceConfiguration
 import model._
 import play.api.Logger
@@ -34,12 +33,6 @@ class S3FileNotificationDetailsRetriever @Inject()(
   downloadUrlGenerator: DownloadUrlGenerator)
     extends FileNotificationDetailsRetriever {
 
-  val metadataKeyCallbackUrl = "callback-url"
-
-  val metadataKeyInitiateDate = "initiate-date"
-
-  val metadataKeyChecksum = "checksum"
-
   override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] = {
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
@@ -53,7 +46,9 @@ class S3FileNotificationDetailsRetriever @Inject()(
           FileReference(objectLocation.objectKey),
           downloadUrl,
           metadata.size,
-          UploadDetails(metadata.uploadedTimestamp, metadata.checksum))
+          UploadDetails(metadata.uploadedTimestamp, metadata.checksum),
+          RequestContext(metadata.requestId, metadata.sessionId)
+        )
       Logger.debug(
         s"Retrieved file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
       retrieved
@@ -70,7 +65,9 @@ class S3FileNotificationDetailsRetriever @Inject()(
         QuarantinedFile(
           quarantineFile.metadata.callbackUrl,
           FileReference(objectLocation.objectKey),
-          parseContents(quarantineFile.content))
+          parseContents(quarantineFile.content),
+          RequestContext(quarantineFile.metadata.requestId, quarantineFile.metadata.sessionId)
+        )
       Logger.debug(
         s"Retrieved quarantined file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
       retrieved
