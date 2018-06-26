@@ -82,7 +82,9 @@ class HttpNotificationServiceSpec
         FileReference("upload-file-reference"),
         downloadUrl,
         0L,
-        UploadDetails(initiateDate, "1a2b3c4d5e"))
+        UploadDetails(initiateDate, "1a2b3c4d5e"),
+        RequestContext(Some("requestId"), Some("sessionId"))
+      )
       val service = new HttpNotificationService(new TestHttpClient)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
@@ -116,7 +118,8 @@ class HttpNotificationServiceSpec
         QuarantinedFile(
           callbackUrl,
           FileReference("quarantine-file-reference"),
-          ErrorDetails("QUARANTINE", "This file has a virus")
+          ErrorDetails("QUARANTINE", "This file has a virus"),
+          RequestContext(Some("requestId"), Some("sessionId"))
         )
       val service = new HttpNotificationService(new TestHttpClient)
       val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
@@ -152,7 +155,8 @@ class HttpNotificationServiceSpec
         QuarantinedFile(
           callbackUrl,
           FileReference("rejected-file-reference"),
-          ErrorDetails("REJECTED", "MIME type [some-type] not allowed for service [some-service]")
+          ErrorDetails("REJECTED", "MIME type [some-type] not allowed for service [some-service]"),
+          RequestContext(Some("requestId"), Some("sessionId"))
         )
       val service = new HttpNotificationService(new TestHttpClient)
       val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
@@ -190,7 +194,9 @@ class HttpNotificationServiceSpec
           FileReference("file-reference"),
           downloadUrl,
           0L,
-          UploadDetails(initiateDate, "1a2b3c4d5e"))
+          UploadDetails(initiateDate, "1a2b3c4d5e"),
+          RequestContext(Some("requestId"), Some("sessionId"))
+        )
       val service = new HttpNotificationService(new TestHttpClient)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
@@ -213,7 +219,9 @@ class HttpNotificationServiceSpec
           FileReference("file-reference"),
           downloadUrl,
           0L,
-          UploadDetails(initiateDate, "1a2b3c4d5e"))
+          UploadDetails(initiateDate, "1a2b3c4d5e"),
+          RequestContext(Some("requestId"), Some("sessionId"))
+        )
       val service = new HttpNotificationService(new TestHttpClient)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 

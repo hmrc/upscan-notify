@@ -92,7 +92,9 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
   fileRetriever: FileNotificationDetailsRetriever,
   notificationService: NotificationService,
   metrics: Metrics,
-  clock: Clock)(implicit val executionContext: ExecutionContext)
+  clock: Clock,
+  upscanAuditingService: UpscanAuditingService
+)(implicit val executionContext: ExecutionContext)
     extends MessageProcessingJob {
 
   override def processMessage(message: Message): EitherT[Future, ExceptionWithContext, MessageContext] =
@@ -100,6 +102,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
       parsedMessage <- toEitherT(parser.parse(message))
       context = MessageContext(LoggingDetails.fromS3ObjectLocation(parsedMessage.location))
       notification <- toEitherT(fileRetriever.retrieveUploadedFileDetails(parsedMessage.location), Some(context))
+      _ = upscanAuditingService.notifyFileUploadedSuccessfully(notification)
       _ = collectMetricsBeforeNotification(notification)
       _ <- toEitherT(notificationService.notifySuccessfulCallback(notification), Some(context))
     } yield {
@@ -139,7 +142,8 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
   parser: MessageParser,
   fileRetriever: FileNotificationDetailsRetriever,
   notificationService: NotificationService,
-  metrics: Metrics
+  metrics: Metrics,
+  upscanAuditingService: UpscanAuditingService
 )(implicit val executionContext: ExecutionContext)
     extends MessageProcessingJob {
 
@@ -151,6 +155,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
                        fileRetriever.retrieveQuarantinedFileDetails(parsedMessage.location),
                        Some(context)
                      )
+      _ = upscanAuditingService.notifyFileIsQuarantined(notification)
       _ <- toEitherT(notificationService.notifyFailedCallback(notification), Some(context))
     } yield {
       metrics.defaultRegistry.counter("quarantinedUploadNotificationSent").inc()
