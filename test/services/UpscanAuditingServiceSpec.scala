@@ -59,7 +59,7 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
       val dataEvent: DataEvent = eventCaptor.getValue
 
       dataEvent.auditSource                 shouldBe "upscan"
-      dataEvent.auditType                   shouldBe "CleanFileUploaded"
+      dataEvent.auditType                   shouldBe "cleanFileUploaded"
       dataEvent.detail.get("fileReference") shouldBe Some("REF")
       dataEvent.detail.get("fileSize")      shouldBe Some("10")
 
@@ -90,7 +90,7 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
       val dataEvent: DataEvent = eventCaptor.getValue
 
       dataEvent.auditSource                 shouldBe "upscan"
-      dataEvent.auditType                   shouldBe "InvalidFileUploaded"
+      dataEvent.auditType                   shouldBe "invalidFileUploaded"
       dataEvent.detail.get("fileReference") shouldBe Some("REF")
       dataEvent.detail.get("failureReason") shouldBe Some("QUARANTINE")
 

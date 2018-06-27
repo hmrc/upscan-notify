@@ -26,12 +26,12 @@ import uk.gov.hmrc.play.audit.model.DataEvent
 import scala.concurrent.{ExecutionContext, Future}
 
 class CleanFileUploaded(override val detail: Map[String, String])(implicit hc: HeaderCarrier)
-    extends DataEvent(auditSource = "upscan", auditType = "CleanFileUploaded", detail = detail, tags = hc.headers.toMap)
+    extends DataEvent(auditSource = "upscan", auditType = "cleanFileUploaded", detail = detail, tags = hc.headers.toMap)
 
 class InvalidFileUploaded(override val detail: Map[String, String])(implicit hc: HeaderCarrier)
     extends DataEvent(
       auditSource = "upscan",
-      auditType   = "InvalidFileUploaded",
+      auditType   = "invalidFileUploaded",
       detail      = detail,
       tags        = hc.headers.toMap)
 
