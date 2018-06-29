@@ -46,7 +46,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
           FileReference(objectLocation.objectKey),
           downloadUrl,
           metadata.size,
-          UploadDetails(metadata.uploadedTimestamp, metadata.checksum),
+          metadata.uploadDetails,
           RequestContext(metadata.requestId, metadata.sessionId)
         )
       Logger.debug(

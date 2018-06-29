@@ -82,7 +82,7 @@ class HttpNotificationServiceSpec
         FileReference("upload-file-reference"),
         downloadUrl,
         0L,
-        UploadDetails(initiateDate, "1a2b3c4d5e"),
+        UploadDetails("test.pdf", "application/pdf", initiateDate, "1a2b3c4d5e"),
         RequestContext(Some("requestId"), Some("sessionId"))
       )
       val service = new HttpNotificationService(new TestHttpClient)
@@ -100,7 +100,9 @@ class HttpNotificationServiceSpec
           |  "fileStatus": "READY",
           |  "uploadDetails": {
           |	    "uploadTimestamp": "2018-04-24T09:30:00Z",
-          |	    "checksum": "1a2b3c4d5e"
+          |	    "checksum": "1a2b3c4d5e",
+          |     "fileMimeType": "application/pdf",
+          |     "fileName": "test.pdf"
           |  }
           |}
         """.stripMargin)))
@@ -194,7 +196,7 @@ class HttpNotificationServiceSpec
           FileReference("file-reference"),
           downloadUrl,
           0L,
-          UploadDetails(initiateDate, "1a2b3c4d5e"),
+          UploadDetails("test.pdf", "application/pdf", initiateDate, "1a2b3c4d5e"),
           RequestContext(Some("requestId"), Some("sessionId"))
         )
       val service = new HttpNotificationService(new TestHttpClient)
@@ -219,7 +221,7 @@ class HttpNotificationServiceSpec
           FileReference("file-reference"),
           downloadUrl,
           0L,
-          UploadDetails(initiateDate, "1a2b3c4d5e"),
+          UploadDetails("test/pdf", "application/pdf", initiateDate, "1a2b3c4d5e"),
           RequestContext(Some("requestId"), Some("sessionId"))
         )
       val service = new HttpNotificationService(new TestHttpClient)

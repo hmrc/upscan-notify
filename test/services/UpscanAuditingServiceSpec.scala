@@ -46,7 +46,7 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
         FileReference("REF"),
         new URL("http://www.test.com"),
         10L,
-        UploadDetails(Instant.now(), "1a2b3c4d5e"),
+        UploadDetails("test.pdf", "application/pdf", Instant.now(), "1a2b3c4d5e"),
         RequestContext(Some("RequestId"), Some("SessionId"))
       )
 
