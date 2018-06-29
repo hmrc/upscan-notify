@@ -49,7 +49,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       userMetadata.put("checksum", checksum)
       userMetadata.put("request-id", "REQUEST_ID")
       userMetadata.put("session-id", "SESSION_ID")
-      userMetadata.put("file-name", "test.pdf")
+      userMetadata.put("original-filename", "test.pdf")
       userMetadata.put("mime-type", "application/pdf")
 
       val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
@@ -80,7 +80,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       val userMetadata = new util.TreeMap[String, String]()
       userMetadata.put("initiate-date", DateTimeFormatter.ISO_INSTANT.format(initiateDate))
       userMetadata.put("checksum", checksum)
-      userMetadata.put("file-name", "test.pdf")
+      userMetadata.put("original-filename", "test.pdf")
       userMetadata.put("mime-type", "application/xml")
 
       val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
@@ -121,7 +121,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
 
       ScalaFutures.whenReady(result.failed) { error =>
         error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"Metadata not found: [file-name], for objectKey: [${fileLocation.objectKey}]."
+        error.getMessage shouldBe s"Metadata not found: [original-filename], for objectKey: [${fileLocation.objectKey}]."
       }
     }
 
@@ -135,7 +135,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       userMetadata.put("callback-url", callbackUrl.toString)
       userMetadata.put("initiate-date", DateTimeFormatter.ISO_INSTANT.format(initiateDate))
       userMetadata.put("checksum", checksum)
-      userMetadata.put("file-name", "test.pdf")
+      userMetadata.put("original-filename", "test.pdf")
 
       val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
       Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
