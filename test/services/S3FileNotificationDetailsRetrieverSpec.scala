@@ -49,7 +49,12 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
 
     "return callback URL from S3 metadata for uploaded file with all required metadata" in {
       val objectMetadata =
-        ReadyObjectMetadata(callbackUrl, initiateDate, checksum, 10L, Some("requestId"), Some("sessionId"))
+        ReadyObjectMetadata(
+          callbackUrl,
+          UploadDetails("test.pdf", "application/pdf", initiateDate, checksum),
+          10L,
+          Some("requestId"),
+          Some("sessionId"))
 
       val fileManager = mock[FileManager]
       Mockito.when(fileManager.retrieveReadyMetadata(any())).thenReturn(Future.successful(objectMetadata))
@@ -69,8 +74,9 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
         FileReference("my-key"),
         downloadUrl,
         10L,
-        UploadDetails(initiateDate, checksum),
-        RequestContext(Some("requestId"), Some("sessionId")))
+        UploadDetails("test.pdf", "application/pdf", initiateDate, checksum),
+        RequestContext(Some("requestId"), Some("sessionId"))
+      )
     }
 
     //TODO add tests for including requestId and sessionId

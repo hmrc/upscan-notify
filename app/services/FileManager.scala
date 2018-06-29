@@ -17,18 +17,14 @@
 package services
 
 import java.net.URL
-import java.time.Instant
 
-import model.S3ObjectLocation
-import play.api.Logger
+import model.{S3ObjectLocation, UploadDetails}
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
 
 case class ReadyObjectMetadata(
   callbackUrl: URL,
-  uploadedTimestamp: Instant,
-  checksum: String,
+  uploadDetails: UploadDetails,
   size: Long,
   requestId: Option[String],
   sessionId: Option[String])
@@ -42,10 +38,6 @@ case class FailedObjectWithMetadata(content: String, metadata: FailedObjectMetad
 trait FileManager {
 
   def retrieveReadyMetadata(objectLocation: S3ObjectLocation): Future[ReadyObjectMetadata]
-
-  def retrieveFailedMetadata(objectLocation: S3ObjectLocation): Future[FailedObjectMetadata]
-
-  def retrieveReadyObject(objectLocation: S3ObjectLocation): Future[ReadyObjectWithMetadata]
 
   def retrieveFailedObject(objectLocation: S3ObjectLocation): Future[FailedObjectWithMetadata]
 

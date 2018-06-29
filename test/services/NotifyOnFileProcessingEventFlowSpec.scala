@@ -63,8 +63,9 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       FileReference(objectLocation.objectKey),
       downloadUrl,
       10L,
-      UploadDetails(startTime, "1a2b3c4d5e"),
-      sampleRequestContext)
+      UploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
+      sampleRequestContext
+    )
 
   val fileDetailsRetriever = new FileNotificationDetailsRetriever {
     override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
@@ -209,7 +210,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
               FileReference("ID1"),
               downloadUrl,
               10L,
-              UploadDetails(startTime, "1a2b3c4d5e"),
+              UploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
               sampleRequestContext)))
         .thenReturn(Future.successful(()))
 
@@ -221,7 +222,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
               FileReference("ID2"),
               downloadUrl,
               10L,
-              UploadDetails(startTime, "1a2b3c4d5e"),
+              UploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
               sampleRequestContext)))
         .thenReturn(Future.failed(new Exception("Planned exception")))
 
@@ -233,7 +234,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
               FileReference("ID3"),
               downloadUrl,
               10L,
-              UploadDetails(startTime, "1a2b3c4d5e"),
+              UploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
               sampleRequestContext)))
         .thenReturn(Future.successful(()))
 

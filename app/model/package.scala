@@ -31,7 +31,7 @@ object FileReference {
 
 case class Message(id: String, body: String, receiptHandle: String)
 
-case class UploadDetails(uploadTimestamp: Instant, checksum: String)
+case class UploadDetails(fileName: String, fileMimeType: String, uploadTimestamp: Instant, checksum: String)
 
 case class RequestContext(requestId: Option[String], sessionId: Option[String])
 
