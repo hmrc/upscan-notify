@@ -92,7 +92,7 @@ class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
     for {
       uploadTimestamp <- metadata.get("initiate-date", Instant.parse)
       checksum        <- metadata.get("checksum")
-      fileName        <- metadata.get("file-name")
+      fileName        <- metadata.get("original-filename")
       mimeType        <- metadata.get("mime-type")
     } yield UploadDetails(fileName, mimeType, uploadTimestamp, checksum)
 
