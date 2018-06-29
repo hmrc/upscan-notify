@@ -31,35 +31,39 @@ import uk.gov.hmrc.play.test.UnitSpec
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.util.{Failure, Success, Try}
 
 class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
 
   "S3FileNotificationDetailsRetriever" should {
 
-    val location = S3ObjectLocation("my-bucket", "my-key")
-
     val config = mock[ServiceConfiguration]
 
     val urlGenerator = mock[DownloadUrlGenerator]
 
-    val callbackUrl  = new URL("http://my.callback.url")
-    val initiateDate = Instant.parse("2018-04-24T09:30:00Z")
-    val checksum     = "1a2b3c4d5e"
+    val fileReference = "my-key"
+    val location      = S3ObjectLocation("my-bucket", fileReference)
+    val callbackUrl   = new URL("http://my.callback.url")
+    val initiateDate  = Instant.parse("2018-04-24T09:30:00Z")
+    val checksum      = "1a2b3c4d5e"
+    val fileSize      = 10L
+    val requestId     = Some("requestId")
+    val sessionId     = Some("sessionId")
+    val fileName      = "test.pdf"
+    val fileMime      = "application/pdf"
+    val downloadUrl   = new URL("http://remotehost/my-bucket/my-key")
 
     "return callback URL from S3 metadata for uploaded file with all required metadata" in {
       val objectMetadata =
         ReadyObjectMetadata(
           callbackUrl,
-          UploadDetails("test.pdf", "application/pdf", initiateDate, checksum),
-          10L,
-          Some("requestId"),
-          Some("sessionId"))
+          UploadDetails(fileName, fileMime, initiateDate, checksum),
+          fileSize,
+          requestId,
+          sessionId)
 
       val fileManager = mock[FileManager]
       Mockito.when(fileManager.retrieveReadyMetadata(any())).thenReturn(Future.successful(objectMetadata))
 
-      val downloadUrl = new URL("http://remotehost/my-bucket/my-key")
       Mockito.when(urlGenerator.generate(any())).thenReturn(downloadUrl)
 
       Given("a S3 file notification retriever and a valid set of retrieval details")
@@ -71,11 +75,11 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       And("the expected callback URL is returned")
       result shouldBe UploadedFile(
         callbackUrl,
-        FileReference("my-key"),
+        FileReference(fileReference),
         downloadUrl,
-        10L,
-        UploadDetails("test.pdf", "application/pdf", initiateDate, checksum),
-        RequestContext(Some("requestId"), Some("sessionId"))
+        fileSize,
+        UploadDetails(fileName, fileMime, initiateDate, checksum),
+        RequestContext(requestId, sessionId)
       )
     }
 
