@@ -22,7 +22,7 @@ import java.time.format.DateTimeFormatter
 import java.util
 
 import com.amazonaws.services.s3.AmazonS3
-import model.{S3ObjectLocation, UploadDetails}
+import model.{RequestContext, S3ObjectLocation, UploadDetails}
 import org.mockito.Mockito
 import org.scalatest.Matchers
 import org.scalatest.concurrent.ScalaFutures
@@ -51,6 +51,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       userMetadata.put("session-id", "SESSION_ID")
       userMetadata.put("original-filename", "test.pdf")
       userMetadata.put("mime-type", "application/pdf")
+      userMetadata.put("client-ip", "127.0.0.1")
 
       val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
       Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
@@ -66,8 +67,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
           callbackUrl,
           UploadDetails("test.pdf", "application/pdf", initiateDate, checksum),
           0L,
-          Some("REQUEST_ID"),
-          Some("SESSION_ID"))
+          RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1"))
       }
     }
 
@@ -82,6 +82,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       userMetadata.put("checksum", checksum)
       userMetadata.put("original-filename", "test.pdf")
       userMetadata.put("mime-type", "application/xml")
+      userMetadata.put("client-ip", "127.0.0.1")
 
       val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
       Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
@@ -109,6 +110,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       userMetadata.put("initiate-date", DateTimeFormatter.ISO_INSTANT.format(initiateDate))
       userMetadata.put("checksum", checksum)
       userMetadata.put("mime-type", "application/xml")
+      userMetadata.put("client-ip", "127.0.0.1")
 
       val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
       Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
@@ -136,6 +138,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       userMetadata.put("initiate-date", DateTimeFormatter.ISO_INSTANT.format(initiateDate))
       userMetadata.put("checksum", checksum)
       userMetadata.put("original-filename", "test.pdf")
+      userMetadata.put("client-ip", "127.0.0.1")
 
       val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
       Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
@@ -161,6 +164,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       val userMetadata = new util.TreeMap[String, String]()
       userMetadata.put("callback-url", callbackUrl.toString)
       userMetadata.put("checksum", checksum)
+      userMetadata.put("client-ip", "127.0.0.1")
 
       val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
       Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
@@ -186,6 +190,9 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       val userMetadata = new util.TreeMap[String, String]()
       userMetadata.put("callback-url", callbackUrl.toString)
       userMetadata.put("initiate-date", DateTimeFormatter.ISO_INSTANT.format(initiateDate))
+      userMetadata.put("original-filename", "test.pdf")
+      userMetadata.put("mime-type", "application/xml")
+      userMetadata.put("client-ip", "127.0.0.1")
 
       val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
       Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
@@ -202,6 +209,34 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       }
     }
 
+    "return wrapped failure if the metadata doesn't contain a client-ip for uploaded file" in {
+      val fileLocation = S3ObjectLocation("bucket", "objectKey")
+
+      val s3client    = mock[AmazonS3]
+      val fileManager = new S3FileManager(s3client)
+
+      val userMetadata = new util.TreeMap[String, String]()
+      userMetadata.put("callback-url", callbackUrl.toString)
+      userMetadata.put("initiate-date", DateTimeFormatter.ISO_INSTANT.format(initiateDate))
+      userMetadata.put("original-filename", "test.pdf")
+      userMetadata.put("mime-type", "application/xml")
+      userMetadata.put("checksum", "123456")
+
+      val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
+      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+
+      Mockito
+        .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
+        .thenReturn(objectMetadata)
+
+      val result = fileManager.retrieveReadyMetadata(fileLocation)
+
+      ScalaFutures.whenReady(result.failed) { error =>
+        error            shouldBe a[NoSuchElementException]
+        error.getMessage shouldBe s"Metadata not found: [client-ip], for objectKey: [${fileLocation.objectKey}]."
+      }
+    }
+
     "return wrapped failure if the callback metadata is not a valid URL for uploaded file" in {
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
 
@@ -212,6 +247,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       userMetadata.put("callback-url", "not-a-valid-url")
       userMetadata.put("initiate-date", DateTimeFormatter.ISO_INSTANT.format(initiateDate))
       userMetadata.put("checksum", checksum)
+      userMetadata.put("client-ip", "127.0.0.1")
 
       val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
       Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
@@ -239,6 +275,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       userMetadata.put("callback-url", callbackUrl.toString)
       userMetadata.put("initiate-date", "not-a-valid-date")
       userMetadata.put("checksum", checksum)
+      userMetadata.put("client-ip", "127.0.0.1")
 
       val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
       Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)

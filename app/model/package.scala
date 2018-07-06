@@ -33,7 +33,7 @@ case class Message(id: String, body: String, receiptHandle: String)
 
 case class UploadDetails(fileName: String, fileMimeType: String, uploadTimestamp: Instant, checksum: String)
 
-case class RequestContext(requestId: Option[String], sessionId: Option[String])
+case class RequestContext(requestId: Option[String], sessionId: Option[String], clientIp: String)
 
 object UploadDetails {
   implicit val formatsUploadDetails: Format[UploadDetails] = Json.format[UploadDetails]

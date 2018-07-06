@@ -83,7 +83,7 @@ class HttpNotificationServiceSpec
         downloadUrl,
         0L,
         UploadDetails("test.pdf", "application/pdf", initiateDate, "1a2b3c4d5e"),
-        RequestContext(Some("requestId"), Some("sessionId"))
+        RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
       )
       val service = new HttpNotificationService(new TestHttpClient)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
@@ -121,7 +121,7 @@ class HttpNotificationServiceSpec
           callbackUrl,
           FileReference("quarantine-file-reference"),
           ErrorDetails("QUARANTINE", "This file has a virus"),
-          RequestContext(Some("requestId"), Some("sessionId"))
+          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
       val service = new HttpNotificationService(new TestHttpClient)
       val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
@@ -158,7 +158,7 @@ class HttpNotificationServiceSpec
           callbackUrl,
           FileReference("rejected-file-reference"),
           ErrorDetails("REJECTED", "MIME type [some-type] not allowed for service [some-service]"),
-          RequestContext(Some("requestId"), Some("sessionId"))
+          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
       val service = new HttpNotificationService(new TestHttpClient)
       val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
@@ -197,7 +197,7 @@ class HttpNotificationServiceSpec
           downloadUrl,
           0L,
           UploadDetails("test.pdf", "application/pdf", initiateDate, "1a2b3c4d5e"),
-          RequestContext(Some("requestId"), Some("sessionId"))
+          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
       val service = new HttpNotificationService(new TestHttpClient)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
@@ -222,7 +222,7 @@ class HttpNotificationServiceSpec
           downloadUrl,
           0L,
           UploadDetails("test/pdf", "application/pdf", initiateDate, "1a2b3c4d5e"),
-          RequestContext(Some("requestId"), Some("sessionId"))
+          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
       val service = new HttpNotificationService(new TestHttpClient)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
