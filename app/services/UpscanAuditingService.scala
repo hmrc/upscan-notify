@@ -40,8 +40,10 @@ class UpscanAuditingService @Inject()(auditConnector: AuditConnector)(implicit e
   def notifyFileUploadedSuccessfully(notification: UploadedFile): Unit = {
 
     implicit val hc = HeaderCarrier(
-      sessionId = notification.requestContext.sessionId.map(SessionId),
-      requestId = notification.requestContext.requestId.map(RequestId))
+      sessionId    = notification.requestContext.sessionId.map(SessionId),
+      requestId    = notification.requestContext.requestId.map(RequestId),
+      trueClientIp = Some(notification.requestContext.clientIp)
+    )
 
     val event = new CleanFileUploaded(
       Map(
@@ -56,8 +58,10 @@ class UpscanAuditingService @Inject()(auditConnector: AuditConnector)(implicit e
 
   def notifyFileIsQuarantined(notification: QuarantinedFile): Unit = {
     implicit val hc = HeaderCarrier(
-      sessionId = notification.requestContext.sessionId.map(SessionId),
-      requestId = notification.requestContext.requestId.map(RequestId))
+      sessionId    = notification.requestContext.sessionId.map(SessionId),
+      requestId    = notification.requestContext.requestId.map(RequestId),
+      trueClientIp = Some(notification.requestContext.clientIp)
+    )
 
     val event = new InvalidFileUploaded(
       Map(

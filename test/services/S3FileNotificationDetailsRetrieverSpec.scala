@@ -46,11 +46,13 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
     val initiateDate  = Instant.parse("2018-04-24T09:30:00Z")
     val checksum      = "1a2b3c4d5e"
     val fileSize      = 10L
-    val requestId     = Some("requestId")
-    val sessionId     = Some("sessionId")
-    val fileName      = "test.pdf"
-    val fileMime      = "application/pdf"
-    val downloadUrl   = new URL("http://remotehost/my-bucket/my-key")
+
+    val requestId      = Some("requestId")
+    val sessionId      = Some("sessionId")
+    val requestContext = RequestContext(requestId, sessionId, "127.0.0.1")
+    val fileName       = "test.pdf"
+    val fileMime       = "application/pdf"
+    val downloadUrl    = new URL("http://remotehost/my-bucket/my-key")
 
     "return callback URL from S3 metadata for uploaded file with all required metadata" in {
       val objectMetadata =
@@ -58,8 +60,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
           callbackUrl,
           UploadDetails(fileName, fileMime, initiateDate, checksum),
           fileSize,
-          requestId,
-          sessionId)
+          requestContext)
 
       val fileManager = mock[FileManager]
       Mockito.when(fileManager.retrieveReadyMetadata(any())).thenReturn(Future.successful(objectMetadata))
@@ -79,7 +80,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
         downloadUrl,
         fileSize,
         UploadDetails(fileName, fileMime, initiateDate, checksum),
-        RequestContext(requestId, sessionId)
+        requestContext
       )
     }
 
@@ -104,7 +105,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
     }
 
     "return callback URL from S3 metadata for quarantined file" in {
-      val objectMetadata = FailedObjectMetadata(callbackUrl, 10L, Some("requestId"), Some("sessionId"))
+      val objectMetadata = FailedObjectMetadata(callbackUrl, 10L, requestContext)
       val s3Object =
         FailedObjectWithMetadata(
           """{"failureReason": "QUARANTINE", "message": "This file has a virus"}""",
@@ -124,11 +125,11 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
         callbackUrl,
         FileReference("my-key"),
         ErrorDetails("QUARANTINE", "This file has a virus"),
-        RequestContext(Some("requestId"), Some("sessionId")))
+        requestContext)
     }
 
     "return callback URL from S3 metadata for rejected file" in {
-      val objectMetadata = FailedObjectMetadata(callbackUrl, 10L, Some("requestId"), Some("sessionId"))
+      val objectMetadata = FailedObjectMetadata(callbackUrl, 10L, requestContext)
       val s3Object =
         FailedObjectWithMetadata(
           """{"failureReason": "REJECTED", "message": "MIME type not allowed"}""",
@@ -148,11 +149,11 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
         callbackUrl,
         FileReference("my-key"),
         ErrorDetails("REJECTED", "MIME type not allowed"),
-        RequestContext(Some("requestId"), Some("sessionId")))
+        requestContext)
     }
 
     "return callback URL from S3 metadata for file with unknown error" in {
-      val objectMetadata = FailedObjectMetadata(callbackUrl, 10L, Some("requestId"), Some("sessionId"))
+      val objectMetadata = FailedObjectMetadata(callbackUrl, 10L, requestContext)
       val s3Object       = FailedObjectWithMetadata("Something unexpected happened here", objectMetadata)
 
       val fileManager = mock[FileManager]
@@ -169,7 +170,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
         callbackUrl,
         FileReference("my-key"),
         ErrorDetails("UNKNOWN", "Something unexpected happened here"),
-        RequestContext(Some("requestId"), Some("sessionId")))
+        requestContext)
     }
 
     "return wrapped failure if S3 call errors for quarantined file" in {

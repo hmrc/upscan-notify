@@ -47,7 +47,7 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
         new URL("http://www.test.com"),
         10L,
         UploadDetails("test.pdf", "application/pdf", Instant.now(), "1a2b3c4d5e"),
-        RequestContext(Some("RequestId"), Some("SessionId"))
+        RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1")
       )
 
       upscanAuditingService.notifyFileUploadedSuccessfully(event)
@@ -65,8 +65,9 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
 
       val headerCarrier: HeaderCarrier = hcCaptor.getValue
 
-      headerCarrier.requestId shouldBe Some(RequestId("RequestId"))
-      headerCarrier.sessionId shouldBe Some(SessionId("SessionId"))
+      headerCarrier.requestId    shouldBe Some(RequestId("RequestId"))
+      headerCarrier.sessionId    shouldBe Some(SessionId("SessionId"))
+      headerCarrier.trueClientIp shouldBe Some("127.0.0.1")
     }
 
     "properly handle FileIsQuarantined events" in {
@@ -78,7 +79,7 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
         new URL("http://www.test.com"),
         FileReference("REF"),
         ErrorDetails("QUARANTINE", "1a2b3c4d5e"),
-        RequestContext(Some("RequestId"), Some("SessionId"))
+        RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1")
       )
 
       upscanAuditingService.notifyFileIsQuarantined(event)
@@ -96,8 +97,9 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
 
       val headerCarrier: HeaderCarrier = hcCaptor.getValue
 
-      headerCarrier.requestId shouldBe Some(RequestId("RequestId"))
-      headerCarrier.sessionId shouldBe Some(SessionId("SessionId"))
+      headerCarrier.requestId    shouldBe Some(RequestId("RequestId"))
+      headerCarrier.sessionId    shouldBe Some(SessionId("SessionId"))
+      headerCarrier.trueClientIp shouldBe Some("127.0.0.1")
     }
 
   }

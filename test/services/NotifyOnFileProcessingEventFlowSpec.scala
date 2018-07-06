@@ -55,7 +55,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
     override def toJson: String = ???
   }
 
-  val sampleRequestContext = RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"))
+  val sampleRequestContext = RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1")
 
   def sampleUploadedFile(objectLocation: S3ObjectLocation) =
     UploadedFile(

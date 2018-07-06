@@ -18,7 +18,7 @@ package services
 
 import java.net.URL
 
-import model.{S3ObjectLocation, UploadDetails}
+import model.{RequestContext, S3ObjectLocation, UploadDetails}
 
 import scala.concurrent.Future
 
@@ -26,10 +26,9 @@ case class ReadyObjectMetadata(
   callbackUrl: URL,
   uploadDetails: UploadDetails,
   size: Long,
-  requestId: Option[String],
-  sessionId: Option[String])
+  requestContext: RequestContext)
 
-case class FailedObjectMetadata(callbackUrl: URL, size: Long, requestId: Option[String], sessionId: Option[String])
+case class FailedObjectMetadata(callbackUrl: URL, size: Long, requestContext: RequestContext)
 
 case class ReadyObjectWithMetadata(content: String, metadata: ReadyObjectMetadata)
 
