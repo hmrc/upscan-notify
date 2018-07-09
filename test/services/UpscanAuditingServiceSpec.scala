@@ -23,7 +23,7 @@ import model._
 import org.mockito.{ArgumentCaptor, ArgumentMatchers, Mockito}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{GivenWhenThen, Matchers}
-import uk.gov.hmrc.http.HeaderCarrier
+import uk.gov.hmrc.http.{HeaderCarrier, HeaderNames}
 import uk.gov.hmrc.http.logging.{RequestId, SessionId}
 import uk.gov.hmrc.play.audit.http.connector.AuditConnector
 import uk.gov.hmrc.play.audit.model.DataEvent
@@ -63,11 +63,11 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
       dataEvent.detail.get("fileReference") shouldBe Some("REF")
       dataEvent.detail.get("fileSize")      shouldBe Some("10")
 
-      val headerCarrier: HeaderCarrier = hcCaptor.getValue
+      dataEvent.tags.get("transactionName")      shouldBe Some("clean-file-uploaded")
+      dataEvent.tags.get(HeaderNames.xSessionId) shouldBe Some("SessionId")
+      dataEvent.tags.get(HeaderNames.xRequestId) shouldBe Some("RequestId")
+      dataEvent.tags.get("clientIp")             shouldBe Some("127.0.0.1")
 
-      headerCarrier.requestId    shouldBe Some(RequestId("RequestId"))
-      headerCarrier.sessionId    shouldBe Some(SessionId("SessionId"))
-      headerCarrier.trueClientIp shouldBe Some("127.0.0.1")
     }
 
     "properly handle FileIsQuarantined events" in {
@@ -95,11 +95,11 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
       dataEvent.detail.get("fileReference") shouldBe Some("REF")
       dataEvent.detail.get("failureReason") shouldBe Some("QUARANTINE")
 
-      val headerCarrier: HeaderCarrier = hcCaptor.getValue
+      dataEvent.tags.get("transactionName")      shouldBe Some("invalid-file-uploaded")
+      dataEvent.tags.get(HeaderNames.xSessionId) shouldBe Some("SessionId")
+      dataEvent.tags.get(HeaderNames.xRequestId) shouldBe Some("RequestId")
+      dataEvent.tags.get("clientIp")             shouldBe Some("127.0.0.1")
 
-      headerCarrier.requestId    shouldBe Some(RequestId("RequestId"))
-      headerCarrier.sessionId    shouldBe Some(SessionId("SessionId"))
-      headerCarrier.trueClientIp shouldBe Some("127.0.0.1")
     }
 
   }
