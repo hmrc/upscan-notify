@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-package utils
+package util.logging
 
 import org.scalatest.Matchers
 import org.slf4j.MDC
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.play.test.UnitSpec
-import util.logging.WithLoggingDetails
 
 class WithLoggingDetailsSpec extends UnitSpec with Matchers {
   "loggingWithDetails" should {
