@@ -14,7 +14,7 @@ lib
 lib_managed
 log
 logs
-modules
+*/.idea/modules
 /out
 precompiled
 /.project
