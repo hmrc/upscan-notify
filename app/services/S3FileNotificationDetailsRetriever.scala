@@ -38,7 +38,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
 
     for {
       metadata <- fileManager.retrieveReadyMetadata(objectLocation)
-      downloadUrl = downloadUrlGenerator.generate(objectLocation)
+      downloadUrl = downloadUrlGenerator.generate(objectLocation, metadata)
     } yield {
       val retrieved =
         UploadedFile(
