@@ -43,7 +43,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
       val retrieved =
         UploadedFile(
           metadata.callbackUrl,
-          FileReference(objectLocation.objectKey),
+          metadata.fileReference,
           downloadUrl,
           metadata.size,
           metadata.uploadDetails,
@@ -64,7 +64,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
       val retrieved =
         QuarantinedFile(
           quarantineFile.metadata.callbackUrl,
-          FileReference(objectLocation.objectKey),
+          quarantineFile.metadata.fileReference,
           parseContents(quarantineFile.content),
           quarantineFile.metadata.requestContext
         )
