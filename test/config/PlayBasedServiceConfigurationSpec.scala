@@ -18,26 +18,31 @@ package config
 
 import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar.mock
-import play.api.Configuration
+import play.api.{Configuration, Environment, Mode}
+
 import scala.concurrent.duration._
 import uk.gov.hmrc.play.test.UnitSpec
 
 class PlayBasedServiceConfigurationSpec extends UnitSpec {
 
-  val mockConfiguration: Configuration = mock[Configuration]
-  val playBasedServiceConfiguration = new PlayBasedServiceConfiguration(mockConfiguration)
+  val mockConfiguration = mock[Configuration]
+  val mockEnvironment = mock[Environment]
+
+  when(mockEnvironment.mode).thenReturn(Mode.Test)
+
+  val playBasedServiceConfiguration = new PlayBasedServiceConfiguration(mockConfiguration, mockEnvironment)
 
   "s3UrlExpirationPeriod" should {
 
     "return relevant config for a valid serviceName" in {
-      when(mockConfiguration.getMilliseconds("upscan.consuming-services.business-rates-attachments.aws.s3.urlExpirationPeriod"))
+      when(mockConfiguration.getMilliseconds("Test.upscan.consuming-services.business-rates-attachments.aws.s3.urlExpirationPeriod"))
         .thenReturn(Some(7.days.toMillis))
 
       playBasedServiceConfiguration.s3UrlExpirationPeriod("business-rates-attachments") shouldBe 7.days
     }
 
     "return relevant config for a translated serviceName with invalid chars" in {
-      when(mockConfiguration.getMilliseconds("upscan.consuming-services.Mozilla-4-0.aws.s3.urlExpirationPeriod"))
+      when(mockConfiguration.getMilliseconds("Test.upscan.consuming-services.Mozilla-4-0.aws.s3.urlExpirationPeriod"))
         .thenReturn(Some(5.days.toMillis))
 
       playBasedServiceConfiguration.s3UrlExpirationPeriod("Mozilla/4.0") shouldBe 5.days

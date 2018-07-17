@@ -26,6 +26,7 @@ import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{GivenWhenThen, Matchers}
+import uk.gov.hmrc.http.HttpResponse
 import uk.gov.hmrc.play.test.UnitSpec
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -150,7 +151,6 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       val notificationService = mock[NotificationService]
       Mockito
         .when(notificationService.notifySuccessfulCallback(any()))
-        .thenReturn(Future.successful(()))
         .thenReturn(Future.successful(()))
 
       val metrics = metricsStub()

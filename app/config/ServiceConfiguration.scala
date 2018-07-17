@@ -17,7 +17,9 @@
 package config
 
 import javax.inject.Inject
-import play.api.Configuration
+import play.api.{Configuration, Environment}
+import uk.gov.hmrc.play.config.RunMode
+
 import scala.concurrent.duration._
 
 trait ServiceConfiguration {
@@ -39,7 +41,8 @@ trait ServiceConfiguration {
 
 }
 
-class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) extends ServiceConfiguration {
+class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env: Environment) extends ServiceConfiguration {
+  private val runMode = RunMode(env.mode, configuration)
 
   override def outboundSuccessfulQueueUrl: String =
     getRequired(configuration.getString(_), "aws.sqs.queue.outbound.successful")
@@ -58,7 +61,7 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
   override def retryInterval = getRequired(configuration.getMilliseconds, "aws.sqs.retry.interval").milliseconds
 
   override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = {
-    val urlExpirationConfig = s"upscan.consuming-services.${replaceInvalidJsonChars(serviceName)}.aws.s3.urlExpirationPeriod"
+    val urlExpirationConfig = s"${runMode.env}.upscan.consuming-services.${replaceInvalidJsonChars(serviceName)}.aws.s3.urlExpirationPeriod"
     getRequired(configuration.getMilliseconds, urlExpirationConfig).milliseconds
   }
 
