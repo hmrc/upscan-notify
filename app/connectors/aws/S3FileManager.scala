@@ -22,7 +22,7 @@ import java.time.Instant
 import javax.inject.Inject
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
-import model.{RequestContext, S3ObjectLocation, UploadDetails}
+import model.{FileReference, RequestContext, S3ObjectLocation, UploadDetails}
 import org.apache.commons.io.IOUtils
 import play.api.Logger
 import services._
@@ -50,10 +50,11 @@ class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
     val userMetadata = S3ObjectMetadata(metadata, objectLocation)
     for {
       callbackUrl    <- retrieveCallbackUrl(userMetadata)
+      fileReference  <- userMetadata.get("file-reference", FileReference.apply)
       uploadDetails  <- retrieveUploadDetails(userMetadata)
       requestContext <- retrieveUserContext(userMetadata)
     } yield {
-      ReadyObjectMetadata(callbackUrl, uploadDetails, metadata.getContentLength, requestContext)
+      ReadyObjectMetadata(fileReference, callbackUrl, uploadDetails, metadata.getContentLength, requestContext)
     }
   }
 
@@ -65,11 +66,12 @@ class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
       content  <- Future.fromTry(Try(IOUtils.toString(s3Object.getObjectContent)))
       metadata = S3ObjectMetadata(s3Object.getObjectMetadata, objectLocation)
       callbackUrl    <- Future.fromTry(retrieveCallbackUrl(metadata))
+      fileReference  <- Future.fromTry(metadata.get("file-reference", FileReference.apply))
       requestContext <- Future.fromTry(retrieveUserContext(metadata))
     } yield {
       Logger.debug(s"Fetched object with metadata for objectKey: [${objectLocation.objectKey}].")
       val failedObjectMetadata =
-        FailedObjectMetadata(callbackUrl, s3Object.getObjectMetadata.getContentLength, requestContext)
+        FailedObjectMetadata(fileReference, callbackUrl, s3Object.getObjectMetadata.getContentLength, requestContext)
       FailedObjectWithMetadata(content, failedObjectMetadata)
     }
   }

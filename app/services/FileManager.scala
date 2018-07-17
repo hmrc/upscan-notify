@@ -18,17 +18,22 @@ package services
 
 import java.net.URL
 
-import model.{RequestContext, S3ObjectLocation, UploadDetails}
+import model.{FileReference, RequestContext, S3ObjectLocation, UploadDetails}
 
 import scala.concurrent.Future
 
 case class ReadyObjectMetadata(
+  fileReference: FileReference,
   callbackUrl: URL,
   uploadDetails: UploadDetails,
   size: Long,
   requestContext: RequestContext)
 
-case class FailedObjectMetadata(callbackUrl: URL, size: Long, requestContext: RequestContext)
+case class FailedObjectMetadata(
+  fileReference: FileReference,
+  callbackUrl: URL,
+  size: Long,
+  requestContext: RequestContext)
 
 case class ReadyObjectWithMetadata(content: String, metadata: ReadyObjectMetadata)
 
