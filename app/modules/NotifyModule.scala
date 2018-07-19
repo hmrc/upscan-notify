@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+package modules
+
 import java.time.Clock
 
 import config.{PlayBasedServiceConfiguration, ServiceConfiguration}

@@ -40,11 +40,12 @@ class HttpNotificationService @Inject()(httpClient: HttpClient) extends Notifica
 
     httpClient
       .POST[ReadyCallbackBody, HttpResponse](uploadedFile.callbackUrl.toString, callback)
-      .map { httpResponse =>
-        Logger.info(
-          s"""File ready notification sent to service with callbackUrl: [${uploadedFile.callbackUrl}].
-             | Response status was: [${httpResponse.status}].""".stripMargin
-        )
+      .map { httpResponse => {
+          Logger.info(
+            s"""File ready notification sent to service with callbackUrl: [${uploadedFile.callbackUrl}].
+               | Response status was: [${httpResponse.status}].""".stripMargin
+          )
+        }
       }
   }
 
@@ -55,11 +56,12 @@ class HttpNotificationService @Inject()(httpClient: HttpClient) extends Notifica
 
     httpClient
       .POST[FailedCallbackBody, HttpResponse](quarantinedFile.callbackUrl.toString, callback)
-      .map { httpResponse =>
-        Logger.info(
-          s"""File failed notification sent to service with callbackUrl: [${quarantinedFile.callbackUrl}].
-             | Response status was: [${httpResponse.status}].""".stripMargin
-        )
+      .map { httpResponse => {
+          Logger.info(
+            s"""File failed notification sent to service with callbackUrl: [${quarantinedFile.callbackUrl}].
+               | Response status was: [${httpResponse.status}].""".stripMargin
+          )
+        }
       }
   }
 }

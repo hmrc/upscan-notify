@@ -16,23 +16,23 @@
 
 package connectors.aws
 
+import com.amazonaws.services.s3.AmazonS3
 import java.net.URL
 import java.time.Instant
 import java.util.Date
 import javax.inject.Inject
 
-import com.amazonaws.services.s3.AmazonS3
 import config.ServiceConfiguration
 import model.S3ObjectLocation
-import services.DownloadUrlGenerator
+import services.{DownloadUrlGenerator, ReadyObjectMetadata}
 
 class S3DownloadUrlGenerator @Inject()(s3Client: AmazonS3, config: ServiceConfiguration) extends DownloadUrlGenerator {
-  override def generate(objectLocation: S3ObjectLocation): URL =
-    s3Client.generatePresignedUrl(objectLocation.bucket, objectLocation.objectKey, expirationDate())
+  override def generate(objectLocation: S3ObjectLocation, metadata: ReadyObjectMetadata): URL =
+    s3Client.generatePresignedUrl(objectLocation.bucket, objectLocation.objectKey, expirationDate(metadata.consumingService))
 
-  private def expirationDate(): Date = {
+  private def expirationDate(serviceName: String): Date = {
     val now         = Instant.now()
-    val lifetimeEnd = now.plusSeconds(config.s3FileLifetime.toSeconds)
+    val lifetimeEnd = now.plusSeconds(config.s3UrlExpirationPeriod(serviceName).toSeconds)
     Date.from(lifetimeEnd)
   }
 }

@@ -35,6 +35,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
   private val callbackUrl  = new URL("http://my.callback.url")
   private val initiateDate = Instant.parse("2018-04-24T09:30:00Z")
   private val checksum     = "1a2b3c4d5e"
+  private val consumingService = "consumingService"
 
   "FileManager" should {
     "allow to fetch objects metadata" in {
@@ -53,6 +54,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       userMetadata.put("mime-type", "application/pdf")
       userMetadata.put("client-ip", "127.0.0.1")
       userMetadata.put("file-reference", "ref1")
+      userMetadata.put("consuming-service", consumingService)
 
       val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
       Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
@@ -69,8 +71,8 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
           callbackUrl,
           UploadDetails("test.pdf", "application/pdf", initiateDate, checksum),
           0L,
-          RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1")
-        )
+          RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1"),
+          consumingService)
       }
     }
 

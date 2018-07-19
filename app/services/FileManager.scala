@@ -27,7 +27,8 @@ case class ReadyObjectMetadata(
   callbackUrl: URL,
   uploadDetails: UploadDetails,
   size: Long,
-  requestContext: RequestContext)
+  requestContext: RequestContext,
+  consumingService: String)
 
 case class FailedObjectMetadata(
   fileReference: FileReference,

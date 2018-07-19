@@ -47,12 +47,13 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
     val checksum      = "1a2b3c4d5e"
     val fileSize      = 10L
 
-    val requestId      = Some("requestId")
-    val sessionId      = Some("sessionId")
-    val requestContext = RequestContext(requestId, sessionId, "127.0.0.1")
-    val fileName       = "test.pdf"
-    val fileMime       = "application/pdf"
-    val downloadUrl    = new URL("http://remotehost/my-bucket/my-key")
+    val requestId        = Some("requestId")
+    val sessionId        = Some("sessionId")
+    val requestContext   = RequestContext(requestId, sessionId, "127.0.0.1")
+    val fileName         = "test.pdf"
+    val fileMime         = "application/pdf"
+    val downloadUrl      = new URL("http://remotehost/my-bucket/my-key")
+    val consumingService = "consuming-service"
 
     "return callback URL from S3 metadata for uploaded file with all required metadata" in {
       val objectMetadata =
@@ -61,12 +62,13 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
           callbackUrl,
           UploadDetails(fileName, fileMime, initiateDate, checksum),
           fileSize,
-          requestContext)
+          requestContext,
+          consumingService)
 
       val fileManager = mock[FileManager]
       Mockito.when(fileManager.retrieveReadyMetadata(any())).thenReturn(Future.successful(objectMetadata))
 
-      Mockito.when(urlGenerator.generate(any())).thenReturn(downloadUrl)
+      Mockito.when(urlGenerator.generate(any(),any())).thenReturn(downloadUrl)
 
       Given("a S3 file notification retriever and a valid set of retrieval details")
       val retriever = new S3FileNotificationDetailsRetriever(fileManager, config, urlGenerator)

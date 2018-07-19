@@ -53,8 +53,9 @@ class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
       fileReference  <- userMetadata.get("file-reference", FileReference.apply)
       uploadDetails  <- retrieveUploadDetails(userMetadata)
       requestContext <- retrieveUserContext(userMetadata)
+      consumingService <- retrieveConsumingService(userMetadata)
     } yield {
-      ReadyObjectMetadata(fileReference, callbackUrl, uploadDetails, metadata.getContentLength, requestContext)
+      ReadyObjectMetadata(fileReference, callbackUrl, uploadDetails, metadata.getContentLength, requestContext, consumingService)
     }
   }
 
@@ -83,6 +84,9 @@ class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
     for {
       clientIp <- metadata.get("client-ip")
     } yield RequestContext(metadata.get("request-id").toOption, metadata.get("session-id").toOption, clientIp)
+
+  private def retrieveConsumingService(metadata: S3ObjectMetadata): Try[String] =
+    metadata.get("consuming-service")
 
   private def retrieveUploadDetails(metadata: S3ObjectMetadata): Try[UploadDetails] =
     for {
