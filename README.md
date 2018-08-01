@@ -8,6 +8,7 @@ directly with the file transfer service.
 
 # Running locally
 
+
 In order to run the service against one of HMRC accounts (labs, live) it's needed to have an AWS accounts with proper
 role. See [UpScan Accounts/roles](https://github.com/hmrc/aws-users/blob/master/AccountLinks.md)
 for proper details.
