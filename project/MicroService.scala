@@ -1,13 +1,20 @@
 import play.routes.compiler.{InjectedRoutesGenerator, StaticRoutesGenerator}
+import play.sbt.PlayImport.PlayKeys
 import play.sbt.routes.RoutesKeys.routesGenerator
 import sbt.Keys._
 import sbt.Tests.{Group, SubProcess}
 import sbt._
+import uk.gov.hmrc.SbtArtifactory
+import uk.gov.hmrc.sbtdistributables.SbtDistributablesPlugin
+import uk.gov.hmrc.versioning.SbtGitVersioning
+import uk.gov.hmrc.sbtdistributables.SbtDistributablesPlugin
+import uk.gov.hmrc.versioning.SbtGitVersioning
+import uk.gov.hmrc.versioning.SbtGitVersioning.autoImport.majorVersion
 
 trait MicroService {
 
   import uk.gov.hmrc._
-  import DefaultBuildSettings.{addTestReportOption, defaultSettings, scalaSettings, targetJvm}
+  import uk.gov.hmrc.DefaultBuildSettings.{addTestReportOption, defaultSettings, scalaSettings, targetJvm}
   import TestPhases._
   import scoverage.ScoverageKeys
   import uk.gov.hmrc.sbtdistributables.SbtDistributablesPlugin._
@@ -15,8 +22,14 @@ trait MicroService {
   val appName: String
 
   lazy val appDependencies: Seq[ModuleID] = ???
-  lazy val plugins: Seq[Plugins]          = Nil
-  lazy val playSettings: Seq[Setting[_]]  = Seq.empty
+  lazy val plugins: Seq[Plugins] = Seq(
+    play.sbt.PlayScala,
+    SbtAutoBuildPlugin,
+    SbtGitVersioning,
+    SbtDistributablesPlugin,
+    SbtArtifactory
+  )
+  lazy val playSettings: Seq[Setting[_]] = Seq.empty
 
   routesGenerator := InjectedRoutesGenerator
 
@@ -35,11 +48,14 @@ trait MicroService {
   }
 
   lazy val microservice = Project(appName, file("."))
-    .enablePlugins(Seq(play.sbt.PlayScala) ++ plugins: _*)
+    .enablePlugins(plugins: _*)
     .settings(playSettings: _*)
-    .settings(scalaSettings ++ scoverageSettings: _*)
-    .settings(publishingSettings: _*)
+    .settings(scoverageSettings: _*)
+    .settings(playSettings: _*)
+    .settings(scalaSettings: _*)
     .settings(defaultSettings(): _*)
+    .settings(SbtDistributablesPlugin.publishingSettings: _*)
+    .settings(majorVersion := 0)
     .settings(
       targetJvm := "jvm-1.8",
       scalaVersion := "2.11.12",
