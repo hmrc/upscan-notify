@@ -49,6 +49,7 @@ trait MicroService {
 
   lazy val microservice = Project(appName, file("."))
     .enablePlugins(plugins: _*)
+    .settings(PlayKeys.playDefaultPort := 9573)
     .settings(playSettings: _*)
     .settings(scoverageSettings: _*)
     .settings(playSettings: _*)
