@@ -36,16 +36,16 @@ class PlayBasedServiceConfigurationSpec extends UnitSpec {
 
     "return relevant config for a valid serviceName" in {
       when(mockConfiguration.getMilliseconds("Test.upscan.consuming-services.business-rates-attachments.aws.s3.urlExpirationPeriod"))
-        .thenReturn(Some(7.days.toMillis))
+        .thenReturn(Some(1.days.toMillis))
 
-      playBasedServiceConfiguration.s3UrlExpirationPeriod("business-rates-attachments") shouldBe 7.days
+      playBasedServiceConfiguration.s3UrlExpirationPeriod("business-rates-attachments") shouldBe 1.days
     }
 
     "return relevant config for a translated serviceName with invalid chars" in {
       when(mockConfiguration.getMilliseconds("Test.upscan.consuming-services.Mozilla-4-0.aws.s3.urlExpirationPeriod"))
-        .thenReturn(Some(5.days.toMillis))
+        .thenReturn(Some(1.days.toMillis))
 
-      playBasedServiceConfiguration.s3UrlExpirationPeriod("Mozilla/4.0") shouldBe 5.days
+      playBasedServiceConfiguration.s3UrlExpirationPeriod("Mozilla/4.0") shouldBe 1.days
     }
 
 
