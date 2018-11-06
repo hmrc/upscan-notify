@@ -17,7 +17,7 @@
 package config
 
 import javax.inject.Inject
-import play.api.{Configuration, Environment}
+import play.api.{Configuration, Environment, Logger}
 import uk.gov.hmrc.play.config.RunMode
 
 import scala.concurrent.duration._
@@ -62,7 +62,14 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env:
 
   override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = {
     val urlExpirationConfig = s"${runMode.env}.upscan.consuming-services.${replaceInvalidJsonChars(serviceName)}.aws.s3.urlExpirationPeriod"
-    getRequired(configuration.getMilliseconds, urlExpirationConfig).milliseconds
+    val expirationDuration: FiniteDuration = getRequired(configuration.getMilliseconds, urlExpirationConfig).milliseconds
+
+    if (expirationDuration <= 1.day) {
+      expirationDuration
+    } else {
+      Logger.warn(s"Expiration period for key: [$urlExpirationConfig] was: [${expirationDuration}]. Using maximum value of 1 day instead.")
+      1.day
+    }
   }
 
   def getRequired[T](function: String => Option[T], key: String) =
