@@ -37,8 +37,8 @@ class S3FileNotificationDetailsRetriever @Inject()(
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
     for {
-      metadata <- fileManager.retrieveReadyMetadata(objectLocation)
-      downloadUrl = downloadUrlGenerator.generate(objectLocation, metadata)
+      metadata    <- fileManager.retrieveReadyMetadata(objectLocation)
+      downloadUrl  = downloadUrlGenerator.generate(objectLocation, metadata)
     } yield {
       val retrieved =
         UploadedFile(
@@ -47,7 +47,8 @@ class S3FileNotificationDetailsRetriever @Inject()(
           downloadUrl,
           metadata.size,
           metadata.uploadDetails,
-          metadata.requestContext
+          metadata.requestContext,
+          metadata.userMetadata
         )
       Logger.debug(
         s"Retrieved file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
@@ -66,7 +67,9 @@ class S3FileNotificationDetailsRetriever @Inject()(
           quarantineFile.metadata.callbackUrl,
           quarantineFile.metadata.fileReference,
           parseContents(quarantineFile.content),
-          quarantineFile.metadata.requestContext
+          quarantineFile.metadata.uploadDetails,
+          quarantineFile.metadata.requestContext,
+          quarantineFile.metadata.userMetadata
         )
       Logger.debug(
         s"Retrieved quarantined file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")

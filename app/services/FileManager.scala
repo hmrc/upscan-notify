@@ -28,13 +28,16 @@ case class ReadyObjectMetadata(
   uploadDetails: UploadDetails,
   size: Long,
   requestContext: RequestContext,
-  consumingService: String)
+  consumingService: String,
+  userMetadata: Map[String,String])
 
 case class FailedObjectMetadata(
   fileReference: FileReference,
   callbackUrl: URL,
+  uploadDetails: UploadDetails,
   size: Long,
-  requestContext: RequestContext)
+  requestContext: RequestContext,
+  userMetadata: Map[String,String])
 
 case class ReadyObjectWithMetadata(content: String, metadata: ReadyObjectMetadata)
 

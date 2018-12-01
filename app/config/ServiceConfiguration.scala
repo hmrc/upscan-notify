@@ -39,6 +39,7 @@ trait ServiceConfiguration {
 
   def s3UrlExpirationPeriod(serviceName: String): FiniteDuration
 
+  def endToEndProcessingThreshold(): Duration
 }
 
 class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env: Environment) extends ServiceConfiguration {
@@ -72,9 +73,10 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env:
     }
   }
 
+  override def endToEndProcessingThreshold(): Duration = getRequired(configuration.getMilliseconds, "upscan.endToEndProcessing.threshold").seconds
+
   def getRequired[T](function: String => Option[T], key: String) =
     function(key).getOrElse(throw new IllegalStateException(s"Configuration key not found: $key"))
-
   private[config] def replaceInvalidJsonChars(serviceName: String): String = {
     serviceName.replaceAll("[/.]","-")
   }

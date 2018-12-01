@@ -16,6 +16,8 @@
 
 package config
 
+import java.time.Clock
+
 import com.amazonaws.services.sqs.AmazonSQS
 import connectors.aws.SqsQueueConsumer
 import javax.inject.{Inject, Provider}
@@ -32,16 +34,16 @@ class UpscanQueuesModule extends Module {
   )
 }
 
-class SuccessfulSqsQueueConsumerProvider @Inject()(sqsClient: AmazonSQS, configuration: ServiceConfiguration)(
+class SuccessfulSqsQueueConsumerProvider @Inject()(sqsClient: AmazonSQS, configuration: ServiceConfiguration, clock: Clock)(
   implicit ec: ExecutionContext)
     extends Provider[SuccessfulQueueConsumer] {
   override def get(): SuccessfulQueueConsumer =
-    new SqsQueueConsumer(sqsClient, configuration.outboundSuccessfulQueueUrl) with SuccessfulQueueConsumer
+    new SqsQueueConsumer(sqsClient, configuration.outboundSuccessfulQueueUrl, clock) with SuccessfulQueueConsumer
 }
 
-class QuarantineSqsQueueConsumerProvider @Inject()(sqsClient: AmazonSQS, configuration: ServiceConfiguration)(
+class QuarantineSqsQueueConsumerProvider @Inject()(sqsClient: AmazonSQS, configuration: ServiceConfiguration, clock: Clock)(
   implicit ec: ExecutionContext)
     extends Provider[QuarantineQueueConsumer] {
   override def get(): QuarantineQueueConsumer =
-    new SqsQueueConsumer(sqsClient, configuration.outboundQuarantineQueueUrl) with QuarantineQueueConsumer
+    new SqsQueueConsumer(sqsClient, configuration.outboundQuarantineQueueUrl, clock) with QuarantineQueueConsumer
 }

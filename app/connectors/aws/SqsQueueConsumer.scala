@@ -16,6 +16,8 @@
 
 package connectors.aws
 
+import java.time.Clock
+
 import com.amazonaws.services.sqs.AmazonSQS
 import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, ReceiveMessageResult}
 import model.Message
@@ -25,7 +27,7 @@ import services.QueueConsumer
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class SqsQueueConsumer(val sqsClient: AmazonSQS, queueUrl: String)(implicit val ec: ExecutionContext)
+abstract class SqsQueueConsumer(val sqsClient: AmazonSQS, queueUrl: String, clock: Clock)(implicit val ec: ExecutionContext)
     extends QueueConsumer {
 
   override def poll(): Future[Seq[Message]] = {
@@ -36,15 +38,18 @@ abstract class SqsQueueConsumer(val sqsClient: AmazonSQS, queueUrl: String)(impl
       Future(sqsClient.receiveMessage(receiveMessageRequest))
 
     receiveMessageResult map { result =>
+      val receivedAt = clock.instant()
+
       result.getMessages.asScala.map { sqsMessage =>
         Logger.debug(s"Received message with id: [${sqsMessage.getMessageId}] and receiptHandle: [${sqsMessage.getReceiptHandle}].")
-        Message(sqsMessage.getMessageId, sqsMessage.getBody, sqsMessage.getReceiptHandle)
+        Message(sqsMessage.getMessageId, sqsMessage.getBody, sqsMessage.getReceiptHandle, receivedAt)
       }
     }
   }
 
   override def confirm(message: Message): Future[Unit] = {
     val deleteMessageRequest = new DeleteMessageRequest(queueUrl, message.receiptHandle)
+
     Future {
       sqsClient.deleteMessage(deleteMessageRequest)
       Logger.debug(s"Deleted message from Queue: [$queueUrl], for receiptHandle: [${message.receiptHandle}].")

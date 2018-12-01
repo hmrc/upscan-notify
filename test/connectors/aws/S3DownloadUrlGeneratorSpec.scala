@@ -21,15 +21,14 @@ import java.time.Instant
 import java.util.Date
 
 import com.amazonaws.services.s3.AmazonS3
+
 import scala.concurrent.duration._
 import org.mockito.ArgumentMatchers.{any, eq => meq}
 import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar.mock
-
 import config.ServiceConfiguration
-import model.{FileReference, RequestContext, S3ObjectLocation, UploadDetails}
+import model.{FileReference, RequestContext, S3ObjectLocation, ValidUploadDetails}
 import services.ReadyObjectMetadata
-
 import uk.gov.hmrc.play.test.UnitSpec
 
 class S3DownloadUrlGeneratorSpec extends UnitSpec {
@@ -53,10 +52,11 @@ class S3DownloadUrlGeneratorSpec extends UnitSpec {
       val readyObjectMetadata: ReadyObjectMetadata = ReadyObjectMetadata(
         FileReference("file-reference"),
         new URL("http://www.fakeurl.com"),
-        UploadDetails("fileName", "fileMimeType", Instant.now, "checkSum"),
+        ValidUploadDetails("fileName", "fileMimeType", Instant.now, "checkSum"),
         size=1L,
         RequestContext(Some("requestId"), Some("sessionId"), "clientIP"),
-        consumingService)
+        consumingService,
+        Map())
 
       val s3DownloadUrlGenerator = new S3DownloadUrlGenerator(mockAmazonS3, mockServiceConfiguration)
       s3DownloadUrlGenerator.generate(S3ObjectLocation("bucket", "objectKey"), readyObjectMetadata) shouldBe expectedUrl

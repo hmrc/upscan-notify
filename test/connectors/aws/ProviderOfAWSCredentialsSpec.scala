@@ -21,7 +21,7 @@ import config.ServiceConfiguration
 import org.scalatest.Matchers
 import uk.gov.hmrc.play.test.UnitSpec
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 class ProviderOfAWSCredentialsSpec extends UnitSpec with Matchers {
 
@@ -45,6 +45,8 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec with Matchers {
         override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = ???
 
         override def outboundQuarantineQueueUrl: String = ???
+
+        override def endToEndProcessingThreshold(): Duration = ???
       }
 
       val credentials: AWSCredentialsProvider = new ProviderOfAWSCredentials(configuration).get()
@@ -73,6 +75,8 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec with Matchers {
         override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = ???
 
         override def outboundQuarantineQueueUrl: String = ???
+
+        override def endToEndProcessingThreshold(): Duration = ???
       }
 
       val credentials: AWSCredentialsProvider = new ProviderOfAWSCredentials(configuration).get()

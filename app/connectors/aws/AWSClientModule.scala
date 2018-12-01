@@ -49,10 +49,11 @@ class ProviderOfAWSCredentials @Inject()(configuration: ServiceConfiguration) ex
     })
 }
 
-class SqsClientProvider @Inject()(credentialsProvider: AWSCredentialsProvider) extends Provider[AmazonSQS] {
+class SqsClientProvider @Inject()(configuration: ServiceConfiguration, credentialsProvider: AWSCredentialsProvider) extends Provider[AmazonSQS] {
   override def get(): AmazonSQS =
     AmazonSQSClientBuilder
       .standard()
+      .withRegion(configuration.awsRegion)
       .withCredentials(credentialsProvider)
       .build()
 }

@@ -49,6 +49,8 @@ class ContinuousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
     override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = ???
 
     override def outboundQuarantineQueueUrl: String = ???
+
+    override def endToEndProcessingThreshold(): Duration = ???
   }
 
   "QueuePollingJob" should {

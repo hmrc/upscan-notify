@@ -22,7 +22,7 @@ import java.time.format.DateTimeFormatter
 import java.util
 
 import com.amazonaws.services.s3.AmazonS3
-import model.{FileReference, RequestContext, S3ObjectLocation, UploadDetails}
+import model.{FileReference, RequestContext, S3ObjectLocation, ValidUploadDetails}
 import org.mockito.Mockito
 import org.scalatest.Matchers
 import org.scalatest.concurrent.ScalaFutures
@@ -69,10 +69,23 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
         result shouldBe ReadyObjectMetadata(
           FileReference("ref1"),
           callbackUrl,
-          UploadDetails("test.pdf", "application/pdf", initiateDate, checksum),
+          ValidUploadDetails("test.pdf", "application/pdf", initiateDate, checksum),
           0L,
           RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1"),
-          consumingService)
+          consumingService,
+          Map(
+            "mime-type"         -> "application/pdf",
+            "callback-url"      -> "http://my.callback.url",
+            "file-reference"    -> "ref1",
+            "consuming-service" -> "consumingService",
+            "request-id"        -> "REQUEST_ID",
+            "session-id"        -> "SESSION_ID",
+            "checksum"          -> "1a2b3c4d5e",
+            "client-ip"         -> "127.0.0.1",
+            "original-filename" -> "test.pdf",
+            "initiate-date"     -> "2018-04-24T09:30:00Z"
+          )
+        )
       }
     }
 

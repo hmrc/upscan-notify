@@ -29,14 +29,38 @@ object FileReference {
   }
 }
 
-case class Message(id: String, body: String, receiptHandle: String)
+case class Message(id: String, body: String, receiptHandle: String, receivedAt: Instant)
 
-case class UploadDetails(fileName: String, fileMimeType: String, uploadTimestamp: Instant, checksum: String)
+sealed abstract class UploadDetails(fileName: String, val uploadTimestamp: Instant)
+case class ValidUploadDetails(fileName: String, fileMimeType: String, override val uploadTimestamp: Instant, checksum: String) extends UploadDetails(fileName, uploadTimestamp)
+case class InvalidUploadDetails(fileName: String, override val uploadTimestamp: Instant) extends UploadDetails(fileName, uploadTimestamp)
 
 case class RequestContext(requestId: Option[String], sessionId: Option[String], clientIp: String)
 
 object UploadDetails {
-  implicit val formatsUploadDetails: Format[UploadDetails] = Json.format[UploadDetails]
+  implicit val formatUploadDetails: Format[UploadDetails] = new Format[UploadDetails] {
+    override def reads(json: JsValue): JsResult[UploadDetails] = {
+      ValidUploadDetails.formatsValidUploadDetails.reads(json).orElse(InvalidUploadDetails.formatsInvalidUploadDetails.reads(json))
+    }
+    override def writes(up: UploadDetails): JsValue = up match {
+      case v: ValidUploadDetails   => ValidUploadDetails.formatsValidUploadDetails.writes(v)
+      case i: InvalidUploadDetails => InvalidUploadDetails.formatsInvalidUploadDetails.writes(i)
+    }
+  }
+}
+object ValidUploadDetails {
+  implicit val formatsValidUploadDetails: Format[ValidUploadDetails] = Json.format[ValidUploadDetails]
+}
+object InvalidUploadDetails {
+  implicit val formatsInvalidUploadDetails: Format[InvalidUploadDetails] = Json.format[InvalidUploadDetails]
+}
+
+trait UserMetadataLike {
+  val userMetadata: Map[String,String]
+
+  def checkpoints(): Map[String,String] = userMetadata.filterKeys {
+    _.startsWith("x-amz-meta-upscan-")
+  }
 }
 
 case class UploadedFile(
@@ -45,14 +69,34 @@ case class UploadedFile(
   downloadUrl: URL,
   size: Long,
   uploadDetails: UploadDetails,
-  requestContext: RequestContext
-)
+  requestContext: RequestContext,
+  override val userMetadata: Map[String, String]) extends UserMetadataLike {
+
+  def copyWithUserMetadata(kv: (String,String)): UploadedFile = {
+    copy(userMetadata = (this.userMetadata + kv))
+  }
+
+  def copyWithUserMetadata(kv1: (String,String), kv2: (String,String), kv3: (String,String)*): UploadedFile = {
+    copy(userMetadata = (this.userMetadata + (kv1, kv2, kv3:_*)))
+  }
+}
 
 case class QuarantinedFile(
   callbackUrl: URL,
   reference: FileReference,
   error: ErrorDetails,
-  requestContext: RequestContext)
+  uploadDetails: UploadDetails,
+  requestContext: RequestContext,
+  override val userMetadata: Map[String, String]) extends UserMetadataLike {
+
+  def copyWithUserMetadata(kv: (String,String)): QuarantinedFile = {
+    copy(userMetadata = (this.userMetadata + kv))
+  }
+
+  def copyWithUserMetadata(kv1: (String,String), kv2: (String,String), kv3: (String,String)*): QuarantinedFile = {
+    copy(userMetadata = (this.userMetadata + (kv1, kv2, kv3:_*)))
+  }
+}
 
 case class S3ObjectLocation(bucket: String, objectKey: String)
 case class FileUploadEvent(location: S3ObjectLocation)
