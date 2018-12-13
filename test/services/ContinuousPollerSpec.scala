@@ -58,11 +58,11 @@ class ContinuousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
 
       val callCount = new AtomicInteger(0)
 
-      val orchestrator: PollingJob = new PollingJob {
+      val orchestrator: PollingJob[Future] = new PollingJob[Future] {
         override def run() = Future.successful(callCount.incrementAndGet())
       }
 
-      val jobs = new PollingJobs(List(orchestrator))
+      val jobs = PollingJobs[Future](List(orchestrator))
 
       val serviceLifecycle = new DefaultApplicationLifecycle()
 
@@ -82,7 +82,7 @@ class ContinuousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
     "recover from failure after some time" in {
       val callCount = new AtomicInteger(0)
 
-      val orchestrator: PollingJob = new PollingJob {
+      val orchestrator: PollingJob[Future] = new PollingJob[Future] {
         override def run() =
           if (callCount.get() == 1) {
             Future.failed(new RuntimeException("Planned failure"))

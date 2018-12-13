@@ -31,7 +31,7 @@ import services._
 import uk.gov.hmrc.play.audit.http.connector.AuditConnector
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 class UpscanNotify @Inject()(
   configuration: Configuration,
@@ -92,7 +92,7 @@ class UpscanNotify @Inject()(
       serviceConfiguration
     )
 
-  lazy val pollingJobs: PollingJobs =
+  lazy val pollingJobs: PollingJobs[Future] =
     PollingJobs(List(successfulFileUploadProcessingJob, quarantineFileUploadProcessingJob))
 
   val continousPoller: ContinuousPoller = new ContinuousPoller(pollingJobs, serviceConfiguration)
