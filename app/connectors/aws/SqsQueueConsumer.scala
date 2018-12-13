@@ -27,8 +27,9 @@ import services.QueueConsumer
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class SqsQueueConsumer(val sqsClient: AmazonSQS, queueUrl: String, clock: Clock)(implicit val ec: ExecutionContext)
-    extends QueueConsumer {
+abstract class SqsQueueConsumer(val sqsClient: AmazonSQS, queueUrl: String, clock: Clock)(
+  implicit val ec: ExecutionContext)
+    extends QueueConsumer[Future] {
 
   override def poll(): Future[Seq[Message]] = {
     val receiveMessageRequest = new ReceiveMessageRequest(queueUrl)
@@ -41,7 +42,8 @@ abstract class SqsQueueConsumer(val sqsClient: AmazonSQS, queueUrl: String, cloc
       val receivedAt = clock.instant()
 
       result.getMessages.asScala.map { sqsMessage =>
-        Logger.debug(s"Received message with id: [${sqsMessage.getMessageId}] and receiptHandle: [${sqsMessage.getReceiptHandle}].")
+        Logger.debug(
+          s"Received message with id: [${sqsMessage.getMessageId}] and receiptHandle: [${sqsMessage.getReceiptHandle}].")
         Message(sqsMessage.getMessageId, sqsMessage.getBody, sqsMessage.getReceiptHandle, receivedAt)
       }
     }

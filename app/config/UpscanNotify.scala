@@ -45,30 +45,34 @@ class UpscanNotify @Inject()(
   applicationLifecycle: ApplicationLifecycle,
   ec: ExecutionContext) {
 
+  type F[A] = Future[A]
+
   lazy val serviceConfiguration: ServiceConfiguration = new PlayBasedServiceConfiguration(configuration, env)
 
   lazy val clock: Clock = Clock.systemDefaultZone()
 
   lazy val parser = new S3EventParser()
 
-  lazy val fileManager: FileManager = new S3FileManager(s3Client)
+  lazy val fileManager: FileManager[F] = new S3FileManager(s3Client)
 
   lazy val downloadUrlGenerator: DownloadUrlGenerator = new S3DownloadUrlGenerator(s3Client, serviceConfiguration)
 
-  lazy val fileRetriever: FileNotificationDetailsRetriever =
+  lazy val fileRetriever: FileNotificationDetailsRetriever[F] =
     new S3FileNotificationDetailsRetriever(fileManager, serviceConfiguration, downloadUrlGenerator)
 
-  lazy val notificationService: NotificationService = new HttpNotificationService(httpClient, clock)
+  lazy val notificationService: NotificationService[F] = new HttpNotificationService(httpClient, clock)
 
   lazy val auditingService: UpscanAuditingService = new UpscanAuditingService(auditConnector)
 
-  lazy val successfulQueueConsumer: SuccessfulQueueConsumer =
-    new SqsQueueConsumer(sqsClient, serviceConfiguration.outboundSuccessfulQueueUrl, clock) with SuccessfulQueueConsumer
+  lazy val successfulQueueConsumer: SuccessfulQueueConsumer[F] =
+    new SqsQueueConsumer(sqsClient, serviceConfiguration.outboundSuccessfulQueueUrl, clock)
+    with SuccessfulQueueConsumer[F]
 
-  lazy val quarantineQueueConsumer: QuarantineQueueConsumer =
-    new SqsQueueConsumer(sqsClient, serviceConfiguration.outboundQuarantineQueueUrl, clock) with QuarantineQueueConsumer
+  lazy val quarantineQueueConsumer: QuarantineQueueConsumer[F] =
+    new SqsQueueConsumer(sqsClient, serviceConfiguration.outboundQuarantineQueueUrl, clock)
+    with QuarantineQueueConsumer[F]
 
-  lazy val successfulFileUploadProcessingJob: MessageProcessingJob =
+  lazy val successfulFileUploadProcessingJob: PollingJob[F] =
     new NotifyOnSuccessfulFileUploadMessageProcessingJob(
       successfulQueueConsumer,
       parser,
@@ -80,7 +84,7 @@ class UpscanNotify @Inject()(
       serviceConfiguration
     )
 
-  lazy val quarantineFileUploadProcessingJob: MessageProcessingJob =
+  lazy val quarantineFileUploadProcessingJob: PollingJob[F] =
     new NotifyOnQuarantineFileUploadMessageProcessingJob(
       quarantineQueueConsumer,
       parser,
@@ -92,7 +96,7 @@ class UpscanNotify @Inject()(
       serviceConfiguration
     )
 
-  lazy val pollingJobs: PollingJobs[Future] =
+  lazy val pollingJobs: PollingJobs[F] =
     PollingJobs(List(successfulFileUploadProcessingJob, quarantineFileUploadProcessingJob))
 
   val continousPoller: ContinuousPoller = new ContinuousPoller(pollingJobs, serviceConfiguration)

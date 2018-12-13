@@ -33,7 +33,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
-class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
+class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager[Future] {
 
   override def retrieveReadyMetadata(objectLocation: S3ObjectLocation): Future[ReadyObjectMetadata] = {
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
@@ -56,7 +56,13 @@ class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
       requestContext   <- retrieveUserContext(userMetadata)
       consumingService <- retrieveConsumingService(userMetadata)
     } yield {
-      ReadyObjectMetadata(fileReference, callbackUrl, uploadDetails, metadata.getContentLength, requestContext, consumingService,
+      ReadyObjectMetadata(
+        fileReference,
+        callbackUrl,
+        uploadDetails,
+        metadata.getContentLength,
+        requestContext,
+        consumingService,
         metadata.getUserMetadata().asScala.toMap)
     }
   }
@@ -65,9 +71,9 @@ class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
     for {
-      s3Object       <- Future(s3Client.getObject(objectLocation.bucket, objectLocation.objectKey))
-      content        <- Future.fromTry(Try(IOUtils.toString(s3Object.getObjectContent)))
-      metadata        = S3ObjectMetadata(s3Object.getObjectMetadata, objectLocation)
+      s3Object <- Future(s3Client.getObject(objectLocation.bucket, objectLocation.objectKey))
+      content  <- Future.fromTry(Try(IOUtils.toString(s3Object.getObjectContent)))
+      metadata = S3ObjectMetadata(s3Object.getObjectMetadata, objectLocation)
       callbackUrl    <- Future.fromTry(retrieveCallbackUrl(metadata))
       fileReference  <- Future.fromTry(metadata.get("file-reference", FileReference.apply))
       uploadDetails  <- Future.fromTry(retrieveInvalidUploadDetails(metadata))
@@ -76,7 +82,12 @@ class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
       Logger.debug(s"Fetched object with metadata for objectKey: [${objectLocation.objectKey}].")
 
       val failedObjectMetadata =
-        FailedObjectMetadata(fileReference, callbackUrl, uploadDetails, metadata.underlying.getContentLength, requestContext,
+        FailedObjectMetadata(
+          fileReference,
+          callbackUrl,
+          uploadDetails,
+          metadata.underlying.getContentLength,
+          requestContext,
           metadata.underlying.getUserMetadata().asScala.toMap)
 
       FailedObjectWithMetadata(content, failedObjectMetadata)

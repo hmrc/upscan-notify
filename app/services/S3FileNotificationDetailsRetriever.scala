@@ -28,17 +28,17 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 class S3FileNotificationDetailsRetriever @Inject()(
-  fileManager: FileManager,
+  fileManager: FileManager[Future],
   config: ServiceConfiguration,
   downloadUrlGenerator: DownloadUrlGenerator)
-    extends FileNotificationDetailsRetriever {
+    extends FileNotificationDetailsRetriever[Future] {
 
   override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] = {
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
     for {
-      metadata    <- fileManager.retrieveReadyMetadata(objectLocation)
-      downloadUrl  = downloadUrlGenerator.generate(objectLocation, metadata)
+      metadata <- fileManager.retrieveReadyMetadata(objectLocation)
+      downloadUrl = downloadUrlGenerator.generate(objectLocation, metadata)
     } yield {
       val retrieved =
         UploadedFile(

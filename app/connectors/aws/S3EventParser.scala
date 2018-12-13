@@ -27,7 +27,7 @@ import services._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class S3EventParser @Inject()(implicit ec: ExecutionContext) extends MessageParser {
+class S3EventParser @Inject()(implicit ec: ExecutionContext) extends MessageParser[Future] {
 
   case class S3EventNotification(records: Seq[S3EventNotificationRecord])
 

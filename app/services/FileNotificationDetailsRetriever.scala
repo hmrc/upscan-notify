@@ -18,9 +18,7 @@ package services
 
 import model.{QuarantinedFile, S3ObjectLocation, UploadedFile}
 
-import scala.concurrent.Future
-
-trait FileNotificationDetailsRetriever {
-  def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile]
-  def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile]
+trait FileNotificationDetailsRetriever[F[_]] {
+  def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): F[UploadedFile]
+  def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): F[QuarantinedFile]
 }

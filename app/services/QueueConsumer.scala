@@ -18,10 +18,8 @@ package services
 
 import model.Message
 
-import scala.concurrent.Future
+trait QueueConsumer[F[_]] {
+  def poll(): F[Seq[Message]]
 
-trait QueueConsumer {
-  def poll(): Future[Seq[Message]]
-
-  def confirm(message: Message): Future[Unit]
+  def confirm(message: Message): F[Unit]
 }

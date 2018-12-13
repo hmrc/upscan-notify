@@ -35,7 +35,7 @@ import scala.concurrent.{Await, Future}
 
 class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
 
-  val messageParser = new MessageParser {
+  val messageParser = new MessageParser[Future] {
     override def parse(message: Message) = message.body match {
       case "VALID-BODY" => Future.successful(FileUploadEvent(S3ObjectLocation("bucket", message.id)))
       case _            => Future.failed(new Exception("Invalid body"))
@@ -69,7 +69,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
     )
 
-  val fileDetailsRetriever = new FileNotificationDetailsRetriever {
+  val fileDetailsRetriever = new FileNotificationDetailsRetriever[Future] {
     override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
       Future.successful(sampleUploadedFile(objectLocation))
 
@@ -84,12 +84,12 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       Given("there are only valid messages in a message queue")
       val validMessage = Message("ID", "VALID-BODY", "RECEIPT-1", clock.instant())
 
-      val queueConsumer = mock[SuccessfulQueueConsumer]
+      val queueConsumer = mock[SuccessfulQueueConsumer[Future]]
       when(queueConsumer.poll()).thenReturn(List(validMessage))
       when(queueConsumer.confirm(any())).thenReturn(Future.successful(()))
 
-      val notificationService = mock[NotificationService]
-      val uploadedFile        = UploadedFile(
+      val notificationService = mock[NotificationService[Future]]
+      val uploadedFile = UploadedFile(
         callbackUrl,
         FileReference("fileReference"),
         downloadUrl,
@@ -151,7 +151,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       val invalidMessage = Message("ID2", "INVALID-BODY", "RECEIPT-2", clock.instant())
       val validMessage2  = Message("ID3", "VALID-BODY", "RECEIPT-3", clock.instant())
 
-      val queueConsumer = mock[SuccessfulQueueConsumer]
+      val queueConsumer = mock[SuccessfulQueueConsumer[Future]]
       when(queueConsumer.poll())
         .thenReturn(Future.successful(List(validMessage1, invalidMessage, validMessage2)))
 
@@ -159,8 +159,8 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         .thenReturn(Future.successful(()))
         .thenReturn(Future.successful(()))
 
-      val notificationService = mock[NotificationService]
-      val uploadedFile        = UploadedFile(
+      val notificationService = mock[NotificationService[Future]]
+      val uploadedFile = UploadedFile(
         callbackUrl,
         FileReference("fileReference"),
         downloadUrl,
@@ -170,7 +170,6 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
       )
       when(notificationService.notifySuccessfulCallback(any())).thenReturn(Future.successful(uploadedFile))
-
 
       val metrics = metricsStub()
 
@@ -214,7 +213,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       val validMessage2 = Message("ID2", "VALID-BODY", "RECEIPT-2", clock.instant())
       val validMessage3 = Message("ID3", "VALID-BODY", "RECEIPT-3", clock.instant())
 
-      val queueConsumer = mock[SuccessfulQueueConsumer]
+      val queueConsumer = mock[SuccessfulQueueConsumer[Future]]
       when(queueConsumer.poll()).thenReturn(List(validMessage1, validMessage2, validMessage3))
       when(queueConsumer.confirm(any()))
         .thenReturn(Future.successful(()))
@@ -230,41 +229,41 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
       )
 
-      val notificationService = mock[NotificationService]
+      val notificationService = mock[NotificationService[Future]]
       when(
-          notificationService.notifySuccessfulCallback(
-            UploadedFile(
-              callbackUrl,
-              FileReference("ID1"),
-              downloadUrl,
-              10L,
-              ValidUploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
-              sampleRequestContext,
-              Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z"))))
+        notificationService.notifySuccessfulCallback(UploadedFile(
+          callbackUrl,
+          FileReference("ID1"),
+          downloadUrl,
+          10L,
+          ValidUploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
+          sampleRequestContext,
+          Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
+        )))
         .thenReturn(Future.successful(uploadedFile))
 
       when(
-          notificationService.notifySuccessfulCallback(
-            UploadedFile(
-              callbackUrl,
-              FileReference("ID2"),
-              downloadUrl,
-              10L,
-              ValidUploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
-              sampleRequestContext,
-              Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z"))))
+        notificationService.notifySuccessfulCallback(UploadedFile(
+          callbackUrl,
+          FileReference("ID2"),
+          downloadUrl,
+          10L,
+          ValidUploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
+          sampleRequestContext,
+          Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
+        )))
         .thenReturn(Future.failed(new Exception("Planned exception")))
 
       when(
-          notificationService.notifySuccessfulCallback(
-            UploadedFile(
-              callbackUrl,
-              FileReference("ID3"),
-              downloadUrl,
-              10L,
-              ValidUploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
-              sampleRequestContext,
-              Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z"))))
+        notificationService.notifySuccessfulCallback(UploadedFile(
+          callbackUrl,
+          FileReference("ID3"),
+          downloadUrl,
+          10L,
+          ValidUploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
+          sampleRequestContext,
+          Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
+        )))
         .thenReturn(Future.successful(uploadedFile))
 
       val metrics = metricsStub()

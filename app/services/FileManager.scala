@@ -20,8 +20,6 @@ import java.net.URL
 
 import model.{FileReference, RequestContext, S3ObjectLocation, UploadDetails}
 
-import scala.concurrent.Future
-
 case class ReadyObjectMetadata(
   fileReference: FileReference,
   callbackUrl: URL,
@@ -29,7 +27,7 @@ case class ReadyObjectMetadata(
   size: Long,
   requestContext: RequestContext,
   consumingService: String,
-  userMetadata: Map[String,String])
+  userMetadata: Map[String, String])
 
 case class FailedObjectMetadata(
   fileReference: FileReference,
@@ -37,16 +35,16 @@ case class FailedObjectMetadata(
   uploadDetails: UploadDetails,
   size: Long,
   requestContext: RequestContext,
-  userMetadata: Map[String,String])
+  userMetadata: Map[String, String])
 
 case class ReadyObjectWithMetadata(content: String, metadata: ReadyObjectMetadata)
 
 case class FailedObjectWithMetadata(content: String, metadata: FailedObjectMetadata)
 
-trait FileManager {
+trait FileManager[F[_]] {
 
-  def retrieveReadyMetadata(objectLocation: S3ObjectLocation): Future[ReadyObjectMetadata]
+  def retrieveReadyMetadata(objectLocation: S3ObjectLocation): F[ReadyObjectMetadata]
 
-  def retrieveFailedObject(objectLocation: S3ObjectLocation): Future[FailedObjectWithMetadata]
+  def retrieveFailedObject(objectLocation: S3ObjectLocation): F[FailedObjectWithMetadata]
 
 }

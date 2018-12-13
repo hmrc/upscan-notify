@@ -40,7 +40,7 @@ trait MessageProcessingJob extends PollingJob[Future] {
 
   implicit def executionContext: ExecutionContext
 
-  def consumer: QueueConsumer
+  def consumer: QueueConsumer[Future]
 
   def processMessage(message: Message): EitherT[Future, ExceptionWithContext, MessageContext]
 
@@ -83,14 +83,14 @@ trait MessageProcessingJob extends PollingJob[Future] {
   }
 }
 
-trait SuccessfulQueueConsumer extends QueueConsumer
-trait QuarantineQueueConsumer extends QueueConsumer
+trait SuccessfulQueueConsumer[F[_]] extends QueueConsumer[F]
+trait QuarantineQueueConsumer[F[_]] extends QueueConsumer[F]
 
 class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
-  override val consumer: SuccessfulQueueConsumer,
-  parser: MessageParser,
-  fileRetriever: FileNotificationDetailsRetriever,
-  notificationService: NotificationService,
+  override val consumer: SuccessfulQueueConsumer[Future],
+  parser: MessageParser[Future],
+  fileRetriever: FileNotificationDetailsRetriever[Future],
+  notificationService: NotificationService[Future],
   metrics: Metrics,
   clock: Clock,
   upscanAuditingService: UpscanAuditingService,
@@ -166,10 +166,10 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
 }
 
 class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
-  override val consumer: QuarantineQueueConsumer,
-  parser: MessageParser,
-  fileRetriever: FileNotificationDetailsRetriever,
-  notificationService: NotificationService,
+  override val consumer: QuarantineQueueConsumer[Future],
+  parser: MessageParser[Future],
+  fileRetriever: FileNotificationDetailsRetriever[Future],
+  notificationService: NotificationService[Future],
   metrics: Metrics,
   clock: Clock,
   upscanAuditingService: UpscanAuditingService,

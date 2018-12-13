@@ -29,7 +29,7 @@ import util.logging.LoggingDetails
 
 import scala.concurrent.Future
 
-class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) extends NotificationService {
+class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) extends NotificationService[Future] {
 
   override def notifySuccessfulCallback(uploadedFile: UploadedFile): Future[UploadedFile] = {
 
@@ -44,7 +44,8 @@ class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) ex
 
     httpClient
       .POST[ReadyCallbackBody, HttpResponse](uploadedFile.callbackUrl.toString, callback)
-      .map { httpResponse => {
+      .map { httpResponse =>
+        {
           val endTime = clock.instant()
 
           Logger.info(
@@ -69,7 +70,8 @@ class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) ex
 
     httpClient
       .POST[FailedCallbackBody, HttpResponse](quarantinedFile.callbackUrl.toString, callback)
-      .map { httpResponse => {
+      .map { httpResponse =>
+        {
           val endTime = clock.instant()
 
           Logger.info(
