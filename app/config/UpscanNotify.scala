@@ -19,8 +19,8 @@ package config
 import java.time.Clock
 
 import akka.actor.ActorSystem
-import com.amazonaws.services.s3.{AmazonS3, AmazonS3Client}
-import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClient}
+import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.sqs.AmazonSQS
 import com.kenshoo.play.metrics.Metrics
 import connectors.HttpNotificationService
 import connectors.aws.{S3DownloadUrlGenerator, S3EventParser, S3FileManager, SqsQueueConsumer}
@@ -30,6 +30,7 @@ import play.api.{Configuration, Environment}
 import services._
 import uk.gov.hmrc.play.audit.http.connector.AuditConnector
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
+import cats.implicits._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -73,7 +74,7 @@ class UpscanNotify @Inject()(
     with QuarantineQueueConsumer[F]
 
   lazy val successfulFileUploadProcessingJob: PollingJob[F] =
-    new NotifyOnSuccessfulFileUploadMessageProcessingJob(
+    new NotifyOnSuccessfulFileUploadMessageProcessingJob[F](
       successfulQueueConsumer,
       parser,
       fileRetriever,
@@ -85,7 +86,7 @@ class UpscanNotify @Inject()(
     )
 
   lazy val quarantineFileUploadProcessingJob: PollingJob[F] =
-    new NotifyOnQuarantineFileUploadMessageProcessingJob(
+    new NotifyOnQuarantineFileUploadMessageProcessingJob[F](
       quarantineQueueConsumer,
       parser,
       fileRetriever,

@@ -29,6 +29,7 @@ import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.mockito.MockitoSugar.mock
 import util.logging.MockLoggerLike
 
+import cats.implicits._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._

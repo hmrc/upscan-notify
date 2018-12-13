@@ -16,9 +16,10 @@
 
 package services
 
-import java.time.{Clock, Duration, Instant}
+import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
 
+import cats.MonadError
 import cats.data.EitherT
 import cats.implicits._
 import com.kenshoo.play.metrics.Metrics
@@ -30,31 +31,29 @@ import uk.gov.hmrc.http.logging.LoggingDetails
 import util.logging.LoggingDetails
 import util.logging.WithLoggingDetails.withLoggingDetails
 
-import scala.concurrent.{ExecutionContext, Future}
-
 case class MessageContext(ld: LoggingDetails)
 
 case class ExceptionWithContext(e: Exception, context: Option[MessageContext])
 
-trait MessageProcessingJob extends PollingJob[Future] {
+trait MessageProcessingJob[F[_]] extends PollingJob[F] {
 
-  implicit def executionContext: ExecutionContext
+  implicit def monadError: MonadError[F, Throwable]
 
-  def consumer: QueueConsumer[Future]
+  def consumer: QueueConsumer[F]
 
-  def processMessage(message: Message): EitherT[Future, ExceptionWithContext, MessageContext]
+  def processMessage(message: Message): EitherT[F, ExceptionWithContext, MessageContext]
 
-  def run(): Future[Unit] = {
+  def run(): F[Unit] = {
     val outcomes = for {
       messages        <- consumer.poll()
-      messageOutcomes <- Future.sequence { messages.map(handleMessage) }
+      messageOutcomes <- messages.toList.traverse(handleMessage)
     } yield messageOutcomes
 
     outcomes.map(_ => ())
   }
 
-  private def handleMessage(message: Message): Future[Unit] = {
-    val outcome: EitherT[Future, ExceptionWithContext, Unit] = for {
+  private def handleMessage(message: Message): F[Unit] = {
+    val outcome: EitherT[F, ExceptionWithContext, Unit] = for {
       context <- processMessage(message)
       _       <- toEitherT(consumer.confirm(message), context = Some(context))
     } yield ()
@@ -75,32 +74,33 @@ trait MessageProcessingJob extends PollingJob[Future] {
     }
   }
 
-  def toEitherT[T](f: Future[T], context: Option[MessageContext] = None): EitherT[Future, ExceptionWithContext, T] = {
-    val futureEither: Future[Either[ExceptionWithContext, T]] =
-      f.map(Right(_))
-        .recover { case error: Exception => Left(ExceptionWithContext(error, context)) }
-    EitherT(futureEither)
+  def toEitherT[T](f: F[T], context: Option[MessageContext] = None): EitherT[F, ExceptionWithContext, T] = {
+    val fEither: F[Either[ExceptionWithContext, T]] =
+      monadError.handleError[Either[ExceptionWithContext, T]](f.map(Right(_))) {
+        case error: Exception => Left(ExceptionWithContext(error, context))
+      }
+    EitherT(fEither)
   }
 }
 
 trait SuccessfulQueueConsumer[F[_]] extends QueueConsumer[F]
 trait QuarantineQueueConsumer[F[_]] extends QueueConsumer[F]
 
-class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
-  override val consumer: SuccessfulQueueConsumer[Future],
-  parser: MessageParser[Future],
-  fileRetriever: FileNotificationDetailsRetriever[Future],
-  notificationService: NotificationService[Future],
+class NotifyOnSuccessfulFileUploadMessageProcessingJob[F[_]] @Inject()(
+  override val consumer: SuccessfulQueueConsumer[F],
+  parser: MessageParser[F],
+  fileRetriever: FileNotificationDetailsRetriever[F],
+  notificationService: NotificationService[F],
   metrics: Metrics,
   clock: Clock,
   upscanAuditingService: UpscanAuditingService,
   serviceConfiguration: ServiceConfiguration
-)(implicit val executionContext: ExecutionContext)
-    extends MessageProcessingJob {
+)(implicit val monadError: MonadError[F, Throwable])
+    extends MessageProcessingJob[F] {
 
-  private val timingsLogger = Logger(classOf[NotifyOnSuccessfulFileUploadMessageProcessingJob])
+  private val timingsLogger = Logger(classOf[NotifyOnSuccessfulFileUploadMessageProcessingJob[F]])
 
-  override def processMessage(message: Message): EitherT[Future, ExceptionWithContext, MessageContext] =
+  override def processMessage(message: Message): EitherT[F, ExceptionWithContext, MessageContext] =
     for {
       parsedMessage <- toEitherT(parser.parse(message))
       context = MessageContext(LoggingDetails.fromS3ObjectLocation(parsedMessage.location))
@@ -165,21 +165,21 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
   }
 }
 
-class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
-  override val consumer: QuarantineQueueConsumer[Future],
-  parser: MessageParser[Future],
-  fileRetriever: FileNotificationDetailsRetriever[Future],
-  notificationService: NotificationService[Future],
+class NotifyOnQuarantineFileUploadMessageProcessingJob[F[_]] @Inject()(
+  override val consumer: QuarantineQueueConsumer[F],
+  parser: MessageParser[F],
+  fileRetriever: FileNotificationDetailsRetriever[F],
+  notificationService: NotificationService[F],
   metrics: Metrics,
   clock: Clock,
   upscanAuditingService: UpscanAuditingService,
   serviceConfiguration: ServiceConfiguration
-)(implicit val executionContext: ExecutionContext)
-    extends MessageProcessingJob {
+)(implicit val monadError: MonadError[F, Throwable])
+    extends MessageProcessingJob[F] {
 
-  private val timingsLogger = Logger(classOf[NotifyOnQuarantineFileUploadMessageProcessingJob])
+  private val timingsLogger = Logger(classOf[NotifyOnQuarantineFileUploadMessageProcessingJob[F]])
 
-  override def processMessage(message: Message): EitherT[Future, ExceptionWithContext, MessageContext] =
+  override def processMessage(message: Message): EitherT[F, ExceptionWithContext, MessageContext] =
     for {
       parsedMessage <- toEitherT(parser.parse(message))
       context = MessageContext(LoggingDetails.fromS3ObjectLocation(parsedMessage.location))
