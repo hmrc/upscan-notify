@@ -16,24 +16,24 @@
 
 package services
 
-import javax.inject.Inject
+import cats.implicits._
+import cats.Monad
 import config.ServiceConfiguration
+import javax.inject.Inject
 import model._
 import play.api.Logger
 import play.api.libs.json.{JsError, JsSuccess, Json}
-import uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext.fromLoggingDetails
 import util.logging.LoggingDetails
 
-import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
-class S3FileNotificationDetailsRetriever @Inject()(
-  fileManager: FileManager[Future],
+class S3FileNotificationDetailsRetriever[F[_]: Monad] @Inject()(
+  fileManager: FileManager[F],
   config: ServiceConfiguration,
   downloadUrlGenerator: DownloadUrlGenerator)
-    extends FileNotificationDetailsRetriever[Future] {
+    extends FileNotificationDetailsRetriever[F] {
 
-  override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] = {
+  override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): F[UploadedFile] = {
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
     for {
@@ -56,7 +56,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
     }
   }
 
-  override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] = {
+  override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): F[QuarantinedFile] = {
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
     for {
