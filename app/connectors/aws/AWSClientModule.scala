@@ -31,10 +31,7 @@ class AWSClientModule extends Module {
     Seq(
       bind[AWSCredentialsProvider].toProvider[ProviderOfAWSCredentials],
       bind[AmazonSQS].toProvider[SqsClientProvider],
-      bind[AmazonS3].toProvider[S3ClientProvider],
-      bind[FileManager].to[S3FileManager],
-      bind[MessageParser].to[S3EventParser],
-      bind[DownloadUrlGenerator].to[S3DownloadUrlGenerator]
+      bind[AmazonS3].toProvider[S3ClientProvider]
     )
 
 }

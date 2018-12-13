@@ -16,34 +16,14 @@
 
 package modules
 
-import java.time.Clock
-
-import config.{PlayBasedServiceConfiguration, ServiceConfiguration}
-import connectors.HttpNotificationService
-import connectors.aws._
-import javax.inject.{Inject, Provider}
+import config.{PlayBasedServiceConfiguration, ServiceConfiguration, UpscanNotify}
 import play.api.inject.{Binding, Module}
 import play.api.{Configuration, Environment}
-import services._
 
 class NotifyModule extends Module {
   override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] =
     Seq(
-      bind[ServiceConfiguration].to[PlayBasedServiceConfiguration],
-      bind[FileNotificationDetailsRetriever].to[S3FileNotificationDetailsRetriever],
-      bind[NotificationService].to[HttpNotificationService],
-      bind[MessageParser].to[S3EventParser],
-      bind[PollingJobs].toProvider[SqsPollingJobsProvider],
-      bind[ContinuousPoller].toSelf.eagerly(),
-      bind[Clock].toInstance(Clock.systemDefaultZone())
+      bind[UpscanNotify].toSelf.eagerly(),
+      bind[ServiceConfiguration].to[PlayBasedServiceConfiguration]
     )
-}
-
-class SqsPollingJobsProvider @Inject()(
-  successfulFileUploadProcessingJob: NotifyOnSuccessfulFileUploadMessageProcessingJob,
-  quarantineFileUploadProcessingJob: NotifyOnQuarantineFileUploadMessageProcessingJob
-) extends Provider[PollingJobs] {
-
-  override def get(): PollingJobs =
-    PollingJobs(List(successfulFileUploadProcessingJob, quarantineFileUploadProcessingJob))
 }

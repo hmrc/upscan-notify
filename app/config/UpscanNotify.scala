@@ -1,0 +1,100 @@
+/*
+ * Copyright 2018 HM Revenue & Customs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package config
+
+import java.time.Clock
+
+import akka.actor.ActorSystem
+import com.amazonaws.services.s3.{AmazonS3, AmazonS3Client}
+import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClient}
+import com.kenshoo.play.metrics.Metrics
+import connectors.HttpNotificationService
+import connectors.aws.{S3DownloadUrlGenerator, S3EventParser, S3FileManager, SqsQueueConsumer}
+import javax.inject.Inject
+import play.api.inject.ApplicationLifecycle
+import play.api.{Configuration, Environment}
+import services._
+import uk.gov.hmrc.play.audit.http.connector.AuditConnector
+import uk.gov.hmrc.play.bootstrap.http.HttpClient
+
+import scala.concurrent.ExecutionContext
+
+class UpscanNotify @Inject()(
+  configuration: Configuration,
+  env: Environment,
+  httpClient: HttpClient,
+  sqsClient: AmazonSQS,
+  s3Client: AmazonS3,
+  auditConnector: AuditConnector,
+  metrics: Metrics)(
+  implicit actorSystem: ActorSystem,
+  applicationLifecycle: ApplicationLifecycle,
+  ec: ExecutionContext) {
+
+  lazy val serviceConfiguration: ServiceConfiguration = new PlayBasedServiceConfiguration(configuration, env)
+
+  lazy val clock: Clock = Clock.systemDefaultZone()
+
+  lazy val parser = new S3EventParser()
+
+  lazy val fileManager: FileManager = new S3FileManager(s3Client)
+
+  lazy val downloadUrlGenerator: DownloadUrlGenerator = new S3DownloadUrlGenerator(s3Client, serviceConfiguration)
+
+  lazy val fileRetriever: FileNotificationDetailsRetriever =
+    new S3FileNotificationDetailsRetriever(fileManager, serviceConfiguration, downloadUrlGenerator)
+
+  lazy val notificationService: NotificationService = new HttpNotificationService(httpClient, clock)
+
+  lazy val auditingService: UpscanAuditingService = new UpscanAuditingService(auditConnector)
+
+  lazy val successfulQueueConsumer: SuccessfulQueueConsumer =
+    new SqsQueueConsumer(sqsClient, serviceConfiguration.outboundSuccessfulQueueUrl, clock) with SuccessfulQueueConsumer
+
+  lazy val quarantineQueueConsumer: QuarantineQueueConsumer =
+    new SqsQueueConsumer(sqsClient, serviceConfiguration.outboundQuarantineQueueUrl, clock) with QuarantineQueueConsumer
+
+  lazy val successfulFileUploadProcessingJob: MessageProcessingJob =
+    new NotifyOnSuccessfulFileUploadMessageProcessingJob(
+      successfulQueueConsumer,
+      parser,
+      fileRetriever,
+      notificationService,
+      metrics,
+      clock,
+      auditingService,
+      serviceConfiguration
+    )
+
+  lazy val quarantineFileUploadProcessingJob: MessageProcessingJob =
+    new NotifyOnQuarantineFileUploadMessageProcessingJob(
+      quarantineQueueConsumer,
+      parser,
+      fileRetriever,
+      notificationService,
+      metrics,
+      clock,
+      auditingService,
+      serviceConfiguration
+    )
+
+  lazy val pollingJobs: PollingJobs =
+    PollingJobs(List(successfulFileUploadProcessingJob, quarantineFileUploadProcessingJob))
+
+  val continousPoller: ContinuousPoller = new ContinuousPoller(pollingJobs, serviceConfiguration)
+
+}
