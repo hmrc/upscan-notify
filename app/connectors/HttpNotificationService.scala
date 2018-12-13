@@ -16,8 +16,9 @@
 
 package connectors
 
-import javax.inject.Inject
+import java.time.Clock
 
+import javax.inject.Inject
 import model._
 import play.api.Logger
 import services.NotificationService
@@ -28,38 +29,57 @@ import util.logging.LoggingDetails
 
 import scala.concurrent.Future
 
-class HttpNotificationService @Inject()(httpClient: HttpClient) extends NotificationService {
+class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) extends NotificationService {
 
-  override def notifySuccessfulCallback(uploadedFile: UploadedFile): Future[Unit] = {
+  override def notifySuccessfulCallback(uploadedFile: UploadedFile): Future[UploadedFile] = {
 
     implicit val ld = LoggingDetails.fromFileReference(uploadedFile.reference)
+
     val callback = ReadyCallbackBody(
       reference     = uploadedFile.reference,
       downloadUrl   = uploadedFile.downloadUrl,
       uploadDetails = uploadedFile.uploadDetails)
 
+    val startTime = clock.instant()
+
     httpClient
       .POST[ReadyCallbackBody, HttpResponse](uploadedFile.callbackUrl.toString, callback)
       .map { httpResponse => {
+          val endTime = clock.instant()
+
           Logger.info(
             s"""File ready notification sent to service with callbackUrl: [${uploadedFile.callbackUrl}].
                | Response status was: [${httpResponse.status}].""".stripMargin
+          )
+
+          uploadedFile.copyWithUserMetadata(
+            "x-amz-meta-upscan-notify-callback-started" -> startTime.toString(),
+            "x-amz-meta-upscan-notify-callback-ended"   -> endTime.toString()
           )
         }
       }
   }
 
-  override def notifyFailedCallback(quarantinedFile: QuarantinedFile): Future[Unit] = {
+  override def notifyFailedCallback(quarantinedFile: QuarantinedFile): Future[QuarantinedFile] = {
 
     implicit val ld = LoggingDetails.fromFileReference(quarantinedFile.reference)
     val callback    = FailedCallbackBody(reference = quarantinedFile.reference, failureDetails = quarantinedFile.error)
 
+    val startTime = clock.instant()
+
     httpClient
       .POST[FailedCallbackBody, HttpResponse](quarantinedFile.callbackUrl.toString, callback)
       .map { httpResponse => {
+          val endTime = clock.instant()
+
           Logger.info(
             s"""File failed notification sent to service with callbackUrl: [${quarantinedFile.callbackUrl}].
                | Response status was: [${httpResponse.status}].""".stripMargin
+          )
+
+          quarantinedFile.copyWithUserMetadata(
+            "x-amz-meta-upscan-notify-callback-started" -> startTime.toString(),
+            "x-amz-meta-upscan-notify-callback-ended"   -> endTime.toString()
           )
         }
       }

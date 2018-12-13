@@ -21,12 +21,12 @@ import java.time._
 
 import com.codahale.metrics.MetricRegistry
 import com.kenshoo.play.metrics.Metrics
+import config.ServiceConfiguration
 import model._
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito
+import org.mockito.Mockito.{times, verify, verifyNoMoreInteractions, when}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{GivenWhenThen, Matchers}
-import uk.gov.hmrc.http.HttpResponse
 import uk.gov.hmrc.play.test.UnitSpec
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -64,8 +64,9 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       FileReference(objectLocation.objectKey),
       downloadUrl,
       10L,
-      UploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
-      sampleRequestContext
+      ValidUploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
+      sampleRequestContext,
+      Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
     )
 
   val fileDetailsRetriever = new FileNotificationDetailsRetriever {
@@ -75,17 +76,29 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
     override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] = ???
   }
 
+  val serviceConfiguration = mock[ServiceConfiguration]
+  when(serviceConfiguration.endToEndProcessingThreshold()).thenReturn(1 minute)
+
   "SuccessfulUploadNotificationProcessingFlow" should {
     "get messages from the queue consumer, and call notification service for valid messages" in {
       Given("there are only valid messages in a message queue")
-      val validMessage = Message("ID", "VALID-BODY", "RECEIPT-1")
+      val validMessage = Message("ID", "VALID-BODY", "RECEIPT-1", clock.instant())
 
       val queueConsumer = mock[SuccessfulQueueConsumer]
-      Mockito.when(queueConsumer.poll()).thenReturn(List(validMessage))
-      Mockito.when(queueConsumer.confirm(any())).thenReturn(Future.successful(()))
+      when(queueConsumer.poll()).thenReturn(List(validMessage))
+      when(queueConsumer.confirm(any())).thenReturn(Future.successful(()))
 
       val notificationService = mock[NotificationService]
-      Mockito.when(notificationService.notifySuccessfulCallback(any())).thenReturn(Future.successful(()))
+      val uploadedFile        = UploadedFile(
+        callbackUrl,
+        FileReference("fileReference"),
+        downloadUrl,
+        10L,
+        ValidUploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
+        sampleRequestContext,
+        Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
+      )
+      when(notificationService.notifySuccessfulCallback(any())).thenReturn(Future.successful(uploadedFile))
 
       val metrics = metricsStub()
 
@@ -98,19 +111,20 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         notificationService,
         metrics,
         clock,
-        auditingService)
+        auditingService,
+        serviceConfiguration)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
 
       Then("the queue consumer should poll for messages")
-      Mockito.verify(queueConsumer).poll()
+      verify(queueConsumer).poll()
 
       And("callback recipient is notified")
-      Mockito.verify(notificationService).notifySuccessfulCallback(any())
+      verify(notificationService).notifySuccessfulCallback(any())
 
       And("successfully processed messages are confirmed")
-      Mockito.verify(queueConsumer).confirm(validMessage)
+      verify(queueConsumer).confirm(validMessage)
 
       And("counter of successful processed messages is incremented")
       metrics.defaultRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 1
@@ -127,31 +141,36 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
       And("audit events are emitted for all the events")
 
-      Mockito
-        .verify(auditingService)
+      verify(auditingService)
         .notifyFileUploadedSuccessfully(sampleUploadedFile(S3ObjectLocation("bucket", "ID")))
     }
 
     "get messages from the queue consumer, and call notification service for valid messages and ignore invalid messages" in {
       Given("there are only valid messages in a message queue")
-      val validMessage1  = Message("ID1", "VALID-BODY", "RECEIPT-1")
-      val invalidMessage = Message("ID2", "INVALID-BODY", "RECEIPT-2")
-      val validMessage2  = Message("ID3", "VALID-BODY", "RECEIPT-3")
+      val validMessage1  = Message("ID1", "VALID-BODY", "RECEIPT-1", clock.instant())
+      val invalidMessage = Message("ID2", "INVALID-BODY", "RECEIPT-2", clock.instant())
+      val validMessage2  = Message("ID3", "VALID-BODY", "RECEIPT-3", clock.instant())
 
       val queueConsumer = mock[SuccessfulQueueConsumer]
-      Mockito
-        .when(queueConsumer.poll())
+      when(queueConsumer.poll())
         .thenReturn(Future.successful(List(validMessage1, invalidMessage, validMessage2)))
 
-      Mockito
-        .when(queueConsumer.confirm(any()))
+      when(queueConsumer.confirm(any()))
         .thenReturn(Future.successful(()))
         .thenReturn(Future.successful(()))
 
       val notificationService = mock[NotificationService]
-      Mockito
-        .when(notificationService.notifySuccessfulCallback(any()))
-        .thenReturn(Future.successful(()))
+      val uploadedFile        = UploadedFile(
+        callbackUrl,
+        FileReference("fileReference"),
+        downloadUrl,
+        10L,
+        ValidUploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
+        sampleRequestContext,
+        Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
+      )
+      when(notificationService.notifySuccessfulCallback(any())).thenReturn(Future.successful(uploadedFile))
+
 
       val metrics = metricsStub()
 
@@ -164,23 +183,24 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         notificationService,
         metrics,
         clock,
-        auditingService)
+        auditingService,
+        serviceConfiguration)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
 
       Then("the queue consumer should poll for messages")
-      Mockito.verify(queueConsumer).poll()
+      verify(queueConsumer).poll()
 
       And("notification service is called only for valid messages")
-      Mockito.verify(notificationService, Mockito.times(2)).notifySuccessfulCallback(any())
+      verify(notificationService, times(2)).notifySuccessfulCallback(any())
 
       And("successfully processed messages are confirmed")
-      Mockito.verify(queueConsumer).confirm(validMessage1)
-      Mockito.verify(queueConsumer).confirm(validMessage2)
+      verify(queueConsumer).confirm(validMessage1)
+      verify(queueConsumer).confirm(validMessage2)
 
       And("invalid messages are not confirmed")
-      Mockito.verifyNoMoreInteractions(queueConsumer)
+      verifyNoMoreInteractions(queueConsumer)
 
       And("counter of successful processed messages is incremented by count of successfuly processed messages")
       metrics.defaultRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 2
@@ -190,53 +210,62 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
     "do not confirm valid messages for which notification has failed" in {
 
       Given("there are only valid messages in a message queue")
-      val validMessage1 = Message("ID1", "VALID-BODY", "RECEIPT-1")
-      val validMessage2 = Message("ID2", "VALID-BODY", "RECEIPT-2")
-      val validMessage3 = Message("ID3", "VALID-BODY", "RECEIPT-3")
+      val validMessage1 = Message("ID1", "VALID-BODY", "RECEIPT-1", clock.instant())
+      val validMessage2 = Message("ID2", "VALID-BODY", "RECEIPT-2", clock.instant())
+      val validMessage3 = Message("ID3", "VALID-BODY", "RECEIPT-3", clock.instant())
 
       val queueConsumer = mock[SuccessfulQueueConsumer]
-      Mockito.when(queueConsumer.poll()).thenReturn(List(validMessage1, validMessage2, validMessage3))
-      Mockito
-        .when(queueConsumer.confirm(any()))
+      when(queueConsumer.poll()).thenReturn(List(validMessage1, validMessage2, validMessage3))
+      when(queueConsumer.confirm(any()))
         .thenReturn(Future.successful(()))
         .thenReturn(Future.successful(()))
 
+      val uploadedFile = UploadedFile(
+        callbackUrl,
+        FileReference("fileReference"),
+        downloadUrl,
+        10L,
+        ValidUploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
+        sampleRequestContext,
+        Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
+      )
+
       val notificationService = mock[NotificationService]
-      Mockito
-        .when(
+      when(
           notificationService.notifySuccessfulCallback(
             UploadedFile(
               callbackUrl,
               FileReference("ID1"),
               downloadUrl,
               10L,
-              UploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
-              sampleRequestContext)))
-        .thenReturn(Future.successful(()))
+              ValidUploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
+              sampleRequestContext,
+              Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z"))))
+        .thenReturn(Future.successful(uploadedFile))
 
-      Mockito
-        .when(
+      when(
           notificationService.notifySuccessfulCallback(
             UploadedFile(
               callbackUrl,
               FileReference("ID2"),
               downloadUrl,
               10L,
-              UploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
-              sampleRequestContext)))
+              ValidUploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
+              sampleRequestContext,
+              Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z"))))
         .thenReturn(Future.failed(new Exception("Planned exception")))
 
-      Mockito
-        .when(
+      when(
           notificationService.notifySuccessfulCallback(
             UploadedFile(
               callbackUrl,
               FileReference("ID3"),
               downloadUrl,
               10L,
-              UploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
-              sampleRequestContext)))
-        .thenReturn(Future.successful(()))
+              ValidUploadDetails("test.pdf", "application/pdf", startTime, "1a2b3c4d5e"),
+              sampleRequestContext,
+              Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z"))))
+        .thenReturn(Future.successful(uploadedFile))
 
       val metrics = metricsStub()
 
@@ -249,25 +278,26 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         notificationService,
         metrics,
         clock,
-        auditingService)
+        auditingService,
+        serviceConfiguration)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30 seconds)
 
       Then("the queue consumer should poll for messages")
-      Mockito.verify(queueConsumer).poll()
+      verify(queueConsumer).poll()
 
       And("notification service is called for all valid messages")
-      Mockito.verify(notificationService, Mockito.times(3)).notifySuccessfulCallback(any())
+      verify(notificationService, times(3)).notifySuccessfulCallback(any())
 
       And("successfully processed messages are confirmed")
-      Mockito.verify(queueConsumer).confirm(validMessage1)
-      Mockito.verify(queueConsumer).confirm(validMessage3)
+      verify(queueConsumer).confirm(validMessage1)
+      verify(queueConsumer).confirm(validMessage3)
 
       And("invalid messages are not confirmed")
-      Mockito.verifyNoMoreInteractions(queueConsumer)
+      verifyNoMoreInteractions(queueConsumer)
 
-      And("counter of successful processed messages is incremented by count of successfuly processed messages")
+      And("counter of successful processed messages is incremented by count of successfully processed messages")
       metrics.defaultRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 2
       metrics.defaultRegistry.histogram("fileSize").getSnapshot.getValues          shouldBe Array(10L, 10L)
     }

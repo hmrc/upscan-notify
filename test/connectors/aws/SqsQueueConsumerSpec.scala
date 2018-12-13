@@ -32,6 +32,7 @@ package connectors.aws
  * limitations under the License.
  */
 
+import java.time.{Clock, Instant, ZoneId}
 import java.util
 import java.util.{List => JList}
 
@@ -65,6 +66,9 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
     messages
   }
 
+  private val receivedAt = Instant.parse("2018-11-30T16:29:15Z")
+  private val clock       = Clock.fixed(receivedAt, ZoneId.systemDefault())
+
   "SqsQueueConsumer" should {
     "call an SQS endpoint to receive messages" in {
       Given("an SQS queue consumer and a queue containing messages")
@@ -73,7 +77,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
 
       val sqsClient: AmazonSQS = mock[AmazonSQS]
       Mockito.when(sqsClient.receiveMessage(any(): ReceiveMessageRequest)).thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue") {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", clock) {}
 
       When("the consumer poll method is called")
       val messages: Seq[Message] = Await.result(consumer.poll(), 2.seconds)
@@ -83,8 +87,8 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
 
       And("the list of messages should be returned")
       messages shouldBe List(
-        Message("ID1", "SQS message body: 1", "SQS receipt handle: 1"),
-        Message("ID2", "SQS message body: 2", "SQS receipt handle: 2"))
+        Message("ID1", "SQS message body: 1", "SQS receipt handle: 1", receivedAt),
+        Message("ID2", "SQS message body: 2", "SQS receipt handle: 2", receivedAt))
     }
 
     "call an SQS endpoint to receive messages for empty queue" in {
@@ -94,7 +98,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
 
       val sqsClient: AmazonSQS = mock[AmazonSQS]
       Mockito.when(sqsClient.receiveMessage(any(): ReceiveMessageRequest)).thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue") {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", clock) {}
 
       When("the consumer poll method is called")
       val messages: Seq[Message] = Await.result(consumer.poll(), 2.seconds)
@@ -113,7 +117,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
         .when(sqsClient.receiveMessage(any(): ReceiveMessageRequest))
         .thenThrow(new OverLimitException(""))
 
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue") {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", clock) {}
 
       When("the consumer confirm method is called")
       val result = consumer.poll()
@@ -135,7 +139,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
 
       val sqsClient: AmazonSQS = mock[AmazonSQS]
       Mockito.when(sqsClient.receiveMessage(any(): ReceiveMessageRequest)).thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue") {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", clock) {}
 
       val message: Message = Await.result(consumer.poll(), 2.seconds).head
 
@@ -156,7 +160,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
 
       val sqsClient: AmazonSQS = mock[AmazonSQS]
       Mockito.when(sqsClient.receiveMessage(any(): ReceiveMessageRequest)).thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue") {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", clock) {}
 
       And("an SQS endpoint which is throwing an error")
       Mockito

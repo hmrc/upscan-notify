@@ -34,6 +34,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
 
   "UpscanAuditingService" should {
+    val uploadDetails = ValidUploadDetails("test.pdf", "application/pdf", Instant.now(), "1a2b3c4d5e")
 
     "properly handle FileUploadedSuccessfully events" in {
 
@@ -46,8 +47,9 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
         FileReference("REF"),
         new URL("http://www.test.com"),
         10L,
-        UploadDetails("test.pdf", "application/pdf", Instant.now(), "1a2b3c4d5e"),
-        RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1")
+        uploadDetails,
+        RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1"),
+        Map()
       )
 
       upscanAuditingService.notifyFileUploadedSuccessfully(event)
@@ -79,7 +81,9 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
         new URL("http://www.test.com"),
         FileReference("REF"),
         ErrorDetails("QUARANTINE", "1a2b3c4d5e"),
-        RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1")
+        uploadDetails,
+        RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1"),
+        Map()
       )
 
       upscanAuditingService.notifyFileIsQuarantined(event)
@@ -99,8 +103,6 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
       dataEvent.tags.get(HeaderNames.xSessionId) shouldBe Some("SessionId")
       dataEvent.tags.get(HeaderNames.xRequestId) shouldBe Some("RequestId")
       dataEvent.tags.get("clientIp")             shouldBe Some("127.0.0.1")
-
     }
-
   }
 }
