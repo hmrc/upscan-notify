@@ -37,7 +37,7 @@ import scala.concurrent.duration._
 class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends WordSpec with Matchers {
 
   val consumer             = mock[QuarantineQueueConsumer[Future]]
-  val parser               = new S3EventParser()
+  val parser               = new S3EventParser[Future]()
   val fileRetriever        = mock[FileNotificationDetailsRetriever[Future]]
   val notificationService  = mock[NotificationService[Future]]
   val metrics              = mock[Metrics]

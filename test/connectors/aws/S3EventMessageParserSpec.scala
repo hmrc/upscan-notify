@@ -25,45 +25,41 @@ import uk.gov.hmrc.play.test.UnitSpec
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.util.{Success, Try}
+import cats.implicits._
 
 class S3EventMessageParserSpec extends UnitSpec with Matchers {
 
-  val parser = new S3EventParser()
+  val parser: S3EventParser[Try] = new S3EventParser[Try]()
 
   val clock = Clock.systemDefaultZone()
 
   "MessageParser" should {
     "properly parse valid S3 event message triggered by POST" in {
 
-      Await.result(parser.parse(Message("ID", samplePostMessage, "HANDLE", clock.instant())), 2 seconds) shouldBe FileUploadEvent(
-        S3ObjectLocation("hmrc-upscan-live-transient", "acabd94b-4d74-4b04-a0ca-1914950f9c02"))
+      parser.parse(Message("ID", samplePostMessage, "HANDLE", clock.instant())) shouldBe Success(
+        FileUploadEvent(S3ObjectLocation("hmrc-upscan-live-transient", "acabd94b-4d74-4b04-a0ca-1914950f9c02")))
 
     }
 
     "properly parse valid S3 event message triggered by copying object between buckets" in {
 
-      Await.result(parser.parse(Message("ID", sampleCopyMessage, "HANDLE", clock.instant())), 2 seconds) shouldBe FileUploadEvent(
-        S3ObjectLocation("fus-outbound-759b74ce43947f5f4c91aeddc3e5bad3", "16d77f7a-1f42-4bc2-aa7c-3e1b57b75b26"))
+      parser.parse(Message("ID", sampleCopyMessage, "HANDLE", clock.instant())) shouldBe Success(
+        FileUploadEvent(
+          S3ObjectLocation("fus-outbound-759b74ce43947f5f4c91aeddc3e5bad3", "16d77f7a-1f42-4bc2-aa7c-3e1b57b75b26")))
 
     }
 
     "return failure for test message" in {
-
-      val result: Future[FileUploadEvent] = parser.parse(Message("ID1", testMessage, "HANDLE", clock.instant()))
-      Await.ready(result, 2 seconds)
-      result.value.get.isSuccess shouldBe false
+      parser.parse(Message("ID1", testMessage, "HANDLE", clock.instant())).isFailure shouldBe true
     }
 
     "return unparseable message for S3 message other than upload" in {
-      val result: Future[FileUploadEvent] = parser.parse(Message("ID1", others3message, "HANDLE", clock.instant()))
-      Await.ready(result, 2 seconds)
-      result.value.get.isSuccess shouldBe false
+      parser.parse(Message("ID1", others3message, "HANDLE", clock.instant())).isFailure shouldBe true
     }
 
     "return unparseable message for S3 message with invalid JSON" in {
-      val result: Future[FileUploadEvent] = parser.parse(Message("ID1", "$>>>>", "HANDLE", clock.instant()))
-      Await.ready(result, 2 seconds)
-      result.value.get.isSuccess shouldBe false
+      parser.parse(Message("ID1", "$>>>>", "HANDLE", clock.instant())).isFailure shouldBe true
     }
   }
 

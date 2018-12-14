@@ -16,18 +16,27 @@
 
 package connectors.aws
 
-import javax.inject.Inject
+import cats.{FlatMap, Monad, MonadError}
 import model.{FileUploadEvent, Message, S3ObjectLocation}
 import play.api.Logger
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
 import services._
+import cats.syntax.functor._
+import cats.syntax.flatMap._
+import connectors.aws.MyMonadError.M
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.language.higherKinds
+import scala.util.{Failure, Success, Try}
 
-class S3EventParser @Inject()(implicit ec: ExecutionContext) extends MessageParser[Future] {
+object MyMonadError {
+  type M[F[_]] = MonadError[F, Throwable]
+}
+
+class S3EventParser[F[_]: MyMonadError.M] extends MessageParser[F] {
+
+  val monadError: M[F] = implicitly[MyMonadError.M[F]]
 
   case class S3EventNotification(records: Seq[S3EventNotificationRecord])
 
@@ -50,21 +59,24 @@ class S3EventParser @Inject()(implicit ec: ExecutionContext) extends MessagePars
   implicit val messageReads: Reads[S3EventNotification] =
     (JsPath \ "Records").read[Seq[S3EventNotificationRecord]].map(S3EventNotification)
 
-  override def parse(message: Message): Future[FileUploadEvent] =
-    for {
-      json               <- Future.fromTry(Try(Json.parse(message.body)))
-      deserializedJson   <- asFuture(json.validate[S3EventNotification])
-      interpretedMessage <- interpretS3EventMessage(deserializedJson)
-    } yield interpretedMessage
+  override def parse(message: Message): F[FileUploadEvent] =
+    monadError
+      .catchNonFatal(Json.parse(message.body))
+      .flatMap { json =>
+        monadError.fromTry(asTry(json.validate[S3EventNotification]))
+      }
+      .flatMap { deserializedJson =>
+        interpretS3EventMessage(deserializedJson)
+      }
 
-  private def asFuture[T](input: JsResult[T]): Future[T] =
+  private def asTry[T](input: JsResult[T]): Try[T] =
     input.fold(
-      errors => Future.failed(new Exception(s"Cannot parse the message ${errors.toString()}")),
-      result => Future.successful(result))
+      errors => Failure(new Exception(s"Cannot parse the message ${errors.toString()}")),
+      result => Success(result))
 
   private val ObjectCreatedEventPattern = "ObjectCreated\\:.*".r
 
-  private def interpretS3EventMessage(result: S3EventNotification): Future[FileUploadEvent] =
+  private def interpretS3EventMessage(result: S3EventNotification): F[FileUploadEvent] =
     result.records match {
       case S3EventNotificationRecord(_, "aws:s3", _, _, ObjectCreatedEventPattern(), s3Details) :: Nil => {
         import org.slf4j.MDC
@@ -78,11 +90,11 @@ class S3EventParser @Inject()(implicit ec: ExecutionContext) extends MessagePars
         try {
           MDC.put("file-reference", event.location.objectKey)
           Logger.debug(s"Created FileUploadEvent for objectKey: [${event.location.objectKey}].")
-          Future.successful(event)
+          monadError.pure(event)
         } finally {
           MDC.remove("file-reference")
         }
       }
-      case _ => Future.failed(new Exception(s"Unexpected records in event ${result.records.toString}"))
+      case _ => monadError.raiseError(new Exception(s"Unexpected records in event ${result.records.toString}"))
     }
 }

@@ -19,17 +19,17 @@ package services
 import java.net.URL
 import java.time.{Clock, Instant}
 
+import cats.implicits._
 import com.codahale.metrics.MetricRegistry
 import com.kenshoo.play.metrics.Metrics
 import config.ServiceConfiguration
 import connectors.aws.S3EventParser
 import model._
 import org.mockito.Mockito._
-import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.mockito.MockitoSugar.mock
+import org.scalatest.{Matchers, WordSpec}
 import util.logging.MockLoggerLike
 
-import cats.implicits._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -37,7 +37,7 @@ import scala.concurrent.duration._
 class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends WordSpec with Matchers {
 
   val consumer             = mock[SuccessfulQueueConsumer[Future]]
-  val parser               = new S3EventParser()
+  val parser               = new S3EventParser[Future]()
   val fileRetriever        = mock[FileNotificationDetailsRetriever[Future]]
   val notificationService  = mock[NotificationService[Future]]
   val metrics              = mock[Metrics]

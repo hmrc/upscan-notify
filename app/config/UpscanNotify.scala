@@ -52,7 +52,7 @@ class UpscanNotify @Inject()(
 
   lazy val clock: Clock = Clock.systemDefaultZone()
 
-  lazy val parser = new S3EventParser()
+  lazy val parser = new S3EventParser[F]()
 
   lazy val fileManager: FileManager[F] = new S3FileManager(s3Client)
 
