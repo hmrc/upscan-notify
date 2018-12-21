@@ -215,7 +215,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
         val checkpoints = updatedNotification.checkpoints().toSeq.sorted.mkString("[", ", ", "]")
 
         perfLogger.warn(
-          s"""Rejected file total processing time: x[${totalProcessingTime.getSeconds} seconds] exceeded threshold of [${endToEndProcessingThreshold}].
+          s"""Rejected file total processing time: [${totalProcessingTime.getSeconds} seconds] exceeded threshold of [${endToEndProcessingThreshold}].
              |Processing checkpoints were: ${checkpoints}.
            """.stripMargin)
       }
