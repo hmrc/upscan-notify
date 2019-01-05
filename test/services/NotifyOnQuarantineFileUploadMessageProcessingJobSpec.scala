@@ -17,34 +17,36 @@
 package services
 
 import java.net.URL
-import java.time.{Clock, Instant}
+import java.time.Instant
 
+import cats.effect
+import cats.effect.IO
 import com.codahale.metrics.MetricRegistry
 import com.kenshoo.play.metrics.Metrics
 import config.ServiceConfiguration
 import connectors.aws.S3EventParser
 import model._
 import org.mockito.Mockito._
-import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.mockito.MockitoSugar.mock
+import org.scalatest.{Matchers, WordSpec}
 import util.logging.MockLoggerLike
 
-import cats.implicits._
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends WordSpec with Matchers {
 
-  val consumer             = mock[QuarantineQueueConsumer[Future]]
-  val parser               = new S3EventParser[Future]()
-  val fileRetriever        = mock[FileNotificationDetailsRetriever[Future]]
-  val notificationService  = mock[NotificationService[Future]]
+  val consumer             = mock[QuarantineQueueConsumer[IO]]
+  val parser               = new S3EventParser[IO]()
+  val fileRetriever        = mock[FileNotificationDetailsRetriever[IO]]
+  val notificationService  = mock[NotificationService[IO]]
   val metrics              = mock[Metrics]
-  val clock                = Clock.systemDefaultZone()
   val auditingService      = mock[UpscanAuditingService]
   val serviceConfiguration = mock[ServiceConfiguration]
   val mockLogger           = new MockLoggerLike()
+
+  val timer                              = IO.timer(ExecutionContext.global)
+  implicit val ioClock: effect.Clock[IO] = timer.clock
 
   val defaultMetricsRegistry = mock[MetricRegistry]
   when(metrics.defaultRegistry).thenReturn(defaultMetricsRegistry)
@@ -59,7 +61,6 @@ class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends WordSpec with
     fileRetriever,
     notificationService,
     metrics,
-    clock,
     auditingService,
     serviceConfiguration
   )
@@ -80,7 +81,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends WordSpec with
           )
         )
 
-        testInstance.collectMetricsAfterNotification(notification, mockLogger)
+        testInstance.collectMetricsAfterNotification(notification, mockLogger).unsafeRunSync()
 
         val logMessage = mockLogger.getWarnMessage()
 

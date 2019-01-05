@@ -49,15 +49,13 @@ class UpscanNotify @Inject()(
 
   type F[A] = IO[A]
 
-  val timer = IO.timer(ec)
-
   implicit val contextShift: ContextShift[IO] = IO.contextShift(ec)
+
+  val timer = IO.timer(ec)
 
   implicit val ioClock: effect.Clock[IO] = timer.clock
 
   lazy val serviceConfiguration: ServiceConfiguration = new PlayBasedServiceConfiguration(configuration, env)
-
-  lazy val clock: Clock = Clock.systemDefaultZone()
 
   lazy val parser = new S3EventParser[F]()
 
@@ -85,7 +83,6 @@ class UpscanNotify @Inject()(
       fileRetriever,
       notificationService,
       metrics,
-      clock,
       auditingService,
       serviceConfiguration
     )
@@ -97,7 +94,6 @@ class UpscanNotify @Inject()(
       fileRetriever,
       notificationService,
       metrics,
-      clock,
       auditingService,
       serviceConfiguration
     )

@@ -19,6 +19,8 @@ package services
 import java.net.URL
 import java.time.{Clock, Instant}
 
+import cats.effect
+import cats.effect.IO
 import cats.implicits._
 import com.codahale.metrics.MetricRegistry
 import com.kenshoo.play.metrics.Metrics
@@ -31,20 +33,22 @@ import org.scalatest.{Matchers, WordSpec}
 import util.logging.MockLoggerLike
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext}
 import scala.concurrent.duration._
 
 class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends WordSpec with Matchers {
 
-  val consumer             = mock[SuccessfulQueueConsumer[Future]]
-  val parser               = new S3EventParser[Future]()
-  val fileRetriever        = mock[FileNotificationDetailsRetriever[Future]]
-  val notificationService  = mock[NotificationService[Future]]
+  val consumer             = mock[SuccessfulQueueConsumer[IO]]
+  val parser               = new S3EventParser[IO]()
+  val fileRetriever        = mock[FileNotificationDetailsRetriever[IO]]
+  val notificationService  = mock[NotificationService[IO]]
   val metrics              = mock[Metrics]
-  val clock                = Clock.systemDefaultZone()
   val auditingService      = mock[UpscanAuditingService]
   val serviceConfiguration = mock[ServiceConfiguration]
   val mockLogger           = new MockLoggerLike()
+
+  val timer                              = IO.timer(ExecutionContext.global)
+  implicit val ioClock: effect.Clock[IO] = timer.clock
 
   val defaultMetricsRegistry = mock[MetricRegistry]
   when(metrics.defaultRegistry).thenReturn(defaultMetricsRegistry)
@@ -61,7 +65,6 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends WordSpec with
     fileRetriever,
     notificationService,
     metrics,
-    clock,
     auditingService,
     serviceConfiguration
   )
@@ -83,7 +86,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends WordSpec with
           )
         )
 
-        testInstance.collectMetricsAfterNotification(notification, mockLogger)
+        testInstance.collectMetricsAfterNotification(notification, mockLogger).unsafeRunSync()
 
         val logMessage = mockLogger.getWarnMessage()
 

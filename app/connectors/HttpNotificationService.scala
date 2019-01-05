@@ -43,13 +43,13 @@ class HttpNotificationService @Inject()(httpClient: HttpClient)(implicit clock: 
       uploadDetails = uploadedFile.uploadDetails)
 
     for {
-      startTime <- clock.monotonic(MILLISECONDS)
+      startTime <- clock.realTime(MILLISECONDS)
       httpResponse <- IO.fromFuture {
                        IO {
                          httpClient.POST[ReadyCallbackBody, HttpResponse](uploadedFile.callbackUrl.toString, callback)
                        }
                      }
-      endTime <- clock.monotonic(MILLISECONDS)
+      endTime <- clock.realTime(MILLISECONDS)
     } yield {
       Logger.info(
         s"""File ready notification sent to service with callbackUrl: [${uploadedFile.callbackUrl}].
@@ -70,14 +70,14 @@ class HttpNotificationService @Inject()(httpClient: HttpClient)(implicit clock: 
     val callback    = FailedCallbackBody(reference = quarantinedFile.reference, failureDetails = quarantinedFile.error)
 
     for {
-      startTime <- clock.monotonic(MILLISECONDS)
+      startTime <- clock.realTime(MILLISECONDS)
       httpResponse <- IO.fromFuture {
                        IO {
                          httpClient
                            .POST[FailedCallbackBody, HttpResponse](quarantinedFile.callbackUrl.toString, callback)
                        }
                      }
-      endTime <- clock.monotonic(MILLISECONDS)
+      endTime <- clock.realTime(MILLISECONDS)
     } yield {
 
       Logger.info(

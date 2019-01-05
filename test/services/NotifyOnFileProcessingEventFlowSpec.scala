@@ -19,6 +19,8 @@ package services
 import java.net.URL
 import java.time._
 
+import cats.effect
+import cats.effect.IO
 import com.codahale.metrics.MetricRegistry
 import com.kenshoo.play.metrics.Metrics
 import config.ServiceConfiguration
@@ -29,24 +31,27 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{GivenWhenThen, Matchers}
 import uk.gov.hmrc.play.test.UnitSpec
 
-import cats.implicits._
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
 
 class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
 
-  val messageParser = new MessageParser[Future] {
+  val messageParser = new MessageParser[IO] {
     override def parse(message: Message) = message.body match {
-      case "VALID-BODY" => Future.successful(FileUploadEvent(S3ObjectLocation("bucket", message.id)))
-      case _            => Future.failed(new Exception("Invalid body"))
+      case "VALID-BODY" => IO.delay(FileUploadEvent(S3ObjectLocation("bucket", message.id)))
+      case _            => IO.raiseError(new Exception("Invalid body"))
     }
   }
 
   val startTime   = Instant.parse("2018-04-24T09:45:10Z")
   val currentTime = Instant.parse("2018-04-24T09:45:15Z")
 
-  val clock = Clock.fixed(currentTime, ZoneOffset.UTC)
+  val timer = IO.timer(ExecutionContext.global)
+  implicit val ioClock: effect.Clock[IO] = new effect.Clock[IO] {
+    override def realTime(unit: TimeUnit): IO[Long] = IO.pure(currentTime.toEpochMilli)
+
+    override def monotonic(unit: TimeUnit): IO[Long] = IO.pure(currentTime.toEpochMilli)
+  }
 
   val callbackUrl = new URL("http://localhost:8080")
   val downloadUrl = new URL("http://remotehost/bucket/123")
@@ -70,11 +75,11 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
     )
 
-  val fileDetailsRetriever = new FileNotificationDetailsRetriever[Future] {
-    override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] =
-      Future.successful(sampleUploadedFile(objectLocation))
+  val fileDetailsRetriever = new FileNotificationDetailsRetriever[IO] {
+    override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): IO[UploadedFile] =
+      IO.delay(sampleUploadedFile(objectLocation))
 
-    override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] = ???
+    override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): IO[QuarantinedFile] = ???
   }
 
   val serviceConfiguration = mock[ServiceConfiguration]
@@ -83,13 +88,13 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
   "SuccessfulUploadNotificationProcessingFlow" should {
     "get messages from the queue consumer, and call notification service for valid messages" in {
       Given("there are only valid messages in a message queue")
-      val validMessage = Message("ID", "VALID-BODY", "RECEIPT-1", clock.instant())
+      val validMessage = Message("ID", "VALID-BODY", "RECEIPT-1", currentTime)
 
-      val queueConsumer = mock[SuccessfulQueueConsumer[Future]]
-      when(queueConsumer.poll()).thenReturn(List(validMessage))
-      when(queueConsumer.confirm(any())).thenReturn(Future.successful(()))
+      val queueConsumer = mock[SuccessfulQueueConsumer[IO]]
+      when(queueConsumer.poll()).thenReturn(IO.delay(List(validMessage)))
+      when(queueConsumer.confirm(any())).thenReturn(IO.delay(()))
 
-      val notificationService = mock[NotificationService[Future]]
+      val notificationService = mock[NotificationService[IO]]
       val uploadedFile = UploadedFile(
         callbackUrl,
         FileReference("fileReference"),
@@ -99,7 +104,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         sampleRequestContext,
         Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
       )
-      when(notificationService.notifySuccessfulCallback(any())).thenReturn(Future.successful(uploadedFile))
+      when(notificationService.notifySuccessfulCallback(any())).thenReturn(IO.delay(uploadedFile))
 
       val metrics = metricsStub()
 
@@ -111,12 +116,11 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         fileDetailsRetriever,
         notificationService,
         metrics,
-        clock,
         auditingService,
         serviceConfiguration)
 
       When("the orchestrator is called")
-      Await.result(queueOrchestrator.build(), 30 seconds)
+      queueOrchestrator.build().unsafeRunSync()
 
       Then("the queue consumer should poll for messages")
       verify(queueConsumer).poll()
@@ -148,19 +152,19 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
 
     "get messages from the queue consumer, and call notification service for valid messages and ignore invalid messages" in {
       Given("there are only valid messages in a message queue")
-      val validMessage1  = Message("ID1", "VALID-BODY", "RECEIPT-1", clock.instant())
-      val invalidMessage = Message("ID2", "INVALID-BODY", "RECEIPT-2", clock.instant())
-      val validMessage2  = Message("ID3", "VALID-BODY", "RECEIPT-3", clock.instant())
+      val validMessage1  = Message("ID1", "VALID-BODY", "RECEIPT-1", currentTime)
+      val invalidMessage = Message("ID2", "INVALID-BODY", "RECEIPT-2", currentTime)
+      val validMessage2  = Message("ID3", "VALID-BODY", "RECEIPT-3", currentTime)
 
-      val queueConsumer = mock[SuccessfulQueueConsumer[Future]]
+      val queueConsumer = mock[SuccessfulQueueConsumer[IO]]
       when(queueConsumer.poll())
-        .thenReturn(Future.successful(List(validMessage1, invalidMessage, validMessage2)))
+        .thenReturn(IO.delay(List(validMessage1, invalidMessage, validMessage2)))
 
       when(queueConsumer.confirm(any()))
-        .thenReturn(Future.successful(()))
-        .thenReturn(Future.successful(()))
+        .thenReturn(IO.delay(()))
+        .thenReturn(IO.delay(()))
 
-      val notificationService = mock[NotificationService[Future]]
+      val notificationService = mock[NotificationService[IO]]
       val uploadedFile = UploadedFile(
         callbackUrl,
         FileReference("fileReference"),
@@ -170,7 +174,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         sampleRequestContext,
         Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
       )
-      when(notificationService.notifySuccessfulCallback(any())).thenReturn(Future.successful(uploadedFile))
+      when(notificationService.notifySuccessfulCallback(any())).thenReturn(IO.delay(uploadedFile))
 
       val metrics = metricsStub()
 
@@ -182,12 +186,11 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         fileDetailsRetriever,
         notificationService,
         metrics,
-        clock,
         auditingService,
         serviceConfiguration)
 
       When("the orchestrator is called")
-      Await.result(queueOrchestrator.build(), 30 seconds)
+      queueOrchestrator.build().unsafeRunSync()
 
       Then("the queue consumer should poll for messages")
       verify(queueConsumer).poll()
@@ -210,15 +213,15 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
     "do not confirm valid messages for which notification has failed" in {
 
       Given("there are only valid messages in a message queue")
-      val validMessage1 = Message("ID1", "VALID-BODY", "RECEIPT-1", clock.instant())
-      val validMessage2 = Message("ID2", "VALID-BODY", "RECEIPT-2", clock.instant())
-      val validMessage3 = Message("ID3", "VALID-BODY", "RECEIPT-3", clock.instant())
+      val validMessage1 = Message("ID1", "VALID-BODY", "RECEIPT-1", currentTime)
+      val validMessage2 = Message("ID2", "VALID-BODY", "RECEIPT-2", currentTime)
+      val validMessage3 = Message("ID3", "VALID-BODY", "RECEIPT-3", currentTime)
 
-      val queueConsumer = mock[SuccessfulQueueConsumer[Future]]
-      when(queueConsumer.poll()).thenReturn(List(validMessage1, validMessage2, validMessage3))
+      val queueConsumer = mock[SuccessfulQueueConsumer[IO]]
+      when(queueConsumer.poll()).thenReturn(IO.delay(List(validMessage1, validMessage2, validMessage3)))
       when(queueConsumer.confirm(any()))
-        .thenReturn(Future.successful(()))
-        .thenReturn(Future.successful(()))
+        .thenReturn(IO.delay(()))
+        .thenReturn(IO.delay(()))
 
       val uploadedFile = UploadedFile(
         callbackUrl,
@@ -230,7 +233,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
       )
 
-      val notificationService = mock[NotificationService[Future]]
+      val notificationService = mock[NotificationService[IO]]
       when(
         notificationService.notifySuccessfulCallback(UploadedFile(
           callbackUrl,
@@ -241,7 +244,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
           sampleRequestContext,
           Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
         )))
-        .thenReturn(Future.successful(uploadedFile))
+        .thenReturn(IO.delay(uploadedFile))
 
       when(
         notificationService.notifySuccessfulCallback(UploadedFile(
@@ -253,7 +256,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
           sampleRequestContext,
           Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
         )))
-        .thenReturn(Future.failed(new Exception("Planned exception")))
+        .thenReturn(IO.raiseError(new Exception("Planned exception")))
 
       when(
         notificationService.notifySuccessfulCallback(UploadedFile(
@@ -265,7 +268,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
           sampleRequestContext,
           Map("x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z")
         )))
-        .thenReturn(Future.successful(uploadedFile))
+        .thenReturn(IO.delay(uploadedFile))
 
       val metrics = metricsStub()
 
@@ -277,12 +280,11 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         fileDetailsRetriever,
         notificationService,
         metrics,
-        clock,
         auditingService,
         serviceConfiguration)
 
       When("the orchestrator is called")
-      Await.result(queueOrchestrator.build(), 30 seconds)
+      queueOrchestrator.build().unsafeRunSync()
 
       Then("the queue consumer should poll for messages")
       verify(queueConsumer).poll()

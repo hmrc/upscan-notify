@@ -47,7 +47,7 @@ abstract class SqsQueueConsumer(val sqsClient: AmazonSQS, queueUrl: String)(
                    sqsClient.receiveMessage(receiveMessageRequest)
                  }
                }
-      receivedAt <- clock.monotonic(MILLISECONDS)
+      receivedAt <- clock.realTime(MILLISECONDS)
       receivedAtInstant = Instant.ofEpochMilli(receivedAt)
     } yield {
       result.getMessages.asScala.map { sqsMessage =>
