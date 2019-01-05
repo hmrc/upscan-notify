@@ -51,7 +51,7 @@ class UpscanNotify @Inject()(
 
   implicit val contextShift: ContextShift[IO] = IO.contextShift(ec)
 
-  val timer = IO.timer(ec)
+  implicit val timer = IO.timer(ec)
 
   implicit val ioClock: effect.Clock[IO] = timer.clock
 
@@ -98,9 +98,15 @@ class UpscanNotify @Inject()(
       serviceConfiguration
     )
 
-  lazy val pollingJobs: PollingJobs[F] =
-    PollingJobs(List(successfulFileUploadProcessingJob, quarantineFileUploadProcessingJob))
+  val continousPoller: ContinuousPoller = new ContinuousPoller(
+    pollingJobs          = List(successfulFileUploadProcessingJob, quarantineFileUploadProcessingJob),
+    serviceConfiguration = serviceConfiguration
+  )
 
-  val continousPoller: ContinuousPoller = new ContinuousPoller(pollingJobs, serviceConfiguration)
+  val pollingComputation = continousPoller.run()
+
+  val cancellationToken = pollingComputation.unsafeRunCancelable(_ => ())
+
+  applicationLifecycle.addStopHook(() => cancellationToken.unsafeToFuture())
 
 }

@@ -16,17 +16,12 @@
 
 package services
 
-import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
-import akka.event.Logging
-import cats.effect.IO
+import cats.effect._
+import cats.instances.list._
+import cats.syntax.parallel._
 import config.ServiceConfiguration
+import fs2.Stream
 import play.api.Logger
-import play.api.inject.ApplicationLifecycle
-import services.ContinuousPollingActor.Poll
-
-import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 trait PollingJob[T[_]] {
   def build(): T[Unit]
@@ -34,63 +29,47 @@ trait PollingJob[T[_]] {
   def jobName(): String = this.getClass.getName
 }
 
-case class PollingJobs[T[_]](jobs: Seq[PollingJob[T]])
+class ContinuousPoller(pollingJobs: Seq[PollingJob[IO]], serviceConfiguration: ServiceConfiguration)(
+  implicit timer: Timer[IO],
+  contextShift: ContextShift[IO]) {
 
-class ContinuousPoller(pollingJobs: PollingJobs[IO], serviceConfiguration: ServiceConfiguration)(
-  implicit actorSystem: ActorSystem,
-  applicationLifecycle: ApplicationLifecycle,
-  ec: ExecutionContext) {
+  private def buildStreamFromJob(pollingJob: PollingJob[IO]): Stream[IO, Either[Throwable, Unit]] = {
 
-  private val pollingActors = pollingJobs.jobs map { job =>
-    Logger.info(s"Creating ContinuousPollingActor for PollingJob: [${job.jobName}].")
-    actorSystem.actorOf(ContinuousPollingActor(job, serviceConfiguration.retryInterval))
-  }
+    val builtPollingJob: IO[Either[Throwable, Unit]] = pollingJob.build().attempt
 
-  pollingActors foreach { pollingActor =>
-    Logger.info(s"Sending initial Poll message to Actor: [${pollingActor.toString}].")
-    pollingActor ! Poll
-  }
+    val singleStepStream = Stream.eval(builtPollingJob).flatMap {
+      case result @ Right(_) =>
+        for {
+          _ <- Stream.eval(IO.delay(Logger.debug(s"Polling succeeded for flow: [${pollingJob.jobName()}].")))
+        } yield result
 
-  applicationLifecycle.addStopHook { () =>
-    val actorStopResults = Future.sequence {
-      pollingActors map { pollingActor =>
-        Logger.info(s"Sending PoisonPill message to Actor: [${pollingActor.toString}].")
-        pollingActor ! PoisonPill
-        Future.successful(())
-      }
+      case result @ Left(error) =>
+        val r = for {
+          _ <- Stream.eval(IO.delay(Logger.error(s"Polling failed for flow: [${pollingJob.jobName()}].", error)))
+        } yield result
+
+        r.delayBy(serviceConfiguration.retryInterval)
     }
 
-    actorStopResults.map(_ => ())
+    singleStepStream.repeat
+
   }
 
-}
+  def run() = {
 
-class ContinuousPollingActor(job: PollingJob[IO], retryInterval: FiniteDuration) extends Actor {
+    val pollingComputations: Seq[IO[Either[Throwable, Unit]]] = for {
+      pollingJob <- pollingJobs
+      stream = buildStreamFromJob(pollingJob)
+      io = for {
+        _      <- IO.shift
+        result <- stream.compile.drain.attempt
+      } yield result
+    } yield {
+      io
+    }
 
-  import context.dispatcher
+    pollingComputations.toList.parSequence.map(_ => ())
 
-  val log = Logging(context.system, this)
-
-  override def receive: Receive = {
-
-    case Poll =>
-      log.debug(s"Polling for flow: [${job.jobName}].")
-      job.build().unsafeToFuture().andThen {
-        case Success(r) =>
-          log.debug(s"Polling succeeded for flow: [${job.jobName}].")
-          self ! Poll
-        case Failure(f) =>
-          log.error(f, s"Polling failed for flow: [${job.jobName}].")
-          context.system.scheduler.scheduleOnce(retryInterval, self, Poll)
-      }
   }
 
-}
-
-object ContinuousPollingActor {
-
-  def apply(orchestrator: PollingJob[IO], retryInterval: FiniteDuration): Props =
-    Props(new ContinuousPollingActor(orchestrator, retryInterval))
-
-  case object Poll
 }

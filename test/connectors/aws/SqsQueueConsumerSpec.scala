@@ -136,7 +136,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
       Then("the SQS endpoint should be called")
       Mockito.verify(sqsClient).receiveMessage(any(): ReceiveMessageRequest)
 
-      And("SQS error should be wrapped in a future")
+      And("SQS error should be returned")
       result.failed.get shouldBe a[OverLimitException]
     }
 
@@ -185,7 +185,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
       Then("the SQS endpoint should be called")
       Mockito.verify(sqsClient).deleteMessage(any())
 
-      And("SQS error should be wrapped in a future")
+      And("SQS error should be returned")
       result.failed.get shouldBe a[ReceiptHandleIsInvalidException]
     }
   }

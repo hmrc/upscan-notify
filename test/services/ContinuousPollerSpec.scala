@@ -20,11 +20,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.ActorSystem
 import cats.effect
-import cats.effect.IO
+import cats.effect.{ContextShift, IO}
 import config.ServiceConfiguration
 import org.scalatest.concurrent.Eventually
 import org.scalatest.mockito.MockitoSugar
-import play.api.inject.DefaultApplicationLifecycle
 import uk.gov.hmrc.play.test.UnitSpec
 
 import scala.concurrent.ExecutionContext
@@ -34,7 +33,9 @@ class ContinuousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
 
   implicit def actorSystem = ActorSystem()
 
-  val timer = IO.timer(ExecutionContext.Implicits.global)
+  implicit val contextShift: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
+
+  val timer = IO.timer(ExecutionContext.global)
 
   implicit val ioClock: effect.Clock[IO] = timer.clock
 
@@ -67,20 +68,16 @@ class ContinuousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
         override def build() = IO.delay(callCount.incrementAndGet())
       }
 
-      val jobs = PollingJobs[IO](List(orchestrator))
+      val jobs = List(orchestrator)
 
-      val serviceLifecycle = new DefaultApplicationLifecycle()
-
-      val queuePollingJob = new ContinuousPoller(jobs, serviceConfiguration)(
-        actorSystem,
-        serviceLifecycle,
-        ExecutionContext.Implicits.global)
+      val cancellationToken =
+        new ContinuousPoller(jobs, serviceConfiguration)(timer, contextShift).run().unsafeRunCancelable(_ => ())
 
       eventually {
         callCount.get() > 5
       }
 
-      serviceLifecycle.stop()
+      cancellationToken.unsafeRunSync()
 
     }
 
@@ -96,19 +93,16 @@ class ContinuousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
           }
       }
 
-      val jobs             = new PollingJobs(List(orchestrator))
-      val serviceLifecycle = new DefaultApplicationLifecycle()
+      val jobs = List(orchestrator)
 
-      val queuePollingJob = new ContinuousPoller(jobs, serviceConfiguration)(
-        actorSystem,
-        serviceLifecycle,
-        ExecutionContext.Implicits.global)
+      val cancellationToken =
+        new ContinuousPoller(jobs, serviceConfiguration)(timer, contextShift).run().unsafeRunCancelable(_ => ())
 
       eventually {
         callCount.get() > 5
       }
 
-      serviceLifecycle.stop()
+      cancellationToken.unsafeRunSync()
     }
   }
 
