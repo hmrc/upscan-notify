@@ -116,7 +116,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         serviceConfiguration)
 
       When("the orchestrator is called")
-      Await.result(queueOrchestrator.run(), 30 seconds)
+      Await.result(queueOrchestrator.build(), 30 seconds)
 
       Then("the queue consumer should poll for messages")
       verify(queueConsumer).poll()
@@ -187,7 +187,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         serviceConfiguration)
 
       When("the orchestrator is called")
-      Await.result(queueOrchestrator.run(), 30 seconds)
+      Await.result(queueOrchestrator.build(), 30 seconds)
 
       Then("the queue consumer should poll for messages")
       verify(queueConsumer).poll()
@@ -282,7 +282,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
         serviceConfiguration)
 
       When("the orchestrator is called")
-      Await.result(queueOrchestrator.run(), 30 seconds)
+      Await.result(queueOrchestrator.build(), 30 seconds)
 
       Then("the queue consumer should poll for messages")
       verify(queueConsumer).poll()

@@ -18,9 +18,12 @@ package connectors
 
 import java.net.URL
 import java.time.{Clock, Duration, Instant, ZoneId}
+import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import cats.effect
+import cats.effect.IO
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
@@ -34,8 +37,8 @@ import uk.gov.hmrc.play.http.ws.WSHttp
 import uk.gov.hmrc.play.test.UnitSpec
 import util.IncrementingClock
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.TimeUnit
 import scala.util.Try
 
 class HttpNotificationServiceSpec
@@ -50,6 +53,21 @@ class HttpNotificationServiceSpec
 
   val fixedClock = Clock.fixed(baseTime, ZoneId.systemDefault())
   val clock      = new IncrementingClock(fixedClock.millis(), Duration.ofSeconds(1))
+
+  val timer = IO.timer(ExecutionContext.Implicits.global)
+
+  implicit val ioClock: effect.Clock[IO] = new effect.Clock[IO] {
+
+    val counter = new AtomicInteger(0)
+
+    val increment = Duration.ofSeconds(1)
+
+    override def realTime(unit: TimeUnit): IO[Long] = IO.delay {
+      baseTime.plus(increment.multipliedBy(counter.getAndIncrement())).toEpochMilli
+    }
+
+    override def monotonic(unit: TimeUnit): IO[Long] = realTime(unit)
+  }
 
   override def beforeAll() =
     callbackServer.start()
@@ -92,13 +110,11 @@ class HttpNotificationServiceSpec
         RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
         Map()
       )
-      val service = new HttpNotificationService(new TestHttpClient, clock)
-      val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
+      val service = new HttpNotificationService(new TestHttpClient)
+      val result  = service.notifySuccessfulCallback(notification).unsafeRunSync()
 
       Then("service should return success")
-      result.isSuccess shouldBe true
-
-      result.get.userMetadata should contain allOf (
+      result.userMetadata                           should contain allOf (
         "x-amz-meta-upscan-notify-callback-started" -> "2018-12-01T14:36:30Z",
         "x-amz-meta-upscan-notify-callback-ended"   -> "2018-12-01T14:36:31Z"
       )
@@ -137,13 +153,10 @@ class HttpNotificationServiceSpec
           RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
           Map()
         )
-      val service = new HttpNotificationService(new TestHttpClient, clock)
-      val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
+      val service = new HttpNotificationService(new TestHttpClient)
+      val result  = service.notifyFailedCallback(notification).unsafeRunSync()
 
-      Then("service should return success")
-      result.isSuccess shouldBe true
-
-      And("callback URL is called with expected JSON body")
+      Then("callback URL is called with expected JSON body")
 
       callbackServer.verify(
         postRequestedFor(urlEqualTo("/myservice/123"))
@@ -176,13 +189,10 @@ class HttpNotificationServiceSpec
           RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
           Map()
         )
-      val service = new HttpNotificationService(new TestHttpClient, clock)
-      val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
+      val service = new HttpNotificationService(new TestHttpClient)
+      val result  = service.notifyFailedCallback(notification).unsafeRunSync()
 
-      Then("service should return success")
-      result.isSuccess shouldBe true
-
-      And("callback URL is called with expected JSON body")
+      Then("callback URL is called with expected JSON body")
       callbackServer.verify(
         postRequestedFor(urlEqualTo("/myservice/123"))
           .withRequestBody(equalToJson("""
@@ -216,8 +226,8 @@ class HttpNotificationServiceSpec
           RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
           Map()
         )
-      val service = new HttpNotificationService(new TestHttpClient, clock)
-      val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
+      val service = new HttpNotificationService(new TestHttpClient)
+      val result  = Try(service.notifySuccessfulCallback(notification).unsafeRunSync())
 
       Then("service should return an error")
       result.isSuccess shouldBe false
@@ -242,8 +252,8 @@ class HttpNotificationServiceSpec
           RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
           Map()
         )
-      val service = new HttpNotificationService(new TestHttpClient, clock)
-      val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
+      val service = new HttpNotificationService(new TestHttpClient)
+      val result  = Try(service.notifySuccessfulCallback(notification).unsafeRunSync())
 
       Then("service should return an error")
       result.isSuccess shouldBe false

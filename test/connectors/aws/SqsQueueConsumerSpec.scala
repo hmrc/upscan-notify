@@ -36,21 +36,25 @@ import java.time.{Clock, Instant, ZoneId}
 import java.util
 import java.util.{List => JList}
 
+import cats.effect
+import cats.effect.{ContextShift, IO}
 import com.amazonaws.services.sqs.AmazonSQS
 import com.amazonaws.services.sqs.model.{Message => SqsMessage, _}
 import model.Message
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
-import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Assertions, GivenWhenThen, Matchers}
 import uk.gov.hmrc.play.test.UnitSpec
 
-import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
+import scala.concurrent.duration.TimeUnit
+import scala.util.Try
 
 class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with GivenWhenThen with MockitoSugar {
+
+  implicit val contextShift: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
 
   private def sqsMessages(messageCount: Int): JList[SqsMessage] = {
     val messages: JList[SqsMessage] = new util.ArrayList[SqsMessage]()
@@ -67,7 +71,12 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
   }
 
   private val receivedAt = Instant.parse("2018-11-30T16:29:15Z")
-  private val clock       = Clock.fixed(receivedAt, ZoneId.systemDefault())
+
+  implicit val ioClock: effect.Clock[IO] = new effect.Clock[IO] {
+    override def realTime(unit: TimeUnit): IO[Long] = IO.pure(receivedAt.toEpochMilli)
+
+    override def monotonic(unit: TimeUnit): IO[Long] = IO.pure(receivedAt.toEpochMilli)
+  }
 
   "SqsQueueConsumer" should {
     "call an SQS endpoint to receive messages" in {
@@ -77,10 +86,10 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
 
       val sqsClient: AmazonSQS = mock[AmazonSQS]
       Mockito.when(sqsClient.receiveMessage(any(): ReceiveMessageRequest)).thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", clock) {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue") {}
 
       When("the consumer poll method is called")
-      val messages: Seq[Message] = Await.result(consumer.poll(), 2.seconds)
+      val messages: Seq[Message] = consumer.poll().unsafeRunSync()
 
       Then("the SQS endpoint should be called")
       Mockito.verify(sqsClient).receiveMessage(any(): ReceiveMessageRequest)
@@ -98,10 +107,10 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
 
       val sqsClient: AmazonSQS = mock[AmazonSQS]
       Mockito.when(sqsClient.receiveMessage(any(): ReceiveMessageRequest)).thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", clock) {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue") {}
 
       When("the consumer poll method is called")
-      val messages: Seq[Message] = Await.result(consumer.poll(), 2.seconds)
+      val messages: Seq[Message] = consumer.poll().unsafeRunSync()
 
       Then("the SQS endpoint should be called")
       Mockito.verify(sqsClient).receiveMessage(any(): ReceiveMessageRequest)
@@ -117,19 +126,18 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
         .when(sqsClient.receiveMessage(any(): ReceiveMessageRequest))
         .thenThrow(new OverLimitException(""))
 
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", clock) {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue") {}
 
       When("the consumer confirm method is called")
-      val result = consumer.poll()
-      Await.ready(result, 2.seconds)
+      val result = Try {
+        consumer.poll().unsafeRunSync()
+      }
 
       Then("the SQS endpoint should be called")
       Mockito.verify(sqsClient).receiveMessage(any(): ReceiveMessageRequest)
 
       And("SQS error should be wrapped in a future")
-      ScalaFutures.whenReady(result.failed) { error =>
-        error shouldBe a[OverLimitException]
-      }
+      result.failed.get shouldBe a[OverLimitException]
     }
 
     "call an SQS endpoint to delete a message" in {
@@ -139,12 +147,12 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
 
       val sqsClient: AmazonSQS = mock[AmazonSQS]
       Mockito.when(sqsClient.receiveMessage(any(): ReceiveMessageRequest)).thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", clock) {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue") {}
 
-      val message: Message = Await.result(consumer.poll(), 2.seconds).head
+      val message: Message = consumer.poll().unsafeRunSync().head
 
       When("the consumer confirm method is called")
-      val result = Await.result(consumer.confirm(message), 2.seconds)
+      val result = consumer.confirm(message).unsafeRunSync()
 
       Then("the SQS endpoint should be called")
       Mockito.verify(sqsClient).deleteMessage(any())
@@ -160,25 +168,25 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
 
       val sqsClient: AmazonSQS = mock[AmazonSQS]
       Mockito.when(sqsClient.receiveMessage(any(): ReceiveMessageRequest)).thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", clock) {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue") {}
 
       And("an SQS endpoint which is throwing an error")
       Mockito
         .when(sqsClient.deleteMessage(any()))
         .thenThrow(new ReceiptHandleIsInvalidException(""))
 
-      val message: Message = Await.result(consumer.poll(), 2.seconds).head
+      val message: Message = consumer.poll().unsafeRunSync().head
 
       When("the consumer confirm method is called")
-      val result = consumer.confirm(message)
+      val result = Try {
+        consumer.confirm(message).unsafeRunSync()
+      }
 
       Then("the SQS endpoint should be called")
       Mockito.verify(sqsClient).deleteMessage(any())
 
       And("SQS error should be wrapped in a future")
-      ScalaFutures.whenReady(result.failed) { error =>
-        error shouldBe a[ReceiptHandleIsInvalidException]
-      }
+      result.failed.get shouldBe a[ReceiptHandleIsInvalidException]
     }
   }
 }

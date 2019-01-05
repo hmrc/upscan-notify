@@ -18,15 +18,12 @@ package connectors.aws
 
 import java.time.Clock
 
+import cats.implicits._
 import model.{FileUploadEvent, Message, S3ObjectLocation}
 import org.scalatest.Matchers
 import uk.gov.hmrc.play.test.UnitSpec
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
 import scala.util.{Success, Try}
-import cats.implicits._
 
 class S3EventMessageParserSpec extends UnitSpec with Matchers {
 

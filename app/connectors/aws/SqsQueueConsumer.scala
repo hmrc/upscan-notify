@@ -16,45 +16,55 @@
 
 package connectors.aws
 
-import java.time.Clock
+import java.time.Instant
+import java.util.concurrent.Executors
 
+import cats.effect.{Clock, ContextShift, IO}
 import com.amazonaws.services.sqs.AmazonSQS
-import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, ReceiveMessageResult}
+import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest}
 import model.Message
 import play.api.Logger
 import services.QueueConsumer
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.MILLISECONDS
 
-abstract class SqsQueueConsumer(val sqsClient: AmazonSQS, queueUrl: String, clock: Clock)(
-  implicit val ec: ExecutionContext)
-    extends QueueConsumer[Future] {
+abstract class SqsQueueConsumer(val sqsClient: AmazonSQS, queueUrl: String)(
+  implicit clock: Clock[IO],
+  contextShift: ContextShift[IO])
+    extends QueueConsumer[IO] {
 
-  override def poll(): Future[Seq[Message]] = {
+  private val sqsExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(8))
+
+  override def poll(): IO[Seq[Message]] = {
     val receiveMessageRequest = new ReceiveMessageRequest(queueUrl)
       .withWaitTimeSeconds(20)
 
-    val receiveMessageResult: Future[ReceiveMessageResult] =
-      Future(sqsClient.receiveMessage(receiveMessageRequest))
-
-    receiveMessageResult map { result =>
-      val receivedAt = clock.instant()
-
+    for {
+      result <- contextShift.evalOn(sqsExecutionContext) {
+                 IO.delay {
+                   sqsClient.receiveMessage(receiveMessageRequest)
+                 }
+               }
+      receivedAt <- clock.monotonic(MILLISECONDS)
+      receivedAtInstant = Instant.ofEpochMilli(receivedAt)
+    } yield {
       result.getMessages.asScala.map { sqsMessage =>
         Logger.debug(
           s"Received message with id: [${sqsMessage.getMessageId}] and receiptHandle: [${sqsMessage.getReceiptHandle}].")
-        Message(sqsMessage.getMessageId, sqsMessage.getBody, sqsMessage.getReceiptHandle, receivedAt)
+        Message(sqsMessage.getMessageId, sqsMessage.getBody, sqsMessage.getReceiptHandle, receivedAtInstant)
       }
     }
   }
 
-  override def confirm(message: Message): Future[Unit] = {
+  override def confirm(message: Message): IO[Unit] = {
     val deleteMessageRequest = new DeleteMessageRequest(queueUrl, message.receiptHandle)
-
-    Future {
-      sqsClient.deleteMessage(deleteMessageRequest)
-      Logger.debug(s"Deleted message from Queue: [$queueUrl], for receiptHandle: [${message.receiptHandle}].")
+    contextShift.evalOn(sqsExecutionContext) {
+      IO.delay {
+        sqsClient.deleteMessage(deleteMessageRequest)
+        Logger.debug(s"Deleted message from Queue: [$queueUrl], for receiptHandle: [${message.receiptHandle}].")
+      }
     }
   }
 }

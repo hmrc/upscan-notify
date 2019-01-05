@@ -43,7 +43,7 @@ trait MessageProcessingJob[F[_]] extends PollingJob[F] {
 
   def processMessage(message: Message): EitherT[F, ExceptionWithContext, MessageContext]
 
-  def run(): F[Unit] = {
+  def build(): F[Unit] = {
     val outcomes = for {
       messages        <- consumer.poll()
       messageOutcomes <- messages.toList.traverse(handleMessage)

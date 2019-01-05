@@ -19,19 +19,24 @@ package services
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.ActorSystem
+import cats.effect
+import cats.effect.IO
 import config.ServiceConfiguration
 import org.scalatest.concurrent.Eventually
 import org.scalatest.mockito.MockitoSugar
 import play.api.inject.DefaultApplicationLifecycle
 import uk.gov.hmrc.play.test.UnitSpec
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration._
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.{FiniteDuration, _}
 
 class ContinuousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
 
   implicit def actorSystem = ActorSystem()
+
+  val timer = IO.timer(ExecutionContext.Implicits.global)
+
+  implicit val ioClock: effect.Clock[IO] = timer.clock
 
   val serviceConfiguration = new ServiceConfiguration {
     override def accessKeyId: String = ???
@@ -58,11 +63,11 @@ class ContinuousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
 
       val callCount = new AtomicInteger(0)
 
-      val orchestrator: PollingJob[Future] = new PollingJob[Future] {
-        override def run() = Future.successful(callCount.incrementAndGet())
+      val orchestrator: PollingJob[IO] = new PollingJob[IO] {
+        override def build() = IO.delay(callCount.incrementAndGet())
       }
 
-      val jobs = PollingJobs[Future](List(orchestrator))
+      val jobs = PollingJobs[IO](List(orchestrator))
 
       val serviceLifecycle = new DefaultApplicationLifecycle()
 
@@ -82,12 +87,12 @@ class ContinuousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
     "recover from failure after some time" in {
       val callCount = new AtomicInteger(0)
 
-      val orchestrator: PollingJob[Future] = new PollingJob[Future] {
-        override def run() =
+      val orchestrator: PollingJob[IO] = new PollingJob[IO] {
+        override def build() =
           if (callCount.get() == 1) {
-            Future.failed(new RuntimeException("Planned failure"))
+            IO.raiseError(new RuntimeException("Planned failure"))
           } else {
-            Future.successful(callCount.incrementAndGet())
+            IO.pure(callCount.incrementAndGet())
           }
       }
 

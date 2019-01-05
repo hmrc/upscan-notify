@@ -19,6 +19,8 @@ package config
 import java.time.Clock
 
 import akka.actor.ActorSystem
+import cats.effect
+import cats.effect.{IO, _}
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.sqs.AmazonSQS
 import com.kenshoo.play.metrics.Metrics
@@ -30,9 +32,8 @@ import play.api.{Configuration, Environment}
 import services._
 import uk.gov.hmrc.play.audit.http.connector.AuditConnector
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
-import cats.implicits._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class UpscanNotify @Inject()(
   configuration: Configuration,
@@ -46,7 +47,13 @@ class UpscanNotify @Inject()(
   applicationLifecycle: ApplicationLifecycle,
   ec: ExecutionContext) {
 
-  type F[A] = Future[A]
+  type F[A] = IO[A]
+
+  val timer = IO.timer(ec)
+
+  implicit val contextShift: ContextShift[IO] = IO.contextShift(ec)
+
+  implicit val ioClock: effect.Clock[IO] = timer.clock
 
   lazy val serviceConfiguration: ServiceConfiguration = new PlayBasedServiceConfiguration(configuration, env)
 
@@ -61,17 +68,15 @@ class UpscanNotify @Inject()(
   lazy val fileRetriever: FileNotificationDetailsRetriever[F] =
     new S3FileNotificationDetailsRetriever(fileManager, serviceConfiguration, downloadUrlGenerator)
 
-  lazy val notificationService: NotificationService[F] = new HttpNotificationService(httpClient, clock)
+  lazy val notificationService: NotificationService[F] = new HttpNotificationService(httpClient)
 
   lazy val auditingService: UpscanAuditingService = new UpscanAuditingService(auditConnector)
 
   lazy val successfulQueueConsumer: SuccessfulQueueConsumer[F] =
-    new SqsQueueConsumer(sqsClient, serviceConfiguration.outboundSuccessfulQueueUrl, clock)
-    with SuccessfulQueueConsumer[F]
+    new SqsQueueConsumer(sqsClient, serviceConfiguration.outboundSuccessfulQueueUrl) with SuccessfulQueueConsumer[F]
 
   lazy val quarantineQueueConsumer: QuarantineQueueConsumer[F] =
-    new SqsQueueConsumer(sqsClient, serviceConfiguration.outboundQuarantineQueueUrl, clock)
-    with QuarantineQueueConsumer[F]
+    new SqsQueueConsumer(sqsClient, serviceConfiguration.outboundQuarantineQueueUrl) with QuarantineQueueConsumer[F]
 
   lazy val successfulFileUploadProcessingJob: PollingJob[F] =
     new NotifyOnSuccessfulFileUploadMessageProcessingJob[F](

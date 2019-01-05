@@ -21,7 +21,6 @@ import play.api.libs.json._
 import uk.gov.hmrc.play.test.UnitSpec
 
 import scala.concurrent.duration.{FiniteDuration, _}
-import scala.concurrent.{Await, Future}
 
 object TestData {
   val bucketName                       = "bucket-name-UrlExpirationIntegrationSpec"
@@ -115,9 +114,7 @@ class UrlExpirationIntegrationSpec
 
       val notifyOnSuccessfulFileUploadMessageProcessingJob = upscanNotify.successfulFileUploadProcessingJob
 
-      val result: Future[Unit] = notifyOnSuccessfulFileUploadMessageProcessingJob.run()
-
-      Await.result(result, 1.seconds)
+      notifyOnSuccessfulFileUploadMessageProcessingJob.build().unsafeRunSync()
 
       val loggedRequests =
         wireMockServer.findAll(WireMock.postRequestedFor(WireMock.urlMatching(TestData.callbackPath)))

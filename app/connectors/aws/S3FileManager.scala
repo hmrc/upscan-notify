@@ -18,29 +18,37 @@ package connectors.aws
 
 import java.net.URL
 import java.time.Instant
+import java.util.concurrent.Executors
 
-import javax.inject.Inject
+import cats.effect.{ContextShift, IO}
+import cats.implicits._
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
-import model.{FileReference, InvalidUploadDetails, RequestContext, S3ObjectLocation, UploadDetails, ValidUploadDetails}
+import javax.inject.Inject
+import model._
 import org.apache.commons.io.IOUtils
 import play.api.Logger
 import services._
-import uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext.fromLoggingDetails
 import util.logging.LoggingDetails
 
 import scala.collection.JavaConverters._
-import scala.concurrent.Future
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
-class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager[Future] {
+class S3FileManager @Inject()(s3Client: AmazonS3)(implicit contextShift: ContextShift[IO]) extends FileManager[IO] {
 
-  override def retrieveReadyMetadata(objectLocation: S3ObjectLocation): Future[ReadyObjectMetadata] = {
+  private val s3ExecutionContext = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(8))
+
+  override def retrieveReadyMetadata(objectLocation: S3ObjectLocation): IO[ReadyObjectMetadata] = {
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
     for {
-      metadata       <- Future(s3Client.getObjectMetadata(objectLocation.bucket, objectLocation.objectKey))
-      parsedMetadata <- Future.fromTry(parseReadyObjectMetadata(metadata, objectLocation))
+      metadata <- contextShift.evalOn(s3ExecutionContext) {
+                   IO.delay {
+                     s3Client.getObjectMetadata(objectLocation.bucket, objectLocation.objectKey)
+                   }
+                 }
+      parsedMetadata <- IO.fromEither(Either.fromTry(parseReadyObjectMetadata(metadata, objectLocation)))
     } yield {
       parsedMetadata
     }
@@ -67,17 +75,25 @@ class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager[Future] {
     }
   }
 
-  override def retrieveFailedObject(objectLocation: S3ObjectLocation): Future[FailedObjectWithMetadata] = {
+  override def retrieveFailedObject(objectLocation: S3ObjectLocation): IO[FailedObjectWithMetadata] = {
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
     for {
-      s3Object <- Future(s3Client.getObject(objectLocation.bucket, objectLocation.objectKey))
-      content  <- Future.fromTry(Try(IOUtils.toString(s3Object.getObjectContent)))
+      s3Object <- contextShift.evalOn(s3ExecutionContext) {
+                   IO.delay {
+                     s3Client.getObject(objectLocation.bucket, objectLocation.objectKey)
+                   }
+                 }
+      content <- contextShift.evalOn(s3ExecutionContext) {
+                  IO.delay {
+                    IOUtils.toString(s3Object.getObjectContent)
+                  }
+                }
       metadata = S3ObjectMetadata(s3Object.getObjectMetadata, objectLocation)
-      callbackUrl    <- Future.fromTry(retrieveCallbackUrl(metadata))
-      fileReference  <- Future.fromTry(metadata.get("file-reference", FileReference.apply))
-      uploadDetails  <- Future.fromTry(retrieveInvalidUploadDetails(metadata))
-      requestContext <- Future.fromTry(retrieveUserContext(metadata))
+      callbackUrl    <- IO.fromEither(Either.fromTry(retrieveCallbackUrl(metadata)))
+      fileReference  <- IO.fromEither(Either.fromTry(metadata.get("file-reference", FileReference.apply)))
+      uploadDetails  <- IO.fromEither(Either.fromTry(retrieveInvalidUploadDetails(metadata)))
+      requestContext <- IO.fromEither(Either.fromTry(retrieveUserContext(metadata)))
     } yield {
       Logger.debug(s"Fetched object with metadata for objectKey: [${objectLocation.objectKey}].")
 

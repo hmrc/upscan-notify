@@ -16,8 +16,9 @@
 
 package connectors
 
-import java.time.Clock
+import java.time.Instant
 
+import cats.effect.{Clock, IO}
 import javax.inject.Inject
 import model._
 import play.api.Logger
@@ -27,11 +28,12 @@ import uk.gov.hmrc.play.bootstrap.http.HttpClient
 import uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext.fromLoggingDetails
 import util.logging.LoggingDetails
 
-import scala.concurrent.Future
+import scala.concurrent.duration.MILLISECONDS
 
-class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) extends NotificationService[Future] {
+class HttpNotificationService @Inject()(httpClient: HttpClient)(implicit clock: Clock[IO])
+    extends NotificationService[IO] {
 
-  override def notifySuccessfulCallback(uploadedFile: UploadedFile): Future[UploadedFile] = {
+  override def notifySuccessfulCallback(uploadedFile: UploadedFile): IO[UploadedFile] = {
 
     implicit val ld = LoggingDetails.fromFileReference(uploadedFile.reference)
 
@@ -40,50 +42,55 @@ class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) ex
       downloadUrl   = uploadedFile.downloadUrl,
       uploadDetails = uploadedFile.uploadDetails)
 
-    val startTime = clock.instant()
+    for {
+      startTime <- clock.monotonic(MILLISECONDS)
+      httpResponse <- IO.fromFuture {
+                       IO {
+                         httpClient.POST[ReadyCallbackBody, HttpResponse](uploadedFile.callbackUrl.toString, callback)
+                       }
+                     }
+      endTime <- clock.monotonic(MILLISECONDS)
+    } yield {
+      Logger.info(
+        s"""File ready notification sent to service with callbackUrl: [${uploadedFile.callbackUrl}].
+                     | Response status was: [${httpResponse.status}].""".stripMargin
+      )
 
-    httpClient
-      .POST[ReadyCallbackBody, HttpResponse](uploadedFile.callbackUrl.toString, callback)
-      .map { httpResponse =>
-        {
-          val endTime = clock.instant()
+      uploadedFile.copyWithUserMetadata(
+        "x-amz-meta-upscan-notify-callback-started" -> Instant.ofEpochMilli(startTime).toString,
+        "x-amz-meta-upscan-notify-callback-ended"   -> Instant.ofEpochMilli(endTime).toString
+      )
+    }
 
-          Logger.info(
-            s"""File ready notification sent to service with callbackUrl: [${uploadedFile.callbackUrl}].
-               | Response status was: [${httpResponse.status}].""".stripMargin
-          )
-
-          uploadedFile.copyWithUserMetadata(
-            "x-amz-meta-upscan-notify-callback-started" -> startTime.toString(),
-            "x-amz-meta-upscan-notify-callback-ended"   -> endTime.toString()
-          )
-        }
-      }
   }
 
-  override def notifyFailedCallback(quarantinedFile: QuarantinedFile): Future[QuarantinedFile] = {
+  override def notifyFailedCallback(quarantinedFile: QuarantinedFile): IO[QuarantinedFile] = {
 
     implicit val ld = LoggingDetails.fromFileReference(quarantinedFile.reference)
     val callback    = FailedCallbackBody(reference = quarantinedFile.reference, failureDetails = quarantinedFile.error)
 
-    val startTime = clock.instant()
+    for {
+      startTime <- clock.monotonic(MILLISECONDS)
+      httpResponse <- IO.fromFuture {
+                       IO {
+                         httpClient
+                           .POST[FailedCallbackBody, HttpResponse](quarantinedFile.callbackUrl.toString, callback)
+                       }
+                     }
+      endTime <- clock.monotonic(MILLISECONDS)
+    } yield {
 
-    httpClient
-      .POST[FailedCallbackBody, HttpResponse](quarantinedFile.callbackUrl.toString, callback)
-      .map { httpResponse =>
-        {
-          val endTime = clock.instant()
+      Logger.info(
+        s"""File failed notification sent to service with callbackUrl: [${quarantinedFile.callbackUrl}].
+         | Response status was: [${httpResponse.status}].""".stripMargin
+      )
 
-          Logger.info(
-            s"""File failed notification sent to service with callbackUrl: [${quarantinedFile.callbackUrl}].
-               | Response status was: [${httpResponse.status}].""".stripMargin
-          )
+      quarantinedFile.copyWithUserMetadata(
+        "x-amz-meta-upscan-notify-callback-started" -> startTime.toString(),
+        "x-amz-meta-upscan-notify-callback-ended"   -> endTime.toString()
+      )
 
-          quarantinedFile.copyWithUserMetadata(
-            "x-amz-meta-upscan-notify-callback-started" -> startTime.toString(),
-            "x-amz-meta-upscan-notify-callback-ended"   -> endTime.toString()
-          )
-        }
-      }
+    }
+
   }
 }
