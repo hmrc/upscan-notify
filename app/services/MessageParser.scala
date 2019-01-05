@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 HM Revenue & Customs
+ * Copyright 2019 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@
 package services
 
 import model.{FileUploadEvent, Message}
-
-import scala.concurrent.Future
 
 trait MessageParser[F[_]] {
 
