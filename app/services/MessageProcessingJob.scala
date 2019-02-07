@@ -130,6 +130,8 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
   }
 
   private[services] def collectMetricsAfterNotification(notification: UploadedFile, perfLogger: LoggerLike): Unit = {
+    import UserMetadataLike.sortChronologically
+
     val respondedAt = clock.instant()
 
     val updatedNotification = notification.copyWithUserMetadata(
@@ -150,7 +152,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
 
       if (totalProcessingTime.toMillis() > endToEndProcessingThreshold.toMillis) {
 
-        val checkpoints = updatedNotification.checkpoints().toSeq.sorted.mkString("[", ", ", "]")
+        val checkpoints = updatedNotification.checkpoints().toSeq.sortBy(sortChronologically).mkString("[", ", ", "]")
 
         perfLogger.warn(
           s"""Accepted file total processing time: [${totalProcessingTime.getSeconds} seconds] exceeded threshold of [${endToEndProcessingThreshold}].
@@ -194,6 +196,8 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
     }
 
   private[services] def collectMetricsAfterNotification(notification: QuarantinedFile, perfLogger: LoggerLike): Unit = {
+    import UserMetadataLike.sortChronologically
+
     val respondedAt = clock.instant()
 
     val updatedNotification = notification.copyWithUserMetadata(
@@ -212,7 +216,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
 
       if (totalProcessingTime.toMillis() > endToEndProcessingThreshold.toMillis) {
 
-        val checkpoints = updatedNotification.checkpoints().toSeq.sorted.mkString("[", ", ", "]")
+        val checkpoints = updatedNotification.checkpoints().toSeq.sortBy(sortChronologically).mkString("[", ", ", "]")
 
         perfLogger.warn(
           s"""Rejected file total processing time: [${totalProcessingTime.getSeconds} seconds] exceeded threshold of [${endToEndProcessingThreshold}].
