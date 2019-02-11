@@ -46,7 +46,7 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Assertions, GivenWhenThen, Matchers}
 import uk.gov.hmrc.play.test.UnitSpec
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
@@ -170,13 +170,13 @@ class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with G
       val message: Message = Await.result(consumer.poll(), 2.seconds).head
 
       When("the consumer confirm method is called")
-      val result = consumer.confirm(message)
+      val result: Future[Unit] = consumer.confirm(message)
 
-      Then("the SQS endpoint should be called")
-      Mockito.verify(sqsClient).deleteMessage(any())
-
-      And("SQS error should be wrapped in a future")
       ScalaFutures.whenReady(result.failed) { error =>
+        Then("the SQS endpoint should be called")
+        Mockito.verify(sqsClient).deleteMessage(any())
+
+        And("SQS error should be wrapped in a future")
         error shouldBe a[ReceiptHandleIsInvalidException]
       }
     }
