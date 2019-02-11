@@ -63,6 +63,10 @@ trait UserMetadataLike {
   }
 }
 
+object UserMetadataLike {
+  val sortChronologically: ((String,String)) => String = (checkpoint) => checkpoint._2
+}
+
 case class UploadedFile(
   callbackUrl: URL,
   reference: FileReference,
