@@ -98,7 +98,7 @@ class HttpNotificationServiceSpec
       Then("service should return success")
       result.isSuccess shouldBe true
 
-      result.get.userMetadata should contain allOf (
+      result.get.userMetadata                       should contain allOf (
         "x-amz-meta-upscan-notify-callback-started" -> "2018-12-01T14:36:30Z",
         "x-amz-meta-upscan-notify-callback-ended"   -> "2018-12-01T14:36:31Z"
       )
@@ -253,7 +253,7 @@ class HttpNotificationServiceSpec
 }
 
 class TestHttpClient extends HttpClient with WSHttp {
-  implicit val system                             = ActorSystem()
+  implicit val actorSystem: ActorSystem           = ActorSystem()
   implicit val materializer                       = ActorMaterializer()
   override val wsClient                           = AhcWSClient()
   override lazy val configuration: Option[Config] = None
