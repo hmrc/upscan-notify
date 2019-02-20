@@ -59,14 +59,13 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
 
     "return callback URL from S3 metadata for uploaded file with all required metadata" in {
       val objectMetadata =
-        ReadyObjectMetadata(
+        UploadedFileMetadataWithDownloadUrl(downloadUrl, UploadedFileMetadata(
           fileReference,
           callbackUrl,
           uploadDetails,
           fileSize,
           requestContext,
-          consumingService,
-          Map())
+          Map()))
 
       val fileManager = mock[FileManager]
       Mockito.when(fileManager.retrieveReadyMetadata(any())).thenReturn(Future.successful(objectMetadata))
@@ -112,11 +111,11 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
     }
 
     "return callback URL from S3 metadata for quarantined file" in {
-      val objectMetadata = FailedObjectMetadata(
+      val objectMetadata = UploadedFileMetadata(
         fileReference, callbackUrl, uploadDetails, 10L, requestContext, Map()
       )
       val s3Object =
-        FailedObjectWithMetadata(
+        UploadedFileMetadataWithError(
           """{"failureReason": "QUARANTINE", "message": "This file has a virus"}""",
           objectMetadata)
 
@@ -140,11 +139,11 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
     }
 
     "return callback URL from S3 metadata for rejected file" in {
-      val objectMetadata = FailedObjectMetadata(
+      val objectMetadata = UploadedFileMetadata(
         fileReference, callbackUrl, uploadDetails, 10L, requestContext, Map()
       )
       val s3Object =
-        FailedObjectWithMetadata(
+        UploadedFileMetadataWithError(
           """{"failureReason": "REJECTED", "message": "MIME type not allowed"}""",
           objectMetadata)
 
@@ -168,10 +167,10 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
     }
 
     "return callback URL from S3 metadata for file with unknown error" in {
-      val objectMetadata = FailedObjectMetadata(
+      val objectMetadata = UploadedFileMetadata(
         fileReference, callbackUrl, uploadDetails, 10L, requestContext, Map()
       )
-      val s3Object       = FailedObjectWithMetadata("Something unexpected happened here", objectMetadata)
+      val s3Object       = UploadedFileMetadataWithError("Something unexpected happened here", objectMetadata)
 
       val fileManager = mock[FileManager]
       Mockito.when(fileManager.retrieveFailedObject(any())).thenReturn(Future.successful(s3Object))

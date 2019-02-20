@@ -27,7 +27,7 @@ import org.mockito.Mockito
 import org.scalatest.Matchers
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
-import services.ReadyObjectMetadata
+import services.{UploadedFileMetadata}
 import uk.gov.hmrc.play.test.UnitSpec
 
 class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
@@ -42,6 +42,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
 
       val s3client    = mock[AmazonS3]
+
       val fileManager = new S3FileManager(s3client)
 
       val userMetadata = new util.TreeMap[String, String]()
@@ -66,13 +67,13 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
       val result = fileManager.retrieveReadyMetadata(fileLocation)
 
       ScalaFutures.whenReady(result) { result =>
-        result shouldBe ReadyObjectMetadata(
+        result shouldBe UploadedFileMetadata(
           FileReference("ref1"),
           callbackUrl,
           ValidUploadDetails("test.pdf", "application/pdf", initiateDate, checksum),
           0L,
           RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1"),
-          consumingService,
+          Some(consumingService),
           Map(
             "mime-type"         -> "application/pdf",
             "callback-url"      -> "http://my.callback.url",

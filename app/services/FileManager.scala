@@ -22,16 +22,7 @@ import model.{FileReference, RequestContext, S3ObjectLocation, UploadDetails}
 
 import scala.concurrent.Future
 
-case class ReadyObjectMetadata(
-  fileReference: FileReference,
-  callbackUrl: URL,
-  uploadDetails: UploadDetails,
-  size: Long,
-  requestContext: RequestContext,
-  consumingService: String,
-  userMetadata: Map[String,String])
-
-case class FailedObjectMetadata(
+case class UploadedFileMetadata(
   fileReference: FileReference,
   callbackUrl: URL,
   uploadDetails: UploadDetails,
@@ -39,14 +30,13 @@ case class FailedObjectMetadata(
   requestContext: RequestContext,
   userMetadata: Map[String,String])
 
-case class ReadyObjectWithMetadata(content: String, metadata: ReadyObjectMetadata)
-
-case class FailedObjectWithMetadata(content: String, metadata: FailedObjectMetadata)
+case class UploadedFileMetadataWithError(content: String, metadata: UploadedFileMetadata)
+case class UploadedFileMetadataWithDownloadUrl(downloadUrl: URL, metadata: UploadedFileMetadata)
 
 trait FileManager {
 
-  def retrieveReadyMetadata(objectLocation: S3ObjectLocation): Future[ReadyObjectMetadata]
+  def retrieveReadyMetadata(objectLocation: S3ObjectLocation): Future[UploadedFileMetadataWithDownloadUrl]
 
-  def retrieveFailedObject(objectLocation: S3ObjectLocation): Future[FailedObjectWithMetadata]
+  def retrieveFailedObject(objectLocation: S3ObjectLocation): Future[UploadedFileMetadataWithError]
 
 }

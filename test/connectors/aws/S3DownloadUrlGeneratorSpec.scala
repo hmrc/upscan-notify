@@ -28,7 +28,6 @@ import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar.mock
 import config.ServiceConfiguration
 import model.{FileReference, RequestContext, S3ObjectLocation, ValidUploadDetails}
-import services.ReadyObjectMetadata
 import uk.gov.hmrc.play.test.UnitSpec
 
 class S3DownloadUrlGeneratorSpec extends UnitSpec {

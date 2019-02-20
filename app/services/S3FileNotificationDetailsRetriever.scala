@@ -16,6 +16,8 @@
 
 package services
 
+import cats.data.OptionT
+import cats.implicits._
 import javax.inject.Inject
 import config.ServiceConfiguration
 import model._
@@ -37,18 +39,17 @@ class S3FileNotificationDetailsRetriever @Inject()(
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
     for {
-      metadata    <- fileManager.retrieveReadyMetadata(objectLocation)
-      downloadUrl  = downloadUrlGenerator.generate(objectLocation, metadata)
+      uploadedFile         <- fileManager.retrieveReadyMetadata(objectLocation)
     } yield {
       val retrieved =
         UploadedFile(
-          metadata.callbackUrl,
-          metadata.fileReference,
-          downloadUrl,
-          metadata.size,
-          metadata.uploadDetails,
-          metadata.requestContext,
-          metadata.userMetadata
+          uploadedFile.metadata.callbackUrl,
+          uploadedFile.metadata.fileReference,
+          uploadedFile.downloadUrl,
+          uploadedFile.metadata.size,
+          uploadedFile.metadata.uploadDetails,
+          uploadedFile.metadata.requestContext,
+          uploadedFile.metadata.userMetadata
         )
       Logger.debug(
         s"Retrieved file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
