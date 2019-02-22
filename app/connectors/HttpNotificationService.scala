@@ -21,6 +21,7 @@ import java.time.Clock
 import javax.inject.Inject
 import model._
 import play.api.Logger
+import play.api.libs.json.Writes
 import services.NotificationService
 import uk.gov.hmrc.http.HttpResponse
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
@@ -31,6 +32,59 @@ import scala.concurrent.Future
 
 class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) extends NotificationService {
 
+  override def notifySuccessfulCallback(uploadedFile: UploadedFile): Future[UploadedFile] = {
+    _notify(
+      uploadedFile.reference,
+      uploadedFile.callbackUrl.toString,
+      ReadyCallbackBody(
+        reference     = uploadedFile.reference,
+        downloadUrl   = uploadedFile.downloadUrl,
+        uploadDetails = uploadedFile.uploadDetails
+      ),
+      { uploadedFile.copyWithUserMetadata(_,_) }
+    )
+  }
+
+  override def notifyFailedCallback(quarantinedFile: QuarantinedFile): Future[QuarantinedFile] = {
+    _notify(
+      quarantinedFile.reference,
+      quarantinedFile.callbackUrl.toString,
+      FailedCallbackBody(
+        reference      = quarantinedFile.reference,
+        failureDetails = quarantinedFile.error
+      ),
+      { quarantinedFile.copyWithUserMetadata(_,_) }
+    )
+  }
+
+  private def _notify[C, F](fileReference: FileReference,
+                            url: String,
+                            callback: C,
+                            copyWithMetadata: ((String,String),(String,String)) => F)
+                           (implicit writes: Writes[C]): Future[F] = {
+
+    implicit val ld = LoggingDetails.fromFileReference(fileReference)
+
+    val startTime = clock.instant()
+
+    httpClient
+      .POST[C, HttpResponse](url, callback)
+      .map { httpResponse => {
+        val endTime = clock.instant()
+
+        Logger.info(
+          s"""Notification sent to service with callbackUrl: [${url}].
+             | Response status was: [${httpResponse.status}].""".stripMargin
+        )
+
+        copyWithMetadata(
+          "x-amz-meta-upscan-notify-callback-started" -> startTime.toString(),
+          "x-amz-meta-upscan-notify-callback-ended"   -> endTime.toString()
+        )
+      }}
+  }
+
+/*
   override def notifySuccessfulCallback(uploadedFile: UploadedFile): Future[UploadedFile] = {
 
     implicit val ld = LoggingDetails.fromFileReference(uploadedFile.reference)
@@ -84,4 +138,5 @@ class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) ex
         }
       }
   }
+  */
 }
