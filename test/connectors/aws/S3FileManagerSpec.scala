@@ -22,19 +22,19 @@ import java.time.format.DateTimeFormatter
 import java.util
 
 import com.amazonaws.services.s3.AmazonS3
-import model.{FileReference, RequestContext, S3ObjectLocation, ValidUploadDetails}
+import model.{FileReference, RequestContext, S3ObjectLocation}
 import org.mockito.Mockito
 import org.scalatest.Matchers
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
-import services.ReadyObjectMetadata
+import services.SuccessfulFileDetails
 import uk.gov.hmrc.play.test.UnitSpec
 
 class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
 
-  private val callbackUrl  = new URL("http://my.callback.url")
-  private val initiateDate = Instant.parse("2018-04-24T09:30:00Z")
-  private val checksum     = "1a2b3c4d5e"
+  private val callbackUrl      = new URL("http://my.callback.url")
+  private val initiateDate     = Instant.parse("2018-04-24T09:30:00Z")
+  private val checksum         = "1a2b3c4d5e"
   private val consumingService = "consumingService"
 
   "FileManager" should {
@@ -63,17 +63,20 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
         .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.retrieveReadyMetadata(fileLocation)
+      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
       ScalaFutures.whenReady(result) { result =>
-        result shouldBe ReadyObjectMetadata(
-          FileReference("ref1"),
-          callbackUrl,
-          ValidUploadDetails("test.pdf", "application/pdf", initiateDate, checksum),
-          0L,
-          RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1"),
-          consumingService,
-          Map(
+        result shouldBe SuccessfulFileDetails(
+          fileReference    = FileReference("ref1"),
+          callbackUrl      = callbackUrl,
+          fileName         = "test.pdf",
+          fileMimeType     = "application/pdf",
+          uploadTimestamp  = initiateDate,
+          checksum         = checksum,
+          size             = 0L,
+          requestContext   = RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1"),
+          consumingService = consumingService,
+          userMetadata = Map(
             "mime-type"         -> "application/pdf",
             "callback-url"      -> "http://my.callback.url",
             "file-reference"    -> "ref1",
@@ -110,7 +113,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
         .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.retrieveReadyMetadata(fileLocation)
+      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
       ScalaFutures.whenReady(result.failed) { error =>
         error            shouldBe a[NoSuchElementException]
@@ -139,7 +142,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
         .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.retrieveReadyMetadata(fileLocation)
+      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
       ScalaFutures.whenReady(result.failed) { error =>
         error            shouldBe a[NoSuchElementException]
@@ -168,7 +171,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
         .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.retrieveReadyMetadata(fileLocation)
+      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
       ScalaFutures.whenReady(result.failed) { error =>
         error            shouldBe a[NoSuchElementException]
@@ -195,7 +198,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
         .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.retrieveReadyMetadata(fileLocation)
+      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
       ScalaFutures.whenReady(result.failed) { error =>
         error            shouldBe a[NoSuchElementException]
@@ -224,7 +227,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
         .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.retrieveReadyMetadata(fileLocation)
+      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
       ScalaFutures.whenReady(result.failed) { error =>
         error            shouldBe a[NoSuchElementException]
@@ -253,7 +256,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
         .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.retrieveReadyMetadata(fileLocation)
+      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
       ScalaFutures.whenReady(result.failed) { error =>
         error            shouldBe a[NoSuchElementException]
@@ -281,7 +284,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
         .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.retrieveReadyMetadata(fileLocation)
+      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
       ScalaFutures.whenReady(result.failed) { error =>
         error shouldBe a[Exception]
@@ -310,7 +313,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
         .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.retrieveReadyMetadata(fileLocation)
+      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
       ScalaFutures.whenReady(result.failed) { error =>
         error shouldBe a[Exception]
@@ -336,7 +339,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
         .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenThrow(new RuntimeException("Exception"))
 
-      val result = fileManager.retrieveReadyMetadata(fileLocation)
+      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
       ScalaFutures.whenReady(result.failed) { result =>
         result.getMessage shouldBe "Exception"

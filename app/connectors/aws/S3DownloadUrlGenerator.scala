@@ -24,11 +24,12 @@ import javax.inject.Inject
 
 import config.ServiceConfiguration
 import model.S3ObjectLocation
-import services.{DownloadUrlGenerator, ReadyObjectMetadata}
+import services.{DownloadUrlGenerator, SuccessfulFileDetails}
 
 class S3DownloadUrlGenerator @Inject()(s3Client: AmazonS3, config: ServiceConfiguration) extends DownloadUrlGenerator {
-  override def generate(objectLocation: S3ObjectLocation, metadata: ReadyObjectMetadata): URL =
-    s3Client.generatePresignedUrl(objectLocation.bucket, objectLocation.objectKey, expirationDate(metadata.consumingService))
+  override def generate(objectLocation: S3ObjectLocation, metadata: SuccessfulFileDetails): URL =
+    s3Client
+      .generatePresignedUrl(objectLocation.bucket, objectLocation.objectKey, expirationDate(metadata.consumingService))
 
   private def expirationDate(serviceName: String): Date = {
     val now         = Instant.now()

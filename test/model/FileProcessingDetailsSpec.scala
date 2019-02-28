@@ -16,11 +16,19 @@
 
 package model
 
+import java.net.URL
+import java.time.Instant
+
 import org.scalatest.{Matchers, WordSpec}
 
-class UserMetadataLikeSpec extends WordSpec with Matchers {
-  private val testInstance: UserMetadataLike = new UserMetadataLike {
-    override  val userMetadata: Map[String, String] = Map(
+class FileProcessingDetailsSpec extends WordSpec with Matchers {
+
+  private val testInstance = FileProcessingDetails(
+    new URL("http://localhost"),
+    FileReference("test"),
+    SucessfulResult(new URL("http://localhost"), 1024L, "fileName", "mime-type", Instant.now, "TEST"),
+    RequestContext(None, None, "localhost"),
+    Map(
       "x-amz-meta-upscan-notify-received"          -> "2018-12-19T19:01:50.601Z",
       "x-amz-meta-upscan-verify-virusscan-ended"   -> "2018-12-19T19:01:50.303Z",
       "x-amz-meta-upscan-verify-received"          -> "2018-12-19T19:01:49.768Z",
@@ -34,11 +42,14 @@ class UserMetadataLikeSpec extends WordSpec with Matchers {
       "x-amz-meta-upscan-initiate-received"        -> "2018-12-19T19:01:48.565Z",
       "x-amz-meta-upscan-notify-responded"         -> "2018-12-19T19:01:50.640Z"
     )
-  }
+  )
 
   "UserMetadataLike" should {
     "sort checkpoints chronology" in {
-      testInstance.checkpoints().toSeq.sortBy(UserMetadataLike.sortChronologically) should contain theSameElementsInOrderAs Seq(
+      testInstance
+        .checkpoints()
+        .toSeq
+        .sortBy(UserMetadataLike.sortChronologically) should contain theSameElementsInOrderAs Seq(
         "x-amz-meta-upscan-initiate-received"        -> "2018-12-19T19:01:48.565Z",
         "x-amz-meta-upscan-initiate-response"        -> "2018-12-19T19:01:48.643Z",
         "x-amz-meta-upscan-verify-received"          -> "2018-12-19T19:01:49.768Z",

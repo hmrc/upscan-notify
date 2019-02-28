@@ -33,20 +33,26 @@ class S3FileNotificationDetailsRetriever @Inject()(
   downloadUrlGenerator: DownloadUrlGenerator)
     extends FileNotificationDetailsRetriever {
 
-  override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile] = {
+  override def retrieveUploadedFileDetails(
+    objectLocation: S3ObjectLocation): Future[FileProcessingDetails[SucessfulResult]] = {
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
     for {
-      metadata    <- fileManager.retrieveReadyMetadata(objectLocation)
-      downloadUrl  = downloadUrlGenerator.generate(objectLocation, metadata)
+      metadata <- fileManager.receiveSuccessfulFileDetails(objectLocation)
+      downloadUrl = downloadUrlGenerator.generate(objectLocation, metadata)
     } yield {
       val retrieved =
-        UploadedFile(
+        FileProcessingDetails(
           metadata.callbackUrl,
           metadata.fileReference,
-          downloadUrl,
-          metadata.size,
-          metadata.uploadDetails,
+          SucessfulResult(
+            downloadUrl     = downloadUrl,
+            size            = metadata.size,
+            fileName        = metadata.fileName,
+            fileMimeType    = metadata.fileMimeType,
+            uploadTimestamp = metadata.uploadTimestamp,
+            checksum        = metadata.checksum
+          ),
           metadata.requestContext,
           metadata.userMetadata
         )
@@ -56,20 +62,24 @@ class S3FileNotificationDetailsRetriever @Inject()(
     }
   }
 
-  override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile] = {
+  override def retrieveQuarantinedFileDetails(
+    objectLocation: S3ObjectLocation): Future[FileProcessingDetails[QuarantinedResult]] = {
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
     for {
-      quarantineFile <- fileManager.retrieveFailedObject(objectLocation)
+      quarantineFile <- fileManager.receiveFailedFileDetails(objectLocation)
     } yield {
       val retrieved =
-        QuarantinedFile(
-          quarantineFile.metadata.callbackUrl,
-          quarantineFile.metadata.fileReference,
-          parseContents(quarantineFile.content),
-          quarantineFile.metadata.uploadDetails,
-          quarantineFile.metadata.requestContext,
-          quarantineFile.metadata.userMetadata
+        FileProcessingDetails(
+          quarantineFile.callbackUrl,
+          quarantineFile.fileReference,
+          QuarantinedResult(
+            error           = parseContents(quarantineFile.failureDetailsAsJson),
+            fileName        = quarantineFile.fileName,
+            uploadTimestamp = quarantineFile.uploadTimestamp
+          ),
+          quarantineFile.requestContext,
+          quarantineFile.userMetadata
         )
       Logger.debug(
         s"Retrieved quarantined file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")

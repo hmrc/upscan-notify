@@ -16,11 +16,13 @@
 
 package services
 
-import model.{QuarantinedFile, UploadedFile}
+import model._
 
 import scala.concurrent.Future
 
 trait NotificationService {
-  def notifySuccessfulCallback(notification: UploadedFile): Future[UploadedFile]
-  def notifyFailedCallback(notification: QuarantinedFile): Future[QuarantinedFile]
+  def notifySuccessfulCallback(
+    notification: FileProcessingDetails[SucessfulResult]): Future[FileProcessingDetails[SucessfulResult]]
+  def notifyFailedCallback(
+    notification: FileProcessingDetails[QuarantinedResult]): Future[FileProcessingDetails[QuarantinedResult]]
 }

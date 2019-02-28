@@ -34,35 +34,41 @@ import scala.concurrent.duration._
 
 class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends WordSpec with Matchers {
 
-  val consumer = mock[QuarantineQueueConsumer]
-  val parser   = new S3EventParser()
-  val fileRetriever = mock[FileNotificationDetailsRetriever]
-  val notificationService = mock[NotificationService]
-  val metrics = mock[Metrics]
-  val clock = Clock.systemDefaultZone()
-  val auditingService = mock[UpscanAuditingService]
+  val consumer             = mock[QuarantineQueueConsumer]
+  val parser               = new S3EventParser()
+  val fileRetriever        = mock[FileNotificationDetailsRetriever]
+  val notificationService  = mock[NotificationService]
+  val metrics              = mock[Metrics]
+  val clock                = Clock.systemDefaultZone()
+  val auditingService      = mock[UpscanAuditingService]
   val serviceConfiguration = mock[ServiceConfiguration]
-  val mockLogger = new MockLoggerLike()
+  val mockLogger           = new MockLoggerLike()
 
   val defaultMetricsRegistry = mock[MetricRegistry]
   when(metrics.defaultRegistry).thenReturn(defaultMetricsRegistry)
-  when(defaultMetricsRegistry.counter("quarantinedUploadNotificationSent")).thenReturn(mock[com.codahale.metrics.Counter])
+  when(defaultMetricsRegistry.counter("quarantinedUploadNotificationSent"))
+    .thenReturn(mock[com.codahale.metrics.Counter])
 
   when(serviceConfiguration.endToEndProcessingThreshold()).thenReturn(0 seconds)
 
-
   val testInstance = new NotifyOnQuarantineFileUploadMessageProcessingJob(
-    consumer, parser, fileRetriever, notificationService, metrics, clock, auditingService, serviceConfiguration
+    consumer,
+    parser,
+    fileRetriever,
+    notificationService,
+    metrics,
+    clock,
+    auditingService,
+    serviceConfiguration
   )
 
   "NotifyOnQuarantineFileUploadMessageProcessingJobSpec" when {
     "collectMetricsAfterNotification" should {
       "log all metrics" in {
-        val notification = QuarantinedFile(
+        val notification = FileProcessingDetails(
           new URL("http://my.callback.url"),
           FileReference("upload-file-reference"),
-          ErrorDetails("bad file", "quarantined"),
-          ValidUploadDetails("test.pdf", "application/pdf", Instant.parse("2018-12-01T14:30:00Z"), "1a2b3c4d5e"),
+          QuarantinedResult(ErrorDetails("bad file", "quarantined"), "test.pdf", Instant.parse("2018-12-01T14:30:00Z")),
           RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
           Map(
             "x-amz-meta-upscan-notify-received"         -> "2018-12-01T14:36:20Z",
@@ -75,10 +81,10 @@ class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends WordSpec with
 
         val logMessage = mockLogger.getWarnMessage()
 
-        logMessage should include ("x-amz-meta-upscan-notify-received")
-        logMessage should include ("x-amz-meta-upscan-notify-callback-started")
-        logMessage should include ("x-amz-meta-upscan-notify-callback-end")
-        logMessage should include ("x-amz-meta-upscan-notify-responded")
+        logMessage should include("x-amz-meta-upscan-notify-received")
+        logMessage should include("x-amz-meta-upscan-notify-callback-started")
+        logMessage should include("x-amz-meta-upscan-notify-callback-end")
+        logMessage should include("x-amz-meta-upscan-notify-responded")
       }
     }
   }

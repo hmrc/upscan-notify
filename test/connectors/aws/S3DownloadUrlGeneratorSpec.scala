@@ -27,8 +27,8 @@ import org.mockito.ArgumentMatchers.{any, eq => meq}
 import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar.mock
 import config.ServiceConfiguration
-import model.{FileReference, RequestContext, S3ObjectLocation, ValidUploadDetails}
-import services.ReadyObjectMetadata
+import model.{FileReference, RequestContext, S3ObjectLocation}
+import services.SuccessfulFileDetails
 import uk.gov.hmrc.play.test.UnitSpec
 
 class S3DownloadUrlGeneratorSpec extends UnitSpec {
@@ -38,25 +38,31 @@ class S3DownloadUrlGeneratorSpec extends UnitSpec {
     "return a pre-signed URL for a known serviceName" in {
 
       val consumingService = "consuming-service"
-      val expectedUrl = new URL("http://www.presignedurl.com")
+      val expectedUrl      = new URL("http://www.presignedurl.com")
 
       val mockAmazonS3: AmazonS3 = mock[AmazonS3]
-      val s3objectLocation = S3ObjectLocation("bucket", "objectKey")
-      when(mockAmazonS3.generatePresignedUrl(meq(s3objectLocation.bucket), meq(s3objectLocation.objectKey), any(classOf[Date])))
+      val s3objectLocation       = S3ObjectLocation("bucket", "objectKey")
+      when(
+        mockAmazonS3
+          .generatePresignedUrl(meq(s3objectLocation.bucket), meq(s3objectLocation.objectKey), any(classOf[Date])))
         .thenReturn(expectedUrl)
 
       val mockServiceConfiguration: ServiceConfiguration = mock[ServiceConfiguration]
       when(mockServiceConfiguration.s3UrlExpirationPeriod(consumingService))
         .thenReturn(1000.milliseconds)
 
-      val readyObjectMetadata: ReadyObjectMetadata = ReadyObjectMetadata(
-        FileReference("file-reference"),
-        new URL("http://www.fakeurl.com"),
-        ValidUploadDetails("fileName", "fileMimeType", Instant.now, "checkSum"),
-        size=1L,
-        RequestContext(Some("requestId"), Some("sessionId"), "clientIP"),
-        consumingService,
-        Map())
+      val readyObjectMetadata: SuccessfulFileDetails = SuccessfulFileDetails(
+        fileReference    = FileReference("file-reference"),
+        callbackUrl      = new URL("http://www.fakeurl.com"),
+        fileName         = "fileName",
+        fileMimeType     = "fileMimeType",
+        uploadTimestamp  = Instant.now,
+        checksum         = "checkSum",
+        size             = 1L,
+        requestContext   = RequestContext(Some("requestId"), Some("sessionId"), "clientIP"),
+        consumingService = consumingService,
+        userMetadata     = Map()
+      )
 
       val s3DownloadUrlGenerator = new S3DownloadUrlGenerator(mockAmazonS3, mockServiceConfiguration)
       s3DownloadUrlGenerator.generate(S3ObjectLocation("bucket", "objectKey"), readyObjectMetadata) shouldBe expectedUrl
@@ -65,6 +71,3 @@ class S3DownloadUrlGeneratorSpec extends UnitSpec {
   }
 
 }
-
-
-

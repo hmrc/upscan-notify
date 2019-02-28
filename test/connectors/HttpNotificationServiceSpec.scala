@@ -83,12 +83,10 @@ class HttpNotificationServiceSpec
       val initiateDate = Instant.parse("2018-04-24T09:30:00Z")
 
       When("the service is called")
-      val notification = UploadedFile(
+      val notification = FileProcessingDetails(
         callbackUrl,
         FileReference("upload-file-reference"),
-        downloadUrl,
-        0L,
-        ValidUploadDetails("test.pdf", "application/pdf", initiateDate, "1a2b3c4d5e"),
+        SucessfulResult(downloadUrl, 0L, "test.pdf", "application/pdf", initiateDate, "1a2b3c4d5e"),
         RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
         Map()
       )
@@ -129,11 +127,13 @@ class HttpNotificationServiceSpec
 
       When("the service is called")
       val notification =
-        QuarantinedFile(
+        FileProcessingDetails(
           callbackUrl,
           FileReference("quarantine-file-reference"),
-          ErrorDetails("QUARANTINE", "This file has a virus"),
-          ValidUploadDetails("test.pdf", "application/pdf", Instant.parse("2018-04-24T09:30:00Z"), "1a2b3c4d5e"),
+          QuarantinedResult(
+            ErrorDetails("QUARANTINE", "This file has a virus"),
+            "test.pdf",
+            Instant.parse("2018-04-24T09:30:00Z")),
           RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
           Map()
         )
@@ -168,11 +168,13 @@ class HttpNotificationServiceSpec
 
       When("the service is called")
       val notification =
-        QuarantinedFile(
+        FileProcessingDetails(
           callbackUrl,
           FileReference("rejected-file-reference"),
-          ErrorDetails("REJECTED", "MIME type [some-type] not allowed for service [some-service]"),
-          ValidUploadDetails("test.pdf", "application/pdf", Instant.parse("2018-04-24T09:30:00Z"), "1a2b3c4d5e"),
+          model.QuarantinedResult(
+            ErrorDetails("REJECTED", "MIME type [some-type] not allowed for service [some-service]"),
+            "test.pdf",
+            Instant.parse("2018-04-24T09:30:00Z")),
           RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
           Map()
         )
@@ -207,12 +209,10 @@ class HttpNotificationServiceSpec
 
       When("the service is called")
       val notification =
-        UploadedFile(
+        FileProcessingDetails(
           callbackUrl,
           FileReference("file-reference"),
-          downloadUrl,
-          0L,
-          ValidUploadDetails("test.pdf", "application/pdf", initiateDate, "1a2b3c4d5e"),
+          SucessfulResult(downloadUrl, 0L, "test.pdf", "application/pdf", initiateDate, "1a2b3c4d5e"),
           RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
           Map()
         )
@@ -233,12 +233,10 @@ class HttpNotificationServiceSpec
 
       When("the service is called")
       val notification =
-        UploadedFile(
+        FileProcessingDetails(
           callbackUrl,
           FileReference("file-reference"),
-          downloadUrl,
-          0L,
-          ValidUploadDetails("test/pdf", "application/pdf", initiateDate, "1a2b3c4d5e"),
+          SucessfulResult(downloadUrl, 0L, "test/pdf", "application/pdf", initiateDate, "1a2b3c4d5e"),
           RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
           Map()
         )

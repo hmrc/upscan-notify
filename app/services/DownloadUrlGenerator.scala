@@ -21,5 +21,5 @@ import java.net.URL
 import model.S3ObjectLocation
 
 trait DownloadUrlGenerator {
-  def generate(objectLocation: S3ObjectLocation, metadata: ReadyObjectMetadata): URL
+  def generate(objectLocation: S3ObjectLocation, metadata: SuccessfulFileDetails): URL
 }

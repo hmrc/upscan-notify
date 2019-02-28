@@ -16,7 +16,7 @@
 
 package services
 
-import java.time.{Clock, Duration, Instant}
+import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
 
 import cats.data.EitherT
@@ -100,23 +100,23 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
 
   private val timingsLogger = Logger(classOf[NotifyOnSuccessfulFileUploadMessageProcessingJob])
 
-  override def processMessage(message: Message): EitherT[Future, ExceptionWithContext, MessageContext] = {
-      for {
+  override def processMessage(message: Message): EitherT[Future, ExceptionWithContext, MessageContext] =
+    for {
       parsedMessage <- toEitherT(parser.parse(message))
-      context        = MessageContext(LoggingDetails.fromS3ObjectLocation(parsedMessage.location))
+      context = MessageContext(LoggingDetails.fromS3ObjectLocation(parsedMessage.location))
       notification1 <- toEitherT(fileRetriever.retrieveUploadedFileDetails(parsedMessage.location), Some(context))
-      notification2  = notification1.copyWithUserMetadata("x-amz-meta-upscan-notify-received" -> message.receivedAt.toString)
-      _              = upscanAuditingService.notifyFileUploadedSuccessfully(notification2)
-      _              = collectMetricsBeforeNotification(notification2)
+      notification2 = notification1.copyWithUserMetadata(
+        "x-amz-meta-upscan-notify-received" -> message.receivedAt.toString)
+      _ = upscanAuditingService.notifyFileUploadedSuccessfully(notification2)
+      _ = collectMetricsBeforeNotification(notification2)
       notification3 <- toEitherT(notificationService.notifySuccessfulCallback(notification2), Some(context))
     } yield {
       collectMetricsAfterNotification(notification3, timingsLogger)
       context
     }
-  }
 
-  private def collectMetricsBeforeNotification(notification: UploadedFile): Unit = {
-    val totalProcessingTime = Duration.between(notification.uploadDetails.uploadTimestamp, clock.instant())
+  private def collectMetricsBeforeNotification(notification: FileProcessingDetails[_ <: ProcessingResult]): Unit = {
+    val totalProcessingTime = Duration.between(notification.result.uploadTimestamp, clock.instant())
 
     if (totalProcessingTime.isNegative) {
       Logger.warn(
@@ -129,7 +129,9 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
     }
   }
 
-  private[services] def collectMetricsAfterNotification(notification: UploadedFile, perfLogger: LoggerLike): Unit = {
+  private[services] def collectMetricsAfterNotification(
+    notification: FileProcessingDetails[SucessfulResult],
+    perfLogger: LoggerLike): Unit = {
     import UserMetadataLike.sortChronologically
 
     val respondedAt = clock.instant()
@@ -138,7 +140,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
       ("x-amz-meta-upscan-notify-responded" -> respondedAt.toString)
     )
 
-    val totalProcessingTime = Duration.between(updatedNotification.uploadDetails.uploadTimestamp, respondedAt)
+    val totalProcessingTime = Duration.between(updatedNotification.result.uploadTimestamp, respondedAt)
 
     if (totalProcessingTime.isNegative) {
       Logger.warn(
@@ -148,20 +150,21 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
         .timer("totalFileProcessingTime")
         .update(totalProcessingTime.toNanos, TimeUnit.NANOSECONDS)
 
-      val endToEndProcessingThreshold: scala.concurrent.duration.Duration = serviceConfiguration.endToEndProcessingThreshold()
+      val endToEndProcessingThreshold: scala.concurrent.duration.Duration =
+        serviceConfiguration.endToEndProcessingThreshold()
 
       if (totalProcessingTime.toMillis() > endToEndProcessingThreshold.toMillis) {
 
         val checkpoints = updatedNotification.checkpoints().toSeq.sortBy(sortChronologically).mkString("[", ", ", "]")
 
         perfLogger.warn(
-          s"""Accepted file total processing time: [${totalProcessingTime.getSeconds} seconds] exceeded threshold of [${endToEndProcessingThreshold}].
-             |Processing checkpoints were: ${checkpoints}.
+          s"""Accepted file total processing time: [${totalProcessingTime.getSeconds} seconds] exceeded threshold of [$endToEndProcessingThreshold].
+             |Processing checkpoints were: $checkpoints.
            """.stripMargin)
       }
     }
 
-    metrics.defaultRegistry.histogram("fileSize").update(updatedNotification.size)
+    metrics.defaultRegistry.histogram("fileSize").update(updatedNotification.result.size)
     metrics.defaultRegistry.counter("successfulUploadNotificationSent").inc()
   }
 }
@@ -183,19 +186,23 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
   override def processMessage(message: Message): EitherT[Future, ExceptionWithContext, MessageContext] =
     for {
       parsedMessage <- toEitherT(parser.parse(message))
-      context        = MessageContext(LoggingDetails.fromS3ObjectLocation(parsedMessage.location))
+      context = MessageContext(LoggingDetails.fromS3ObjectLocation(parsedMessage.location))
       notification1 <- toEitherT(
-                         fileRetriever.retrieveQuarantinedFileDetails(parsedMessage.location), Some(context)
-                       )
-      notification2  = notification1.copyWithUserMetadata("x-amz-meta-upscan-notify-received" -> message.receivedAt.toString)
-      _              = upscanAuditingService.notifyFileIsQuarantined(notification2)
+                        fileRetriever.retrieveQuarantinedFileDetails(parsedMessage.location),
+                        Some(context)
+                      )
+      notification2 = notification1.copyWithUserMetadata(
+        "x-amz-meta-upscan-notify-received" -> message.receivedAt.toString)
+      _ = upscanAuditingService.notifyFileIsQuarantined(notification2)
       notification3 <- toEitherT(notificationService.notifyFailedCallback(notification2), Some(context))
     } yield {
       collectMetricsAfterNotification(notification3, timingsLogger)
       context
     }
 
-  private[services] def collectMetricsAfterNotification(notification: QuarantinedFile, perfLogger: LoggerLike): Unit = {
+  private[services] def collectMetricsAfterNotification(
+    notification: FileProcessingDetails[_ <: ProcessingResult],
+    perfLogger: LoggerLike): Unit = {
     import UserMetadataLike.sortChronologically
 
     val respondedAt = clock.instant()
@@ -204,7 +211,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
       ("x-amz-meta-upscan-notify-responded" -> respondedAt.toString)
     )
 
-    val totalProcessingTime = Duration.between(updatedNotification.uploadDetails.uploadTimestamp, respondedAt)
+    val totalProcessingTime = Duration.between(updatedNotification.result.uploadTimestamp, respondedAt)
 
     if (totalProcessingTime.isNegative) {
       Logger.warn(
@@ -212,15 +219,16 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
     } else {
       metrics.defaultRegistry.counter("quarantinedUploadNotificationSent").inc()
 
-      val endToEndProcessingThreshold: scala.concurrent.duration.Duration = serviceConfiguration.endToEndProcessingThreshold()
+      val endToEndProcessingThreshold: scala.concurrent.duration.Duration =
+        serviceConfiguration.endToEndProcessingThreshold()
 
       if (totalProcessingTime.toMillis() > endToEndProcessingThreshold.toMillis) {
 
         val checkpoints = updatedNotification.checkpoints().toSeq.sortBy(sortChronologically).mkString("[", ", ", "]")
 
         perfLogger.warn(
-          s"""Rejected file total processing time: [${totalProcessingTime.getSeconds} seconds] exceeded threshold of [${endToEndProcessingThreshold}].
-             |Processing checkpoints were: ${checkpoints}.
+          s"""Rejected file total processing time: [${totalProcessingTime.getSeconds} seconds] exceeded threshold of [$endToEndProcessingThreshold].
+             |Processing checkpoints were: $checkpoints.
            """.stripMargin)
       }
     }

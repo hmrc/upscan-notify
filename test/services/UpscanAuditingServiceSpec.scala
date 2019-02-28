@@ -24,7 +24,6 @@ import org.mockito.{ArgumentCaptor, ArgumentMatchers, Mockito}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{GivenWhenThen, Matchers}
 import uk.gov.hmrc.http.{HeaderCarrier, HeaderNames}
-import uk.gov.hmrc.http.logging.{RequestId, SessionId}
 import uk.gov.hmrc.play.audit.http.connector.AuditConnector
 import uk.gov.hmrc.play.audit.model.DataEvent
 import uk.gov.hmrc.play.test.UnitSpec
@@ -34,7 +33,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
 
   "UpscanAuditingService" should {
-    val uploadDetails = ValidUploadDetails("test.pdf", "application/pdf", Instant.now(), "1a2b3c4d5e")
 
     "properly handle FileUploadedSuccessfully events" in {
 
@@ -42,12 +40,16 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
 
       val upscanAuditingService = new UpscanAuditingService(auditConnector)
 
-      val event: UploadedFile = UploadedFile(
+      val event = FileProcessingDetails(
         new URL("http://www.test.com"),
         FileReference("REF"),
-        new URL("http://www.test.com"),
-        10L,
-        uploadDetails,
+        SucessfulResult(
+          new URL("http://www.test.com"),
+          10L,
+          "test.pdf",
+          "application/pdf",
+          Instant.now(),
+          "1a2b3c4d5e"),
         RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1"),
         Map()
       )
@@ -77,11 +79,10 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
 
       val upscanAuditingService = new UpscanAuditingService(auditConnector)
 
-      val event: QuarantinedFile = QuarantinedFile(
+      val event: FileProcessingDetails[QuarantinedResult] = FileProcessingDetails(
         new URL("http://www.test.com"),
         FileReference("REF"),
-        ErrorDetails("QUARANTINE", "1a2b3c4d5e"),
-        uploadDetails,
+        QuarantinedResult(ErrorDetails("QUARANTINE", "1a2b3c4d5e"), "test.pdf", Instant.now()),
         RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1"),
         Map()
       )

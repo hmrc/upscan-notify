@@ -16,72 +16,83 @@
 
 package connectors
 
-import java.time.Clock
+import java.time.{Clock, Instant}
 
 import javax.inject.Inject
 import model._
 import play.api.Logger
+import play.api.libs.json.Writes
 import services.NotificationService
 import uk.gov.hmrc.http.HttpResponse
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
 import uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext.fromLoggingDetails
 import util.logging.LoggingDetails
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) extends NotificationService {
 
-  override def notifySuccessfulCallback(uploadedFile: UploadedFile): Future[UploadedFile] = {
+  override def notifySuccessfulCallback(
+    uploadedFile: FileProcessingDetails[SucessfulResult]): Future[FileProcessingDetails[SucessfulResult]] =
+    makeCallback(
+      ReadyCallbackBody(
+        reference   = uploadedFile.reference,
+        downloadUrl = uploadedFile.result.downloadUrl,
+        uploadDetails = UploadDetails(
+          fileName        = uploadedFile.result.fileName,
+          fileMimeType    = uploadedFile.result.fileMimeType,
+          uploadTimestamp = uploadedFile.result.uploadTimestamp,
+          checksum        = uploadedFile.result.checksum
+        )
+      ),
+      uploadedFile,
+      "File ready"
+    )
 
-    implicit val ld = LoggingDetails.fromFileReference(uploadedFile.reference)
+  override def notifyFailedCallback(
+    quarantinedFile: FileProcessingDetails[QuarantinedResult]): Future[FileProcessingDetails[QuarantinedResult]] =
+    makeCallback(
+      FailedCallbackBody(reference = quarantinedFile.reference, failureDetails = quarantinedFile.result.error),
+      quarantinedFile,
+      "File failed")
 
-    val callback = ReadyCallbackBody(
-      reference     = uploadedFile.reference,
-      downloadUrl   = uploadedFile.downloadUrl,
-      uploadDetails = uploadedFile.uploadDetails)
+  private def makeCallback[T, M <: ProcessingResult, D <: UploadDetails](
+    callback: T,
+    metadata: FileProcessingDetails[M],
+    notificationType: String)(implicit writes: Writes[T]): Future[FileProcessingDetails[M]] = {
 
-    val startTime = clock.instant()
+    implicit val ld = LoggingDetails.fromFileReference(metadata.reference)
 
-    httpClient
-      .POST[ReadyCallbackBody, HttpResponse](uploadedFile.callbackUrl.toString, callback)
-      .map { httpResponse => {
-          val endTime = clock.instant()
-
-          Logger.info(
-            s"""File ready notification sent to service with callbackUrl: [${uploadedFile.callbackUrl}].
-               | Response status was: [${httpResponse.status}].""".stripMargin
-          )
-
-          uploadedFile.copyWithUserMetadata(
-            "x-amz-meta-upscan-notify-callback-started" -> startTime.toString(),
-            "x-amz-meta-upscan-notify-callback-ended"   -> endTime.toString()
-          )
-        }
-      }
+    for (WithTimeMeasurement(measurement, httpResult) <- timed(
+                                                          httpClient.POST[T, HttpResponse](
+                                                            metadata.callbackUrl.toString,
+                                                            callback))) yield {
+      Logger.info(
+        s"""$notificationType notification sent to service with callbackUrl: [${metadata.callbackUrl}].
+           | Response status was: [${httpResult.status}].""".stripMargin
+      )
+      addExecutionTimeMetadata(metadata, measurement)
+    }
   }
 
-  override def notifyFailedCallback(quarantinedFile: QuarantinedFile): Future[QuarantinedFile] = {
+  private def addExecutionTimeMetadata[R <: ProcessingResult](
+    metadata: FileProcessingDetails[R],
+    timeMeasurement: TimeMeasurement): FileProcessingDetails[R] =
+    metadata.copyWithUserMetadata(
+      "x-amz-meta-upscan-notify-callback-started" -> timeMeasurement.start.toString(),
+      "x-amz-meta-upscan-notify-callback-ended"   -> timeMeasurement.end.toString()
+    )
 
-    implicit val ld = LoggingDetails.fromFileReference(quarantinedFile.reference)
-    val callback    = FailedCallbackBody(reference = quarantinedFile.reference, failureDetails = quarantinedFile.error)
+  case class TimeMeasurement(start: Instant, end: Instant)
+  case class WithTimeMeasurement[T](timeMeasurement: TimeMeasurement, result: T)
+
+  private def timed[T](f: => Future[T])(implicit ec: ExecutionContext): Future[WithTimeMeasurement[T]] = {
 
     val startTime = clock.instant()
-
-    httpClient
-      .POST[FailedCallbackBody, HttpResponse](quarantinedFile.callbackUrl.toString, callback)
-      .map { httpResponse => {
-          val endTime = clock.instant()
-
-          Logger.info(
-            s"""File failed notification sent to service with callbackUrl: [${quarantinedFile.callbackUrl}].
-               | Response status was: [${httpResponse.status}].""".stripMargin
-          )
-
-          quarantinedFile.copyWithUserMetadata(
-            "x-amz-meta-upscan-notify-callback-started" -> startTime.toString(),
-            "x-amz-meta-upscan-notify-callback-ended"   -> endTime.toString()
-          )
-        }
-      }
+    f.map { result =>
+      val endTime = clock.instant()
+      WithTimeMeasurement(TimeMeasurement(startTime, endTime), result)
+    }
   }
+
 }
