@@ -77,15 +77,18 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends WordSpec with
             "application/pdf",
             Instant.parse("2018-12-01T14:30:00Z"),
             "1a2b3c4d5e"),
-          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
-          Map(
-            "x-amz-meta-upscan-notify-received"         -> "2018-12-01T14:36:20Z",
-            "x-amz-meta-upscan-notify-callback-started" -> "2018-12-01T14:36:30Z",
-            "x-amz-meta-upscan-notify-callback-ended"   -> "2018-12-01T14:36:31Z"
+          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
+        )
+
+        val checkpoints = Checkpoints(
+          Seq(
+            Checkpoint("x-amz-meta-upscan-notify-received", Instant.parse("2018-12-01T14:36:20Z")),
+            Checkpoint("x-amz-meta-upscan-notify-callback-started", Instant.parse("2018-12-01T14:36:30Z")),
+            Checkpoint("x-amz-meta-upscan-notify-callback-ended", Instant.parse("2018-12-01T14:36:31Z"))
           )
         )
 
-        testInstance.collectMetricsAfterNotification(notification, mockLogger)
+        testInstance.collectMetricsAfterNotification(notification, checkpoints, mockLogger)
 
         val logMessage = mockLogger.getWarnMessage()
 

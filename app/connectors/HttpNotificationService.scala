@@ -32,8 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) extends NotificationService {
 
-  override def notifySuccessfulCallback(
-    uploadedFile: FileProcessingDetails[SucessfulResult]): Future[FileProcessingDetails[SucessfulResult]] =
+  override def notifySuccessfulCallback(uploadedFile: FileProcessingDetails[SucessfulResult]): Future[Seq[Checkpoint]] =
     makeCallback(
       ReadyCallbackBody(
         reference   = uploadedFile.reference,
@@ -50,16 +49,16 @@ class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) ex
     )
 
   override def notifyFailedCallback(
-    quarantinedFile: FileProcessingDetails[QuarantinedResult]): Future[FileProcessingDetails[QuarantinedResult]] =
+    quarantinedFile: FileProcessingDetails[QuarantinedResult]): Future[Seq[Checkpoint]] =
     makeCallback(
       FailedCallbackBody(reference = quarantinedFile.reference, failureDetails = quarantinedFile.result.error),
       quarantinedFile,
       "File failed")
 
-  private def makeCallback[T, M <: ProcessingResult, D <: UploadDetails](
+  private def makeCallback[T, M <: ProcessingResult](
     callback: T,
     metadata: FileProcessingDetails[M],
-    notificationType: String)(implicit writes: Writes[T]): Future[FileProcessingDetails[M]] = {
+    notificationType: String)(implicit writes: Writes[T]): Future[Seq[Checkpoint]] = {
 
     implicit val ld = LoggingDetails.fromFileReference(metadata.reference)
 
@@ -71,16 +70,14 @@ class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) ex
         s"""$notificationType notification sent to service with callbackUrl: [${metadata.callbackUrl}].
            | Response status was: [${httpResult.status}].""".stripMargin
       )
-      addExecutionTimeMetadata(metadata, measurement)
+      collectExecutionTimeMetadata(measurement)
     }
   }
 
-  private def addExecutionTimeMetadata[R <: ProcessingResult](
-    metadata: FileProcessingDetails[R],
-    timeMeasurement: TimeMeasurement): FileProcessingDetails[R] =
-    metadata.copyWithUserMetadata(
-      "x-amz-meta-upscan-notify-callback-started" -> timeMeasurement.start.toString(),
-      "x-amz-meta-upscan-notify-callback-ended"   -> timeMeasurement.end.toString()
+  private def collectExecutionTimeMetadata(timeMeasurement: TimeMeasurement): Seq[Checkpoint] =
+    Seq(
+      Checkpoint("x-amz-meta-upscan-notify-callback-started", timeMeasurement.start),
+      Checkpoint("x-amz-meta-upscan-notify-callback-ended", timeMeasurement.end)
     )
 
   case class TimeMeasurement(start: Instant, end: Instant)

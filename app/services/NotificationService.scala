@@ -21,8 +21,6 @@ import model._
 import scala.concurrent.Future
 
 trait NotificationService {
-  def notifySuccessfulCallback(
-    notification: FileProcessingDetails[SucessfulResult]): Future[FileProcessingDetails[SucessfulResult]]
-  def notifyFailedCallback(
-    notification: FileProcessingDetails[QuarantinedResult]): Future[FileProcessingDetails[QuarantinedResult]]
+  def notifySuccessfulCallback(notification: FileProcessingDetails[SucessfulResult]): Future[Seq[Checkpoint]]
+  def notifyFailedCallback(notification: FileProcessingDetails[QuarantinedResult]): Future[Seq[Checkpoint]]
 }

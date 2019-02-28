@@ -16,6 +16,8 @@
 
 package services
 
+import java.time.Instant
+
 import javax.inject.Inject
 import config.ServiceConfiguration
 import model._
@@ -34,13 +36,14 @@ class S3FileNotificationDetailsRetriever @Inject()(
     extends FileNotificationDetailsRetriever {
 
   override def retrieveUploadedFileDetails(
-    objectLocation: S3ObjectLocation): Future[FileProcessingDetails[SucessfulResult]] = {
+    objectLocation: S3ObjectLocation): Future[WithCheckpoints[FileProcessingDetails[SucessfulResult]]] = {
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
     for {
       metadata <- fileManager.receiveSuccessfulFileDetails(objectLocation)
       downloadUrl = downloadUrlGenerator.generate(objectLocation, metadata)
     } yield {
+      val checkpoints = parseCheckpoints(metadata.userMetadata)
       val retrieved =
         FileProcessingDetails(
           metadata.callbackUrl,
@@ -53,22 +56,22 @@ class S3FileNotificationDetailsRetriever @Inject()(
             uploadTimestamp = metadata.uploadTimestamp,
             checksum        = metadata.checksum
           ),
-          metadata.requestContext,
-          metadata.userMetadata
+          metadata.requestContext
         )
       Logger.debug(
         s"Retrieved file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
-      retrieved
+      WithCheckpoints(retrieved, Checkpoints(checkpoints))
     }
   }
 
   override def retrieveQuarantinedFileDetails(
-    objectLocation: S3ObjectLocation): Future[FileProcessingDetails[QuarantinedResult]] = {
+    objectLocation: S3ObjectLocation): Future[WithCheckpoints[FileProcessingDetails[QuarantinedResult]]] = {
     implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
 
     for {
       quarantineFile <- fileManager.receiveFailedFileDetails(objectLocation)
     } yield {
+      val checkpoints = parseCheckpoints(quarantineFile.userMetadata)
       val retrieved =
         FileProcessingDetails(
           quarantineFile.callbackUrl,
@@ -78,14 +81,27 @@ class S3FileNotificationDetailsRetriever @Inject()(
             fileName        = quarantineFile.fileName,
             uploadTimestamp = quarantineFile.uploadTimestamp
           ),
-          quarantineFile.requestContext,
-          quarantineFile.userMetadata
+          quarantineFile.requestContext
         )
       Logger.debug(
         s"Retrieved quarantined file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
-      retrieved
+      WithCheckpoints(retrieved, Checkpoints(checkpoints))
     }
   }
+
+  private def parseCheckpoints(userMetadata: Map[String, String]) =
+    userMetadata
+      .filterKeys(_.startsWith("x-amz-meta-upscan-"))
+      .flatMap {
+        case (key, value) =>
+          Try(Instant.parse(value)) match {
+            case Success(parsedTimestamp) => Some(Checkpoint(key, parsedTimestamp))
+            case Failure(exception) =>
+              Logger.warn(s"Checkpoint field $key has invalid format", exception)
+              None
+          }
+      }
+      .toSeq
 
   private def parseContents(contents: String): ErrorDetails = {
     def unknownError(): ErrorDetails = ErrorDetails("UNKNOWN", contents)

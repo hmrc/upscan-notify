@@ -16,52 +16,44 @@
 
 package model
 
-import java.net.URL
 import java.time.Instant
 
 import org.scalatest.{Matchers, WordSpec}
 
 class FileProcessingDetailsSpec extends WordSpec with Matchers {
 
-  private val testInstance = FileProcessingDetails(
-    new URL("http://localhost"),
-    FileReference("test"),
-    SucessfulResult(new URL("http://localhost"), 1024L, "fileName", "mime-type", Instant.now, "TEST"),
-    RequestContext(None, None, "localhost"),
-    Map(
-      "x-amz-meta-upscan-notify-received"          -> "2018-12-19T19:01:50.601Z",
-      "x-amz-meta-upscan-verify-virusscan-ended"   -> "2018-12-19T19:01:50.303Z",
-      "x-amz-meta-upscan-verify-received"          -> "2018-12-19T19:01:49.768Z",
-      "x-amz-meta-upscan-notify-callback-ended"    -> "2018-12-19T19:01:50.639Z",
-      "x-amz-meta-upscan-verify-filetype-ended"    -> "2018-12-19T19:01:50.377Z",
-      "x-amz-meta-upscan-verify-outbound-queued"   -> "2018-12-19T19:01:50.380Z",
-      "x-amz-meta-upscan-initiate-response"        -> "2018-12-19T19:01:48.643Z",
-      "x-amz-meta-upscan-verify-virusscan-started" -> "2018-12-19T19:01:50.254Z",
-      "x-amz-meta-upscan-verify-filetype-started"  -> "2018-12-19T19:01:50.331Z",
-      "x-amz-meta-upscan-notify-callback-started"  -> "2018-12-19T19:01:50.632Z",
-      "x-amz-meta-upscan-initiate-received"        -> "2018-12-19T19:01:48.565Z",
-      "x-amz-meta-upscan-notify-responded"         -> "2018-12-19T19:01:50.640Z"
+  private val testInstance = Checkpoints(
+    Seq(
+      Checkpoint("x-amz-meta-upscan-notify-received", Instant.parse("2018-12-19T19:01:50.601Z")),
+      Checkpoint("x-amz-meta-upscan-verify-virusscan-ended", Instant.parse("2018-12-19T19:01:50.303Z")),
+      Checkpoint("x-amz-meta-upscan-verify-received", Instant.parse("2018-12-19T19:01:49.768Z")),
+      Checkpoint("x-amz-meta-upscan-notify-callback-ended", Instant.parse("2018-12-19T19:01:50.639Z")),
+      Checkpoint("x-amz-meta-upscan-verify-filetype-ended", Instant.parse("2018-12-19T19:01:50.377Z")),
+      Checkpoint("x-amz-meta-upscan-verify-outbound-queued", Instant.parse("2018-12-19T19:01:50.380Z")),
+      Checkpoint("x-amz-meta-upscan-initiate-response", Instant.parse("2018-12-19T19:01:48.643Z")),
+      Checkpoint("x-amz-meta-upscan-verify-virusscan-started", Instant.parse("2018-12-19T19:01:50.254Z")),
+      Checkpoint("x-amz-meta-upscan-verify-filetype-started", Instant.parse("2018-12-19T19:01:50.331Z")),
+      Checkpoint("x-amz-meta-upscan-notify-callback-started", Instant.parse("2018-12-19T19:01:50.632Z")),
+      Checkpoint("x-amz-meta-upscan-initiate-received", Instant.parse("2018-12-19T19:01:48.565Z")),
+      Checkpoint("x-amz-meta-upscan-notify-responded", Instant.parse("2018-12-19T19:01:50.640Z"))
     )
   )
 
   "UserMetadataLike" should {
     "sort checkpoints chronology" in {
-      testInstance
-        .checkpoints()
-        .toSeq
-        .sortBy(UserMetadataLike.sortChronologically) should contain theSameElementsInOrderAs Seq(
-        "x-amz-meta-upscan-initiate-received"        -> "2018-12-19T19:01:48.565Z",
-        "x-amz-meta-upscan-initiate-response"        -> "2018-12-19T19:01:48.643Z",
-        "x-amz-meta-upscan-verify-received"          -> "2018-12-19T19:01:49.768Z",
-        "x-amz-meta-upscan-verify-virusscan-started" -> "2018-12-19T19:01:50.254Z",
-        "x-amz-meta-upscan-verify-virusscan-ended"   -> "2018-12-19T19:01:50.303Z",
-        "x-amz-meta-upscan-verify-filetype-started"  -> "2018-12-19T19:01:50.331Z",
-        "x-amz-meta-upscan-verify-filetype-ended"    -> "2018-12-19T19:01:50.377Z",
-        "x-amz-meta-upscan-verify-outbound-queued"   -> "2018-12-19T19:01:50.380Z",
-        "x-amz-meta-upscan-notify-received"          -> "2018-12-19T19:01:50.601Z",
-        "x-amz-meta-upscan-notify-callback-started"  -> "2018-12-19T19:01:50.632Z",
-        "x-amz-meta-upscan-notify-callback-ended"    -> "2018-12-19T19:01:50.639Z",
-        "x-amz-meta-upscan-notify-responded"         -> "2018-12-19T19:01:50.640Z"
+      testInstance.sortedCheckpoints should contain theSameElementsInOrderAs Seq(
+        Checkpoint("x-amz-meta-upscan-initiate-received", Instant.parse("2018-12-19T19:01:48.565Z")),
+        Checkpoint("x-amz-meta-upscan-initiate-response", Instant.parse("2018-12-19T19:01:48.643Z")),
+        Checkpoint("x-amz-meta-upscan-verify-received", Instant.parse("2018-12-19T19:01:49.768Z")),
+        Checkpoint("x-amz-meta-upscan-verify-virusscan-started", Instant.parse("2018-12-19T19:01:50.254Z")),
+        Checkpoint("x-amz-meta-upscan-verify-virusscan-ended", Instant.parse("2018-12-19T19:01:50.303Z")),
+        Checkpoint("x-amz-meta-upscan-verify-filetype-started", Instant.parse("2018-12-19T19:01:50.331Z")),
+        Checkpoint("x-amz-meta-upscan-verify-filetype-ended", Instant.parse("2018-12-19T19:01:50.377Z")),
+        Checkpoint("x-amz-meta-upscan-verify-outbound-queued", Instant.parse("2018-12-19T19:01:50.380Z")),
+        Checkpoint("x-amz-meta-upscan-notify-received", Instant.parse("2018-12-19T19:01:50.601Z")),
+        Checkpoint("x-amz-meta-upscan-notify-callback-started", Instant.parse("2018-12-19T19:01:50.632Z")),
+        Checkpoint("x-amz-meta-upscan-notify-callback-ended", Instant.parse("2018-12-19T19:01:50.639Z")),
+        Checkpoint("x-amz-meta-upscan-notify-responded", Instant.parse("2018-12-19T19:01:50.640Z"))
       )
     }
   }

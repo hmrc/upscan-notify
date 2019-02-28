@@ -50,8 +50,7 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
           "application/pdf",
           Instant.now(),
           "1a2b3c4d5e"),
-        RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1"),
-        Map()
+        RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1")
       )
 
       upscanAuditingService.notifyFileUploadedSuccessfully(event)
@@ -83,8 +82,7 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
         new URL("http://www.test.com"),
         FileReference("REF"),
         QuarantinedResult(ErrorDetails("QUARANTINE", "1a2b3c4d5e"), "test.pdf", Instant.now()),
-        RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1"),
-        Map()
+        RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1")
       )
 
       upscanAuditingService.notifyFileIsQuarantined(event)

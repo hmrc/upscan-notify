@@ -87,8 +87,7 @@ class HttpNotificationServiceSpec
         callbackUrl,
         FileReference("upload-file-reference"),
         SucessfulResult(downloadUrl, 0L, "test.pdf", "application/pdf", initiateDate, "1a2b3c4d5e"),
-        RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
-        Map()
+        RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
       )
       val service = new HttpNotificationService(new TestHttpClient, clock)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
@@ -96,9 +95,9 @@ class HttpNotificationServiceSpec
       Then("service should return success")
       result.isSuccess shouldBe true
 
-      result.get.userMetadata                       should contain allOf (
-        "x-amz-meta-upscan-notify-callback-started" -> "2018-12-01T14:36:30Z",
-        "x-amz-meta-upscan-notify-callback-ended"   -> "2018-12-01T14:36:31Z"
+      result.get should contain allOf (
+        Checkpoint("x-amz-meta-upscan-notify-callback-started", baseTime),
+        Checkpoint("x-amz-meta-upscan-notify-callback-ended", baseTime.plusSeconds(1))
       )
 
       And("callback URL is called with expected JSON body")
@@ -134,8 +133,7 @@ class HttpNotificationServiceSpec
             ErrorDetails("QUARANTINE", "This file has a virus"),
             "test.pdf",
             Instant.parse("2018-04-24T09:30:00Z")),
-          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
-          Map()
+          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
       val service = new HttpNotificationService(new TestHttpClient, clock)
       val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
@@ -175,8 +173,7 @@ class HttpNotificationServiceSpec
             ErrorDetails("REJECTED", "MIME type [some-type] not allowed for service [some-service]"),
             "test.pdf",
             Instant.parse("2018-04-24T09:30:00Z")),
-          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
-          Map()
+          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
       val service = new HttpNotificationService(new TestHttpClient, clock)
       val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
@@ -213,8 +210,7 @@ class HttpNotificationServiceSpec
           callbackUrl,
           FileReference("file-reference"),
           SucessfulResult(downloadUrl, 0L, "test.pdf", "application/pdf", initiateDate, "1a2b3c4d5e"),
-          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
-          Map()
+          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
       val service = new HttpNotificationService(new TestHttpClient, clock)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
@@ -237,8 +233,7 @@ class HttpNotificationServiceSpec
           callbackUrl,
           FileReference("file-reference"),
           SucessfulResult(downloadUrl, 0L, "test/pdf", "application/pdf", initiateDate, "1a2b3c4d5e"),
-          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
-          Map()
+          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
       val service = new HttpNotificationService(new TestHttpClient, clock)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))

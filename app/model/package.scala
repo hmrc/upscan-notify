@@ -33,29 +33,23 @@ case class Message(id: String, body: String, receiptHandle: String, receivedAt: 
 
 case class RequestContext(requestId: Option[String], sessionId: Option[String], clientIp: String)
 
-object UserMetadataLike {
-  val sortChronologically: ((String, String)) => String = (checkpoint) => checkpoint._2
+case class Checkpoint(name: String, timestamp: Instant)
+case class Checkpoints(items: Seq[Checkpoint]) {
+  def :+(checkpoint: Checkpoint) = copy(items = items :+ checkpoint)
+
+  def ++(newCheckpoints: Seq[Checkpoint]) = copy(items = items ++ newCheckpoints)
+
+  def sortedCheckpoints =
+    items.sortBy(_.timestamp)
 }
+
+case class WithCheckpoints[T](details: T, checkpoints: Checkpoints)
 
 case class FileProcessingDetails[R <: ProcessingResult](
   callbackUrl: URL,
   reference: FileReference,
   result: R,
-  requestContext: RequestContext,
-  userMetadata: Map[String, String]) {
-  def copyWithUserMetadata(kv: (String, String)): FileProcessingDetails[R] =
-    copy(userMetadata = (this.userMetadata + kv))
-
-  def copyWithUserMetadata(
-    kv1: (String, String),
-    kv2: (String, String),
-    kv3: (String, String)*): FileProcessingDetails[R] =
-    copy(userMetadata = (this.userMetadata + (kv1, kv2, kv3: _*)))
-
-  def checkpoints(): Map[String, String] = userMetadata.filterKeys {
-    _.startsWith("x-amz-meta-upscan-")
-  }
-}
+  requestContext: RequestContext)
 
 sealed trait ProcessingResult {
   def uploadTimestamp: Instant

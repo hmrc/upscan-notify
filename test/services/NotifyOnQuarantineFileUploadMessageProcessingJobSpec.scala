@@ -69,15 +69,17 @@ class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends WordSpec with
           new URL("http://my.callback.url"),
           FileReference("upload-file-reference"),
           QuarantinedResult(ErrorDetails("bad file", "quarantined"), "test.pdf", Instant.parse("2018-12-01T14:30:00Z")),
-          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
-          Map(
-            "x-amz-meta-upscan-notify-received"         -> "2018-12-01T14:36:20Z",
-            "x-amz-meta-upscan-notify-callback-started" -> "2018-12-01T14:36:30Z",
-            "x-amz-meta-upscan-notify-callback-ended"   -> "2018-12-01T14:36:31Z"
-          )
+          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
 
-        testInstance.collectMetricsAfterNotification(notification, mockLogger)
+        val checkpoints = Checkpoints(
+          Seq(
+            Checkpoint("x-amz-meta-upscan-notify-received", Instant.parse("2018-12-01T14:36:20Z")),
+            Checkpoint("x-amz-meta-upscan-notify-callback-started", Instant.parse("2018-12-01T14:36:30Z")),
+            Checkpoint("x-amz-meta-upscan-notify-callback-ended", Instant.parse("2018-12-01T14:36:31Z"))
+          ))
+
+        testInstance.collectMetricsAfterNotification(notification, checkpoints, mockLogger)
 
         val logMessage = mockLogger.getWarnMessage()
 
