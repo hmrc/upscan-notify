@@ -44,15 +44,11 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
     val fileReference = FileReference("my-reference")
     val location      = S3ObjectLocation("my-bucket", "my-key")
     val callbackUrl   = new URL("http://my.callback.url")
-    val initiateDate  = Instant.parse("2018-04-24T09:30:00Z")
-    val checksum      = "1a2b3c4d5e"
     val fileSize      = 10L
 
     val requestId        = Some("requestId")
     val sessionId        = Some("sessionId")
     val requestContext   = RequestContext(requestId, sessionId, "127.0.0.1")
-    val fileName         = "test.pdf"
-    val fileMime         = "application/pdf"
     val downloadUrl      = new URL("http://remotehost/my-bucket/my-key")
     val consumingService = "consuming-service"
 
@@ -93,17 +89,16 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
 
       And("the expected callback URL is returned")
       result shouldBe WithCheckpoints(
-        FileProcessingDetails(
-          callbackUrl,
-          fileReference,
-          SucessfulResult(
-            downloadUrl,
-            fileSize,
-            uploadDetails.fileName,
-            uploadDetails.fileMimeType,
-            uploadDetails.uploadTimestamp,
-            uploadDetails.checksum),
-          requestContext
+        SuccessfulProcessingDetails(
+          callbackUrl     = callbackUrl,
+          reference       = fileReference,
+          downloadUrl     = downloadUrl,
+          size            = fileSize,
+          fileName        = uploadDetails.fileName,
+          fileMimeType    = uploadDetails.fileMimeType,
+          uploadTimestamp = uploadDetails.uploadTimestamp,
+          checksum        = uploadDetails.checksum,
+          requestContext  = requestContext
         ),
         Checkpoints(Seq(Checkpoint("x-amz-meta-upscan-started-upload", Instant.parse("2017-04-24T09:30:00Z"))))
       )
@@ -152,14 +147,13 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
 
       Then("the expected callback URL is returned")
       result shouldBe WithCheckpoints(
-        FileProcessingDetails(
-          callbackUrl,
-          fileReference,
-          QuarantinedResult(
-            ErrorDetails("QUARANTINE", "This file has a virus"),
-            invalidUploadDetails.fileName,
-            invalidUploadDetails.uploadTimestamp),
-          requestContext
+        model.FailedProcessingDetails(
+          callbackUrl     = callbackUrl,
+          reference       = fileReference,
+          fileName        = invalidUploadDetails.fileName,
+          uploadTimestamp = invalidUploadDetails.uploadTimestamp,
+          error           = ErrorDetails("QUARANTINE", "This file has a virus"),
+          requestContext  = requestContext
         ),
         Checkpoints(Nil)
       )
@@ -188,14 +182,13 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
 
       Then("the expected callback URL is returned")
       result shouldBe WithCheckpoints(
-        FileProcessingDetails(
-          callbackUrl,
-          fileReference,
-          QuarantinedResult(
-            ErrorDetails("REJECTED", "MIME type not allowed"),
-            invalidUploadDetails.fileName,
-            invalidUploadDetails.uploadTimestamp),
-          requestContext
+        model.FailedProcessingDetails(
+          callbackUrl     = callbackUrl,
+          reference       = fileReference,
+          fileName        = invalidUploadDetails.fileName,
+          uploadTimestamp = invalidUploadDetails.uploadTimestamp,
+          error           = ErrorDetails("REJECTED", message = "MIME type not allowed"),
+          requestContext  = requestContext
         ),
         Checkpoints(Nil)
       )
@@ -224,14 +217,13 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
 
       Then("the expected callback URL is returned")
       result shouldBe WithCheckpoints(
-        FileProcessingDetails(
-          callbackUrl,
-          fileReference,
-          QuarantinedResult(
-            ErrorDetails("UNKNOWN", "Something unexpected happened here"),
-            invalidUploadDetails.fileName,
-            invalidUploadDetails.uploadTimestamp),
-          requestContext
+        FailedProcessingDetails(
+          callbackUrl     = callbackUrl,
+          reference       = fileReference,
+          fileName        = invalidUploadDetails.fileName,
+          uploadTimestamp = invalidUploadDetails.uploadTimestamp,
+          error           = ErrorDetails("UNKNOWN", "Something unexpected happened here"),
+          requestContext  = requestContext
         ),
         Checkpoints(Nil)
       )

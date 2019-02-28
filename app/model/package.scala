@@ -19,7 +19,6 @@ package model
 import java.net.URL
 import java.time.Instant
 
-import JsonWriteHelpers.urlFormats
 import play.api.libs.json._
 
 case class FileReference(reference: String)
@@ -45,75 +44,37 @@ case class Checkpoints(items: Seq[Checkpoint]) {
 
 case class WithCheckpoints[T](details: T, checkpoints: Checkpoints)
 
-case class FileProcessingDetails[R <: ProcessingResult](
-  callbackUrl: URL,
-  reference: FileReference,
-  result: R,
-  requestContext: RequestContext)
-
-sealed trait ProcessingResult {
-  def uploadTimestamp: Instant
+sealed trait ProcessingDetails {
+  def callbackUrl: URL
+  def reference: FileReference
 }
 
-case class SucessfulResult(
+case class SuccessfulProcessingDetails(
+  callbackUrl: URL,
+  reference: FileReference,
   downloadUrl: URL,
   size: Long,
   fileName: String,
   fileMimeType: String,
   uploadTimestamp: Instant,
-  checksum: String)
-    extends ProcessingResult
+  checksum: String,
+  requestContext: RequestContext
+) extends ProcessingDetails
 
-case class QuarantinedResult(error: ErrorDetails, fileName: String, uploadTimestamp: Instant) extends ProcessingResult
+case class FailedProcessingDetails(
+  callbackUrl: URL,
+  reference: FileReference,
+  fileName: String,
+  uploadTimestamp: Instant,
+  error: ErrorDetails,
+  requestContext: RequestContext
+) extends ProcessingDetails
 
 case class S3ObjectLocation(bucket: String, objectKey: String)
 case class FileUploadEvent(location: S3ObjectLocation)
-
-sealed trait FileStatus {
-  val status: String
-}
-case object ReadyFileStatus extends FileStatus {
-  override val status: String = "READY"
-}
-case object FailedFileStatus extends FileStatus {
-  override val status: String = "FAILED"
-}
-
-object FileStatus {
-  implicit val fileStatusWrites: Writes[FileStatus] = new Writes[FileStatus] {
-    override def writes(o: FileStatus): JsValue = JsString(o.status)
-  }
-}
 
 case class ErrorDetails(failureReason: String, message: String)
 
 object ErrorDetails {
   implicit val formatsErrorDetails: Format[ErrorDetails] = Json.format[ErrorDetails]
-}
-
-case class ReadyCallbackBody(
-  reference: FileReference,
-  downloadUrl: URL,
-  fileStatus: FileStatus = ReadyFileStatus,
-  uploadDetails: UploadDetails
-)
-
-case class UploadDetails(fileName: String, fileMimeType: String, uploadTimestamp: Instant, checksum: String)
-
-object UploadDetails {
-  implicit val formatsValidUploadDetails: Format[UploadDetails] = Json.format[UploadDetails]
-}
-
-object ReadyCallbackBody {
-  implicit val writesReadyCallback: Writes[ReadyCallbackBody] = Json.writes[ReadyCallbackBody]
-}
-
-case class FailedCallbackBody(
-  reference: FileReference,
-  fileStatus: FileStatus = FailedFileStatus,
-  failureDetails: ErrorDetails
-)
-
-object FailedCallbackBody {
-  implicit val writesFailedCallback: Writes[FailedCallbackBody] = Json.writes[FailedCallbackBody]
 }

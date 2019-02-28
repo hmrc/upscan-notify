@@ -65,11 +65,13 @@ class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends WordSpec with
   "NotifyOnQuarantineFileUploadMessageProcessingJobSpec" when {
     "collectMetricsAfterNotification" should {
       "log all metrics" in {
-        val notification = FileProcessingDetails(
-          new URL("http://my.callback.url"),
-          FileReference("upload-file-reference"),
-          QuarantinedResult(ErrorDetails("bad file", "quarantined"), "test.pdf", Instant.parse("2018-12-01T14:30:00Z")),
-          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
+        val notification = FailedProcessingDetails(
+          callbackUrl     = new URL("http://my.callback.url"),
+          reference       = FileReference("upload-file-reference"),
+          fileName        = "test.pdf",
+          uploadTimestamp = Instant.parse("2018-12-01T14:30:00Z"),
+          error           = ErrorDetails("bad file", "quarantined"),
+          requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
 
         val checkpoints = Checkpoints(

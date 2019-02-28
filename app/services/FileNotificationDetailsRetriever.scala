@@ -22,7 +22,6 @@ import scala.concurrent.Future
 
 trait FileNotificationDetailsRetriever {
   def retrieveUploadedFileDetails(
-    objectLocation: S3ObjectLocation): Future[WithCheckpoints[FileProcessingDetails[SucessfulResult]]]
-  def retrieveQuarantinedFileDetails(
-    objectLocation: S3ObjectLocation): Future[WithCheckpoints[FileProcessingDetails[QuarantinedResult]]]
+    objectLocation: S3ObjectLocation): Future[WithCheckpoints[SuccessfulProcessingDetails]]
+  def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[WithCheckpoints[FailedProcessingDetails]]
 }

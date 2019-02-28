@@ -62,18 +62,18 @@ trait EventBuilder[T] {
 
 class UpscanAuditingService @Inject()(auditConnector: AuditConnector)(implicit ec: ExecutionContext) {
 
-  def notifyFileUploadedSuccessfully[T](notification: FileProcessingDetails[SucessfulResult])(): Unit = {
+  def notifyFileUploadedSuccessfully[T](notification: SuccessfulProcessingDetails)(): Unit = {
 
     val event =
-      new CleanFileUploaded(notification.reference.reference, notification.result.size, notification.requestContext)
+      new CleanFileUploaded(notification.reference.reference, notification.size, notification.requestContext)
     auditConnector.sendEvent(event = event)
 
   }
 
-  def notifyFileIsQuarantined(notification: FileProcessingDetails[QuarantinedResult]): Unit = {
+  def notifyFileIsQuarantined(notification: FailedProcessingDetails): Unit = {
     val event = new InvalidFileUploaded(
       notification.reference.reference,
-      notification.result.error.failureReason,
+      notification.error.failureReason,
       notification.requestContext)
     auditConnector.sendEvent(event = event)
   }

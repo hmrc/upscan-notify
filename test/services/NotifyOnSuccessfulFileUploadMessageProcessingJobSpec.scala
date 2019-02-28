@@ -67,17 +67,16 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends WordSpec with
   "NotifyOnSuccessfulFileUploadMessageProcessingJobSpec" when {
     "collectMetricsAfterNotification" should {
       "log all metrics" in {
-        val notification = FileProcessingDetails(
-          new URL("http://my.callback.url"),
-          FileReference("upload-file-reference"),
-          SucessfulResult(
-            new URL("http://my.download.url/bucket/123"),
-            0L,
-            "test.pdf",
-            "application/pdf",
-            Instant.parse("2018-12-01T14:30:00Z"),
-            "1a2b3c4d5e"),
-          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
+        val notification = model.SuccessfulProcessingDetails(
+          callbackUrl     = new URL("http://my.callback.url"),
+          reference       = FileReference("upload-file-reference"),
+          downloadUrl     = new URL("http://my.download.url/bucket/123"),
+          size            = 0L,
+          fileName        = "test.pdf",
+          fileMimeType    = "application/pdf",
+          uploadTimestamp = Instant.parse("2018-12-01T14:30:00Z"),
+          checksum        = "1a2b3c4d5e",
+          requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
 
         val checkpoints = Checkpoints(

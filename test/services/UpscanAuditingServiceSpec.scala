@@ -40,17 +40,16 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
 
       val upscanAuditingService = new UpscanAuditingService(auditConnector)
 
-      val event = FileProcessingDetails(
-        new URL("http://www.test.com"),
-        FileReference("REF"),
-        SucessfulResult(
-          new URL("http://www.test.com"),
-          10L,
-          "test.pdf",
-          "application/pdf",
-          Instant.now(),
-          "1a2b3c4d5e"),
-        RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1")
+      val event = SuccessfulProcessingDetails(
+        callbackUrl     = new URL("http://www.test.com"),
+        reference       = FileReference("REF"),
+        downloadUrl     = new URL("http://www.test.com"),
+        size            = 10L,
+        fileName        = "test.pdf",
+        fileMimeType    = "application/pdf",
+        uploadTimestamp = Instant.now(),
+        checksum        = "1a2b3c4d5e",
+        requestContext  = RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1")
       )
 
       upscanAuditingService.notifyFileUploadedSuccessfully(event)
@@ -78,11 +77,13 @@ class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThe
 
       val upscanAuditingService = new UpscanAuditingService(auditConnector)
 
-      val event: FileProcessingDetails[QuarantinedResult] = FileProcessingDetails(
-        new URL("http://www.test.com"),
-        FileReference("REF"),
-        QuarantinedResult(ErrorDetails("QUARANTINE", "1a2b3c4d5e"), "test.pdf", Instant.now()),
-        RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1")
+      val event = FailedProcessingDetails(
+        callbackUrl     = new URL("http://www.test.com"),
+        reference       = FileReference("REF"),
+        fileName        = "test.pdf",
+        uploadTimestamp = Instant.now(),
+        error           = ErrorDetails("QUARANTINE", "1a2b3c4d5e"),
+        requestContext  = RequestContext(Some("RequestId"), Some("SessionId"), "127.0.0.1")
       )
 
       upscanAuditingService.notifyFileIsQuarantined(event)

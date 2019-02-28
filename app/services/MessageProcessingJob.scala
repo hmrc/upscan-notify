@@ -117,8 +117,8 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
       context
     }
 
-  private def collectMetricsBeforeNotification(notification: FileProcessingDetails[_ <: ProcessingResult]): Unit = {
-    val totalProcessingTime = Duration.between(notification.result.uploadTimestamp, clock.instant())
+  private def collectMetricsBeforeNotification(notification: SuccessfulProcessingDetails): Unit = {
+    val totalProcessingTime = Duration.between(notification.uploadTimestamp, clock.instant())
 
     if (totalProcessingTime.isNegative) {
       Logger.warn(
@@ -132,7 +132,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
   }
 
   private[services] def collectMetricsAfterNotification(
-    notification: FileProcessingDetails[SucessfulResult],
+    notification: SuccessfulProcessingDetails,
     checkpoints: Checkpoints,
     perfLogger: LoggerLike): Unit = {
 
@@ -140,7 +140,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
 
     val newCheckpoints = checkpoints :+ Checkpoint("x-amz-meta-upscan-notify-responded", clock.instant())
 
-    val totalProcessingTime = Duration.between(notification.result.uploadTimestamp, respondedAt)
+    val totalProcessingTime = Duration.between(notification.uploadTimestamp, respondedAt)
 
     if (totalProcessingTime.isNegative) {
       Logger.warn(
@@ -164,7 +164,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
       }
     }
 
-    metrics.defaultRegistry.histogram("fileSize").update(notification.result.size)
+    metrics.defaultRegistry.histogram("fileSize").update(notification.size)
     metrics.defaultRegistry.counter("successfulUploadNotificationSent").inc()
   }
 }
@@ -201,7 +201,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
     }
 
   private[services] def collectMetricsAfterNotification(
-    notification: FileProcessingDetails[_ <: ProcessingResult],
+    notification: FailedProcessingDetails,
     checkpoints: Checkpoints,
     perfLogger: LoggerLike): Unit = {
 
@@ -210,7 +210,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
     val updatedCheckpoints =
       checkpoints :+ model.Checkpoint("x-amz-meta-upscan-notify-responded", clock.instant())
 
-    val totalProcessingTime = Duration.between(notification.result.uploadTimestamp, respondedAt)
+    val totalProcessingTime = Duration.between(notification.uploadTimestamp, respondedAt)
 
     if (totalProcessingTime.isNegative) {
       Logger.warn(

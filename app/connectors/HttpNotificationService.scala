@@ -16,49 +16,48 @@
 
 package connectors
 
+import java.net.URL
 import java.time.{Clock, Instant}
 
 import javax.inject.Inject
 import model._
 import play.api.Logger
-import play.api.libs.json.Writes
+import play.api.libs.json._
 import services.NotificationService
 import uk.gov.hmrc.http.HttpResponse
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
 import uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext.fromLoggingDetails
-import util.logging.LoggingDetails
+import JsonWriteHelpers.urlFormats
+import _root_.util.logging.LoggingDetails
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) extends NotificationService {
 
-  override def notifySuccessfulCallback(uploadedFile: FileProcessingDetails[SucessfulResult]): Future[Seq[Checkpoint]] =
+  override def notifySuccessfulCallback(uploadedFile: SuccessfulProcessingDetails): Future[Seq[Checkpoint]] =
     makeCallback(
       ReadyCallbackBody(
         reference   = uploadedFile.reference,
-        downloadUrl = uploadedFile.result.downloadUrl,
+        downloadUrl = uploadedFile.downloadUrl,
         uploadDetails = UploadDetails(
-          fileName        = uploadedFile.result.fileName,
-          fileMimeType    = uploadedFile.result.fileMimeType,
-          uploadTimestamp = uploadedFile.result.uploadTimestamp,
-          checksum        = uploadedFile.result.checksum
+          fileName        = uploadedFile.fileName,
+          fileMimeType    = uploadedFile.fileMimeType,
+          uploadTimestamp = uploadedFile.uploadTimestamp,
+          checksum        = uploadedFile.checksum
         )
       ),
       uploadedFile,
       "File ready"
     )
 
-  override def notifyFailedCallback(
-    quarantinedFile: FileProcessingDetails[QuarantinedResult]): Future[Seq[Checkpoint]] =
+  override def notifyFailedCallback(quarantinedFile: FailedProcessingDetails): Future[Seq[Checkpoint]] =
     makeCallback(
-      FailedCallbackBody(reference = quarantinedFile.reference, failureDetails = quarantinedFile.result.error),
+      FailedCallbackBody(reference = quarantinedFile.reference, failureDetails = quarantinedFile.error),
       quarantinedFile,
       "File failed")
 
-  private def makeCallback[T, M <: ProcessingResult](
-    callback: T,
-    metadata: FileProcessingDetails[M],
-    notificationType: String)(implicit writes: Writes[T]): Future[Seq[Checkpoint]] = {
+  private def makeCallback[T, M <: ProcessingDetails](callback: T, metadata: M, notificationType: String)(
+    implicit writes: Writes[T]): Future[Seq[Checkpoint]] = {
 
     implicit val ld = LoggingDetails.fromFileReference(metadata.reference)
 
@@ -92,4 +91,47 @@ class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) ex
     }
   }
 
+}
+
+case class ReadyCallbackBody(
+  reference: FileReference,
+  downloadUrl: URL,
+  fileStatus: FileStatus = ReadyFileStatus,
+  uploadDetails: UploadDetails
+)
+
+case class UploadDetails(fileName: String, fileMimeType: String, uploadTimestamp: Instant, checksum: String)
+
+object UploadDetails {
+  implicit val formatsValidUploadDetails: Format[UploadDetails] = Json.format[UploadDetails]
+}
+
+object ReadyCallbackBody {
+  implicit val writesReadyCallback: Writes[ReadyCallbackBody] = Json.writes[ReadyCallbackBody]
+}
+
+case class FailedCallbackBody(
+  reference: FileReference,
+  fileStatus: FileStatus = FailedFileStatus,
+  failureDetails: ErrorDetails
+)
+
+object FailedCallbackBody {
+  implicit val writesFailedCallback: Writes[FailedCallbackBody] = Json.writes[FailedCallbackBody]
+}
+
+sealed trait FileStatus {
+  val status: String
+}
+case object ReadyFileStatus extends FileStatus {
+  override val status: String = "READY"
+}
+case object FailedFileStatus extends FileStatus {
+  override val status: String = "FAILED"
+}
+
+object FileStatus {
+  implicit val fileStatusWrites: Writes[FileStatus] = new Writes[FileStatus] {
+    override def writes(o: FileStatus): JsValue = JsString(o.status)
+  }
 }
