@@ -17,7 +17,7 @@
 package services
 
 import javax.inject.Inject
-import model.{QuarantinedFile, RequestContext, UploadedFile}
+import model._
 import uk.gov.hmrc.http.HeaderNames
 import uk.gov.hmrc.play.audit.http.connector.AuditConnector
 import uk.gov.hmrc.play.audit.model.DataEvent
@@ -56,16 +56,21 @@ class InvalidFileUploaded(fileReference: String, failureReason: String, requestC
       tags = UpscanEvent.requestContentTags(requestContext) + ("transactionName" -> "invalid-file-uploaded")
     )
 
+trait EventBuilder[T] {
+  def build(input: T): DataEvent
+}
+
 class UpscanAuditingService @Inject()(auditConnector: AuditConnector)(implicit ec: ExecutionContext) {
 
-  def notifyFileUploadedSuccessfully(notification: UploadedFile): Unit = {
+  def notifyFileUploadedSuccessfully[T](notification: SuccessfulProcessingDetails)(): Unit = {
 
-    val event = new CleanFileUploaded(notification.reference.reference, notification.size, notification.requestContext)
+    val event =
+      new CleanFileUploaded(notification.reference.reference, notification.size, notification.requestContext)
     auditConnector.sendEvent(event = event)
 
   }
 
-  def notifyFileIsQuarantined(notification: QuarantinedFile): Unit = {
+  def notifyFileIsQuarantined(notification: FailedProcessingDetails): Unit = {
     val event = new InvalidFileUploaded(
       notification.reference.reference,
       notification.error.failureReason,

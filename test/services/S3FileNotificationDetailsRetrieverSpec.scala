@@ -21,6 +21,7 @@ import java.time.Instant
 
 import com.amazonaws.AmazonServiceException
 import config.ServiceConfiguration
+import connectors.aws.{FailedFileMetadata, SuccessfulFileMetadata}
 import model._
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
@@ -43,35 +44,42 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
     val fileReference = FileReference("my-reference")
     val location      = S3ObjectLocation("my-bucket", "my-key")
     val callbackUrl   = new URL("http://my.callback.url")
-    val initiateDate  = Instant.parse("2018-04-24T09:30:00Z")
-    val checksum      = "1a2b3c4d5e"
     val fileSize      = 10L
 
     val requestId        = Some("requestId")
     val sessionId        = Some("sessionId")
     val requestContext   = RequestContext(requestId, sessionId, "127.0.0.1")
-    val fileName         = "test.pdf"
-    val fileMime         = "application/pdf"
     val downloadUrl      = new URL("http://remotehost/my-bucket/my-key")
     val consumingService = "consuming-service"
 
-    val uploadDetails    = ValidUploadDetails("test.pdf", "application/pdf", Instant.parse("2018-04-24T09:30:00Z"), "1a2b3c4d5e")
+    val uploadDetails =
+      SuccessfulFileMetadata("test.pdf", "application/pdf", Instant.parse("2018-04-24T09:30:00Z"), "1a2b3c4d5e")
+
+    val invalidUploadDetails =
+      FailedFileMetadata("test.pdf", Instant.parse("2018-04-24T09:30:00Z"))
 
     "return callback URL from S3 metadata for uploaded file with all required metadata" in {
       val objectMetadata =
-        ReadyObjectMetadata(
+        SuccessfulFileDetails(
           fileReference,
           callbackUrl,
-          uploadDetails,
+          uploadDetails.fileName,
+          uploadDetails.fileMimeType,
+          uploadDetails.uploadTimestamp,
+          uploadDetails.checksum,
           fileSize,
           requestContext,
           consumingService,
-          Map())
+          Map(
+            "unused-metadata"                  -> "xxx",
+            "x-amz-meta-upscan-started-upload" -> "2017-04-24T09:30:00Z",
+            "x-amz-meta-upscan-not-checkpoint" -> "xxx")
+        )
 
       val fileManager = mock[FileManager]
-      Mockito.when(fileManager.retrieveReadyMetadata(any())).thenReturn(Future.successful(objectMetadata))
+      Mockito.when(fileManager.receiveSuccessfulFileDetails(any())).thenReturn(Future.successful(objectMetadata))
 
-      Mockito.when(urlGenerator.generate(any(),any())).thenReturn(downloadUrl)
+      Mockito.when(urlGenerator.generate(any(), any())).thenReturn(downloadUrl)
 
       Given("a S3 file notification retriever and a valid set of retrieval details")
       val retriever = new S3FileNotificationDetailsRetriever(fileManager, config, urlGenerator)
@@ -80,14 +88,19 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       val result = Await.result(retriever.retrieveUploadedFileDetails(location), 2.seconds)
 
       And("the expected callback URL is returned")
-      result shouldBe UploadedFile(
-        callbackUrl,
-        fileReference,
-        downloadUrl,
-        fileSize,
-        uploadDetails,
-        requestContext,
-        Map()
+      result shouldBe WithCheckpoints(
+        SuccessfulProcessingDetails(
+          callbackUrl     = callbackUrl,
+          reference       = fileReference,
+          downloadUrl     = downloadUrl,
+          size            = fileSize,
+          fileName        = uploadDetails.fileName,
+          fileMimeType    = uploadDetails.fileMimeType,
+          uploadTimestamp = uploadDetails.uploadTimestamp,
+          checksum        = uploadDetails.checksum,
+          requestContext  = requestContext
+        ),
+        Checkpoints(Seq(Checkpoint("x-amz-meta-upscan-started-upload", Instant.parse("2017-04-24T09:30:00Z"))))
       )
     }
 
@@ -96,7 +109,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
     "return wrapped failure if S3 call errors for uploaded file" in {
       val fileManager = mock[FileManager]
       Mockito
-        .when(fileManager.retrieveReadyMetadata(any()))
+        .when(fileManager.receiveSuccessfulFileDetails(any()))
         .thenReturn(Future.failed(new AmazonServiceException("Expected exception")))
 
       Given("a S3 file notification retriever and a valid set of retrieval details")
@@ -112,16 +125,19 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
     }
 
     "return callback URL from S3 metadata for quarantined file" in {
-      val objectMetadata = FailedObjectMetadata(
-        fileReference, callbackUrl, uploadDetails, 10L, requestContext, Map()
+      val failedObject = FailedFileDetails(
+        fileReference,
+        callbackUrl,
+        invalidUploadDetails.fileName,
+        invalidUploadDetails.uploadTimestamp,
+        10L,
+        requestContext,
+        Map(),
+        """{"failureReason": "QUARANTINE", "message": "This file has a virus"}"""
       )
-      val s3Object =
-        FailedObjectWithMetadata(
-          """{"failureReason": "QUARANTINE", "message": "This file has a virus"}""",
-          objectMetadata)
 
       val fileManager = mock[FileManager]
-      Mockito.when(fileManager.retrieveFailedObject(any())).thenReturn(Future.successful(s3Object))
+      Mockito.when(fileManager.receiveFailedFileDetails(any())).thenReturn(Future.successful(failedObject))
 
       Given("a S3 file notification retriever and a valid set of retrieval details")
       val retriever = new S3FileNotificationDetailsRetriever(fileManager, config, urlGenerator)
@@ -130,26 +146,33 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       val result = Await.result(retriever.retrieveQuarantinedFileDetails(location), 2.seconds)
 
       Then("the expected callback URL is returned")
-      result shouldBe QuarantinedFile(
-        callbackUrl,
-        fileReference,
-        ErrorDetails("QUARANTINE", "This file has a virus"),
-        uploadDetails,
-        requestContext,
-        Map())
+      result shouldBe WithCheckpoints(
+        model.FailedProcessingDetails(
+          callbackUrl     = callbackUrl,
+          reference       = fileReference,
+          fileName        = invalidUploadDetails.fileName,
+          uploadTimestamp = invalidUploadDetails.uploadTimestamp,
+          error           = ErrorDetails("QUARANTINE", "This file has a virus"),
+          requestContext  = requestContext
+        ),
+        Checkpoints(Nil)
+      )
     }
 
     "return callback URL from S3 metadata for rejected file" in {
-      val objectMetadata = FailedObjectMetadata(
-        fileReference, callbackUrl, uploadDetails, 10L, requestContext, Map()
+      val failedObject = FailedFileDetails(
+        fileReference,
+        callbackUrl,
+        invalidUploadDetails.fileName,
+        invalidUploadDetails.uploadTimestamp,
+        10L,
+        requestContext,
+        Map(),
+        """{"failureReason": "REJECTED", "message": "MIME type not allowed"}"""
       )
-      val s3Object =
-        FailedObjectWithMetadata(
-          """{"failureReason": "REJECTED", "message": "MIME type not allowed"}""",
-          objectMetadata)
 
       val fileManager = mock[FileManager]
-      Mockito.when(fileManager.retrieveFailedObject(any())).thenReturn(Future.successful(s3Object))
+      Mockito.when(fileManager.receiveFailedFileDetails(any())).thenReturn(Future.successful(failedObject))
 
       Given("a S3 file notification retriever and a valid set of retrieval details")
       val retriever = new S3FileNotificationDetailsRetriever(fileManager, config, urlGenerator)
@@ -158,23 +181,33 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       val result = Await.result(retriever.retrieveQuarantinedFileDetails(location), 2.seconds)
 
       Then("the expected callback URL is returned")
-      result shouldBe QuarantinedFile(
-        callbackUrl,
-        fileReference,
-        ErrorDetails("REJECTED", "MIME type not allowed"),
-        uploadDetails,
-        requestContext,
-        Map())
+      result shouldBe WithCheckpoints(
+        model.FailedProcessingDetails(
+          callbackUrl     = callbackUrl,
+          reference       = fileReference,
+          fileName        = invalidUploadDetails.fileName,
+          uploadTimestamp = invalidUploadDetails.uploadTimestamp,
+          error           = ErrorDetails("REJECTED", message = "MIME type not allowed"),
+          requestContext  = requestContext
+        ),
+        Checkpoints(Nil)
+      )
     }
 
     "return callback URL from S3 metadata for file with unknown error" in {
-      val objectMetadata = FailedObjectMetadata(
-        fileReference, callbackUrl, uploadDetails, 10L, requestContext, Map()
+      val failedObject = FailedFileDetails(
+        fileReference,
+        callbackUrl,
+        invalidUploadDetails.fileName,
+        invalidUploadDetails.uploadTimestamp,
+        10L,
+        requestContext,
+        Map(),
+        "Something unexpected happened here"
       )
-      val s3Object       = FailedObjectWithMetadata("Something unexpected happened here", objectMetadata)
 
       val fileManager = mock[FileManager]
-      Mockito.when(fileManager.retrieveFailedObject(any())).thenReturn(Future.successful(s3Object))
+      Mockito.when(fileManager.receiveFailedFileDetails(any())).thenReturn(Future.successful(failedObject))
 
       Given("a S3 file notification retriever and a valid set of retrieval details")
       val retriever = new S3FileNotificationDetailsRetriever(fileManager, config, urlGenerator)
@@ -183,19 +216,23 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
       val result = Await.result(retriever.retrieveQuarantinedFileDetails(location), 2.seconds)
 
       Then("the expected callback URL is returned")
-      result shouldBe QuarantinedFile(
-        callbackUrl,
-        fileReference,
-        ErrorDetails("UNKNOWN", "Something unexpected happened here"),
-        uploadDetails,
-        requestContext,
-        Map())
+      result shouldBe WithCheckpoints(
+        FailedProcessingDetails(
+          callbackUrl     = callbackUrl,
+          reference       = fileReference,
+          fileName        = invalidUploadDetails.fileName,
+          uploadTimestamp = invalidUploadDetails.uploadTimestamp,
+          error           = ErrorDetails("UNKNOWN", "Something unexpected happened here"),
+          requestContext  = requestContext
+        ),
+        Checkpoints(Nil)
+      )
     }
 
     "return wrapped failure if S3 call errors for quarantined file" in {
       val fileManager = mock[FileManager]
       Mockito
-        .when(fileManager.retrieveFailedObject(any()))
+        .when(fileManager.receiveFailedFileDetails(any()))
         .thenReturn(Future.failed(new AmazonServiceException("Expected exception")))
 
       Given("a S3 file notification retriever and a valid set of retrieval details")

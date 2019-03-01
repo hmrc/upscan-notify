@@ -34,54 +34,67 @@ import scala.concurrent.duration._
 
 class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends WordSpec with Matchers {
 
-  val consumer = mock[SuccessfulQueueConsumer]
-  val parser   = new S3EventParser()
-  val fileRetriever = mock[FileNotificationDetailsRetriever]
-  val notificationService = mock[NotificationService]
-  val metrics = mock[Metrics]
-  val clock = Clock.systemDefaultZone()
-  val auditingService = mock[UpscanAuditingService]
+  val consumer             = mock[SuccessfulQueueConsumer]
+  val parser               = new S3EventParser()
+  val fileRetriever        = mock[FileNotificationDetailsRetriever]
+  val notificationService  = mock[NotificationService]
+  val metrics              = mock[Metrics]
+  val clock                = Clock.systemDefaultZone()
+  val auditingService      = mock[UpscanAuditingService]
   val serviceConfiguration = mock[ServiceConfiguration]
-  val mockLogger = new MockLoggerLike()
+  val mockLogger           = new MockLoggerLike()
 
   val defaultMetricsRegistry = mock[MetricRegistry]
   when(metrics.defaultRegistry).thenReturn(defaultMetricsRegistry)
   when(defaultMetricsRegistry.timer("totalFileProcessingTime")).thenReturn(mock[com.codahale.metrics.Timer])
   when(defaultMetricsRegistry.histogram("fileSize")).thenReturn(mock[com.codahale.metrics.Histogram])
-  when(defaultMetricsRegistry.counter("successfulUploadNotificationSent")).thenReturn(mock[com.codahale.metrics.Counter])
+  when(defaultMetricsRegistry.counter("successfulUploadNotificationSent"))
+    .thenReturn(mock[com.codahale.metrics.Counter])
 
   when(serviceConfiguration.endToEndProcessingThreshold()).thenReturn(0 seconds)
 
-
   val testInstance = new NotifyOnSuccessfulFileUploadMessageProcessingJob(
-    consumer, parser, fileRetriever, notificationService, metrics, clock, auditingService, serviceConfiguration
+    consumer,
+    parser,
+    fileRetriever,
+    notificationService,
+    metrics,
+    clock,
+    auditingService,
+    serviceConfiguration
   )
 
   "NotifyOnSuccessfulFileUploadMessageProcessingJobSpec" when {
     "collectMetricsAfterNotification" should {
       "log all metrics" in {
-        val notification = UploadedFile(
-          new URL("http://my.callback.url"),
-          FileReference("upload-file-reference"),
-          new URL("http://my.download.url/bucket/123"),
-          0L,
-          ValidUploadDetails("test.pdf", "application/pdf", Instant.parse("2018-12-01T14:30:00Z"), "1a2b3c4d5e"),
-          RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1"),
-          Map(
-            "x-amz-meta-upscan-notify-received"         -> "2018-12-01T14:36:20Z",
-            "x-amz-meta-upscan-notify-callback-started" -> "2018-12-01T14:36:30Z",
-            "x-amz-meta-upscan-notify-callback-ended"   -> "2018-12-01T14:36:31Z"
+        val notification = model.SuccessfulProcessingDetails(
+          callbackUrl     = new URL("http://my.callback.url"),
+          reference       = FileReference("upload-file-reference"),
+          downloadUrl     = new URL("http://my.download.url/bucket/123"),
+          size            = 0L,
+          fileName        = "test.pdf",
+          fileMimeType    = "application/pdf",
+          uploadTimestamp = Instant.parse("2018-12-01T14:30:00Z"),
+          checksum        = "1a2b3c4d5e",
+          requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
+        )
+
+        val checkpoints = Checkpoints(
+          Seq(
+            Checkpoint("x-amz-meta-upscan-notify-received", Instant.parse("2018-12-01T14:36:20Z")),
+            Checkpoint("x-amz-meta-upscan-notify-callback-started", Instant.parse("2018-12-01T14:36:30Z")),
+            Checkpoint("x-amz-meta-upscan-notify-callback-ended", Instant.parse("2018-12-01T14:36:31Z"))
           )
         )
 
-        testInstance.collectMetricsAfterNotification(notification, mockLogger)
+        testInstance.collectMetricsAfterNotification(notification, checkpoints, mockLogger)
 
         val logMessage = mockLogger.getWarnMessage()
 
-        logMessage should include ("x-amz-meta-upscan-notify-received")
-        logMessage should include ("x-amz-meta-upscan-notify-callback-started")
-        logMessage should include ("x-amz-meta-upscan-notify-callback-end")
-        logMessage should include ("x-amz-meta-upscan-notify-responded")
+        logMessage should include("x-amz-meta-upscan-notify-received")
+        logMessage should include("x-amz-meta-upscan-notify-callback-started")
+        logMessage should include("x-amz-meta-upscan-notify-callback-end")
+        logMessage should include("x-amz-meta-upscan-notify-responded")
       }
     }
   }

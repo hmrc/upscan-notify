@@ -16,11 +16,12 @@
 
 package services
 
-import model.{QuarantinedFile, S3ObjectLocation, UploadedFile}
+import model._
 
 import scala.concurrent.Future
 
 trait FileNotificationDetailsRetriever {
-  def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[UploadedFile]
-  def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[QuarantinedFile]
+  def retrieveUploadedFileDetails(
+    objectLocation: S3ObjectLocation): Future[WithCheckpoints[SuccessfulProcessingDetails]]
+  def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[WithCheckpoints[FailedProcessingDetails]]
 }
