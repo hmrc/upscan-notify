@@ -6,12 +6,12 @@ import play.api.inject.guice.GuiceApplicationBuilder
 
 import scala.concurrent.duration._
 
-class ServiceConfigurationIntegrationSpec extends WordSpec with Matchers with GuiceOneServerPerSuite{
+class ServiceConfigurationIntegrationSpec extends WordSpec with Matchers with GuiceOneServerPerSuite {
   override implicit lazy val app: Application = new GuiceApplicationBuilder()
     .configure(
       s"Test.upscan.consuming-services.1hour-ok.aws.s3.urlExpirationPeriod"  -> "1 hour",
       s"Test.upscan.consuming-services.1days-ok.aws.s3.urlExpirationPeriod"  -> "1 day",
-      s"Test.upscan.consuming-services.7days-bad.aws.s3.urlExpirationPeriod" -> "7 days"
+      s"Test.upscan.consuming-services.8days-bad.aws.s3.urlExpirationPeriod" -> "8 days"
     )
     .build()
 
@@ -26,8 +26,8 @@ class ServiceConfigurationIntegrationSpec extends WordSpec with Matchers with Gu
       testInstance.s3UrlExpirationPeriod("1days-ok") shouldBe 1.day
     }
 
-    "return the maximum allowed (1 day) when the configured value is greater than the maximum" in {
-      testInstance.s3UrlExpirationPeriod("7days-bad") shouldBe 1.day
+    "return the maximum allowed (7 day) when the configured value is greater than the maximum" in {
+      testInstance.s3UrlExpirationPeriod("8days-bad") shouldBe 1.day
     }
 
     "throw an exception when the configured value is missing" in {
