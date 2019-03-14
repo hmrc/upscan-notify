@@ -42,7 +42,8 @@ trait ServiceConfiguration {
   def endToEndProcessingThreshold(): Duration
 }
 
-class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env: Environment) extends ServiceConfiguration {
+class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env: Environment)
+    extends ServiceConfiguration {
   private val runMode = RunMode(env.mode, configuration)
 
   override def outboundSuccessfulQueueUrl: String =
@@ -62,22 +63,25 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env:
   override def retryInterval = getRequired(configuration.getMilliseconds, "aws.sqs.retry.interval").milliseconds
 
   override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = {
-    val urlExpirationConfig = s"${runMode.env}.upscan.consuming-services.${replaceInvalidJsonChars(serviceName)}.aws.s3.urlExpirationPeriod"
-    val expirationDuration: FiniteDuration = getRequired(configuration.getMilliseconds, urlExpirationConfig).milliseconds
+    val urlExpirationConfig =
+      s"${runMode.env}.upscan.consuming-services.${replaceInvalidJsonChars(serviceName)}.aws.s3.urlExpirationPeriod"
+    val expirationDuration: FiniteDuration =
+      getRequired(configuration.getMilliseconds, urlExpirationConfig).milliseconds
 
-    if (expirationDuration <= 1.day) {
+    if (expirationDuration <= 7.days) {
       expirationDuration
     } else {
-      Logger.warn(s"Expiration period for key: [$urlExpirationConfig] was: [${expirationDuration}]. Using maximum value of 1 day instead.")
+      Logger.warn(
+        s"Expiration period for key: [$urlExpirationConfig] was: [$expirationDuration]. Using maximum value of 7 days instead.")
       1.day
     }
   }
 
-  override def endToEndProcessingThreshold(): Duration = getRequired(configuration.getMilliseconds, "upscan.endToEndProcessing.threshold").seconds
+  override def endToEndProcessingThreshold(): Duration =
+    getRequired(configuration.getMilliseconds, "upscan.endToEndProcessing.threshold").seconds
 
   def getRequired[T](function: String => Option[T], key: String) =
     function(key).getOrElse(throw new IllegalStateException(s"Configuration key not found: $key"))
-  private[config] def replaceInvalidJsonChars(serviceName: String): String = {
-    serviceName.replaceAll("[/.]","-")
-  }
+  private[config] def replaceInvalidJsonChars(serviceName: String): String =
+    serviceName.replaceAll("[/.]", "-")
 }
