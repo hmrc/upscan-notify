@@ -42,8 +42,9 @@ trait ServiceConfiguration {
   def endToEndProcessingThreshold(): Duration
 }
 
-class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env: Environment)
-    extends ServiceConfiguration {
+class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env: Environment) extends ServiceConfiguration {
+  import PlayBasedServiceConfiguration._
+
   private val runMode = RunMode(env.mode, configuration)
 
   override def outboundSuccessfulQueueUrl: String =
@@ -63,25 +64,57 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env:
   override def retryInterval = getRequired(configuration.getMilliseconds, "aws.sqs.retry.interval").milliseconds
 
   override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = {
-    val urlExpirationConfig =
-      s"${runMode.env}.upscan.consuming-services.${replaceInvalidJsonChars(serviceName)}.aws.s3.urlExpirationPeriod"
-    val expirationDuration: FiniteDuration =
-      getRequired(configuration.getMilliseconds, urlExpirationConfig).milliseconds
+    val configKey = configKeyForConsumingService(serviceName, S3UrlExpirationPeriod.ConfigDescriptor)
+    val maybeErrorOrExpiry = configuration.getMilliseconds(configKey).map(_.milliseconds).map(validateS3UrlExpirationPeriod(_,
+      msgWhenInvalid = s"Invalid configuration found for [${S3UrlExpirationPeriod.ConfigDescriptor}] for service [$serviceName] - trying default")
+    )
+    if (maybeErrorOrExpiry.isEmpty) Logger.debug(s"No configuration found for [${S3UrlExpirationPeriod.ConfigDescriptor}] for service [$serviceName] - trying default")
+    maybeErrorOrExpiry.foreach(_.left.foreach(msg => Logger.warn(msg)))
 
-    if (expirationDuration <= 7.days) {
-      expirationDuration
-    } else {
-      Logger.warn(
-        s"Expiration period for key: [$urlExpirationConfig] was: [$expirationDuration]. Using maximum value of 7 days instead.")
-      1.day
+    val expirationPeriod = maybeErrorOrExpiry.fold(ifEmpty = defaultS3UrlExpirationPeriod()) {
+      _.fold(_ => defaultS3UrlExpirationPeriod(), identity)
     }
+    Logger.debug(s"Using configuration for [${S3UrlExpirationPeriod.ConfigDescriptor}] for service [$serviceName] of [$expirationPeriod]")
+    expirationPeriod
   }
 
   override def endToEndProcessingThreshold(): Duration =
     getRequired(configuration.getMilliseconds, "upscan.endToEndProcessing.threshold").seconds
 
-  def getRequired[T](function: String => Option[T], key: String) =
+  private def getRequired[T](function: String => Option[T], key: String): T =
     function(key).getOrElse(throw new IllegalStateException(s"Configuration key not found: $key"))
-  private[config] def replaceInvalidJsonChars(serviceName: String): String =
+
+  private def replaceInvalidJsonChars(serviceName: String): String =
     serviceName.replaceAll("[/.]", "-")
+
+  private def defaultS3UrlExpirationPeriod(): FiniteDuration = {
+    val errorOrExpiry = configuration.getMilliseconds(configKeyForDefault(S3UrlExpirationPeriod.ConfigDescriptor)).map(_.milliseconds).toRight(
+      left = s"No default value for [${S3UrlExpirationPeriod.ConfigDescriptor}] found - using fallback"
+    ).right.flatMap(
+      validateS3UrlExpirationPeriod(_, s"Invalid default configuration found for [${S3UrlExpirationPeriod.ConfigDescriptor}] - using fallback")
+    )
+    errorOrExpiry.left.foreach(msg => Logger.warn(msg))
+    errorOrExpiry.fold(_ => S3UrlExpirationPeriod.FallbackValue, identity)
+  }
+
+  private def validateS3UrlExpirationPeriod(expiry: FiniteDuration, msgWhenInvalid: => String): Either[String, FiniteDuration] =
+    Either.cond(
+      expiry <= S3UrlExpirationPeriod.MaxValue,
+      right = expiry,
+      left = msgWhenInvalid
+    )
+
+  private def configKeyForDefault(configDescriptor: String): String =
+    s"${runMode.env}.upscan.default.$configDescriptor"
+
+  private def configKeyForConsumingService(serviceName: String, configDescriptor: String): String =
+    s"${runMode.env}.upscan.consuming-services.${replaceInvalidJsonChars(serviceName)}.$configDescriptor"
+}
+
+private[config] object PlayBasedServiceConfiguration {
+  object S3UrlExpirationPeriod {
+    val ConfigDescriptor: String = "aws.s3.urlExpirationPeriod"
+    val MaxValue: FiniteDuration = 7.days
+    val FallbackValue: FiniteDuration = MaxValue
+  }
 }
