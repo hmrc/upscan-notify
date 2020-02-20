@@ -83,9 +83,9 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env:
     serviceName.replaceAll("[/.]", "-")
 
   private def validS3UrlExpirationPeriodWithKey(key: String): Option[(String, FiniteDuration)] =
-    configuration.getMilliseconds(key).map(_.milliseconds).
-      filter(_ <= S3UrlExpirationPeriod.MaxValue).
-      map(key -> _)
+    configuration.getMilliseconds(key).map(_.milliseconds)
+      .filter(_ <= S3UrlExpirationPeriod.MaxValue)
+      .map(key -> _)
 
   private def configKeyForDefault(configDescriptor: String): String =
     s"${runMode.env}.upscan.default.$configDescriptor"
