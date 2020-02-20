@@ -10,7 +10,7 @@ class ServiceConfigurationIntegrationSpec extends WordSpec with Matchers with Gu
   override implicit lazy val app: Application = new GuiceApplicationBuilder()
     .configure(
       s"Test.upscan.consuming-services.1hour-ok.aws.s3.urlExpirationPeriod"  -> "1 hour",
-      s"Test.upscan.consuming-services.1days-ok.aws.s3.urlExpirationPeriod"  -> "1 day",
+      s"Test.upscan.consuming-services.7days-ok.aws.s3.urlExpirationPeriod"  -> "7 days",
       s"Test.upscan.consuming-services.8days-bad.aws.s3.urlExpirationPeriod" -> "8 days"
     )
     .build()
@@ -22,18 +22,16 @@ class ServiceConfigurationIntegrationSpec extends WordSpec with Matchers with Gu
       testInstance.s3UrlExpirationPeriod("1hour-ok") shouldBe 1.hour
     }
 
-    "return 1 day when the configured value is exactly equal to the maximum allowed" in {
-      testInstance.s3UrlExpirationPeriod("1days-ok") shouldBe 1.day
+    "return 7 days when the configured value is exactly equal to the maximum allowed" in {
+      testInstance.s3UrlExpirationPeriod("7days-ok") shouldBe 7.day
     }
 
-    "return the maximum allowed (7 day) when the configured value is greater than the maximum" in {
+    "return the fallback value when the configured value is greater than the maximum allowed (and a valid default value is not configured)" in {
       testInstance.s3UrlExpirationPeriod("8days-bad") shouldBe 1.day
     }
 
-    "throw an exception when the configured value is missing" in {
-      intercept[IllegalStateException] {
-        testInstance.s3UrlExpirationPeriod("missing-key")
-      }
+    "return the fallback value when the configured value is missing (and a valid default value is not configured)" in {
+      testInstance.s3UrlExpirationPeriod("missing-key") shouldBe 1.day
     }
   }
 }
