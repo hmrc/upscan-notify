@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 HM Revenue & Customs
+ * Copyright 2020 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,8 +42,9 @@ trait ServiceConfiguration {
   def endToEndProcessingThreshold(): Duration
 }
 
-class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env: Environment)
-    extends ServiceConfiguration {
+class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env: Environment) extends ServiceConfiguration {
+  import PlayBasedServiceConfiguration._
+
   private val runMode = RunMode(env.mode, configuration)
 
   override def outboundSuccessfulQueueUrl: String =
@@ -63,25 +64,40 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env:
   override def retryInterval = getRequired(configuration.getMilliseconds, "aws.sqs.retry.interval").milliseconds
 
   override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = {
-    val urlExpirationConfig =
-      s"${runMode.env}.upscan.consuming-services.${replaceInvalidJsonChars(serviceName)}.aws.s3.urlExpirationPeriod"
-    val expirationDuration: FiniteDuration =
-      getRequired(configuration.getMilliseconds, urlExpirationConfig).milliseconds
+      val serviceS3UrlExpiry = validS3UrlExpirationPeriodWithKey(configKeyForConsumingService(serviceName, S3UrlExpirationPeriod.ConfigDescriptor))
+      lazy val defaultS3UrlExpiry = validS3UrlExpirationPeriodWithKey(configKeyForDefault(S3UrlExpirationPeriod.ConfigDescriptor))
+      lazy val fallbackS3UrlExpiry = "FallbackS3UrlExpirationPeriod" -> S3UrlExpirationPeriod.FallbackValue
 
-    if (expirationDuration <= 7.days) {
-      expirationDuration
-    } else {
-      Logger.warn(
-        s"Expiration period for key: [$urlExpirationConfig] was: [$expirationDuration]. Using maximum value of 7 days instead.")
-      1.day
+      val (source, value) = serviceS3UrlExpiry.orElse(defaultS3UrlExpiry).getOrElse(fallbackS3UrlExpiry)
+      Logger.debug(s"Using configuration value of [$value] for s3UrlExpirationPeriod for service [$serviceName] from config [$source]")
+      value
     }
-  }
 
   override def endToEndProcessingThreshold(): Duration =
     getRequired(configuration.getMilliseconds, "upscan.endToEndProcessing.threshold").seconds
 
-  def getRequired[T](function: String => Option[T], key: String) =
+  private def getRequired[T](function: String => Option[T], key: String): T =
     function(key).getOrElse(throw new IllegalStateException(s"Configuration key not found: $key"))
-  private[config] def replaceInvalidJsonChars(serviceName: String): String =
+
+  private def replaceInvalidJsonChars(serviceName: String): String =
     serviceName.replaceAll("[/.]", "-")
+
+  private def validS3UrlExpirationPeriodWithKey(key: String): Option[(String, FiniteDuration)] =
+    configuration.getMilliseconds(key).map(_.milliseconds)
+      .filter(_ <= S3UrlExpirationPeriod.MaxValue)
+      .map(key -> _)
+
+  private def configKeyForDefault(configDescriptor: String): String =
+    s"${runMode.env}.upscan.default.$configDescriptor"
+
+  private def configKeyForConsumingService(serviceName: String, configDescriptor: String): String =
+    s"${runMode.env}.upscan.consuming-services.${replaceInvalidJsonChars(serviceName)}.$configDescriptor"
+}
+
+private[config] object PlayBasedServiceConfiguration {
+  object S3UrlExpirationPeriod {
+    val ConfigDescriptor: String = "aws.s3.urlExpirationPeriod"
+    val MaxValue: FiniteDuration = 7.days
+    val FallbackValue: FiniteDuration = 1.day
+  }
 }
