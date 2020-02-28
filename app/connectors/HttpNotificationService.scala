@@ -19,20 +19,18 @@ package connectors
 import java.net.URL
 import java.time.{Clock, Instant}
 
+import _root_.util.logging.LoggingDetails
 import javax.inject.Inject
 import model._
 import play.api.Logger
 import play.api.libs.json._
 import services.NotificationService
-import uk.gov.hmrc.http.HttpResponse
+import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse}
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
-import uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext.fromLoggingDetails
-import JsonWriteHelpers.urlFormats
-import _root_.util.logging.LoggingDetails
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) extends NotificationService {
+class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock)(implicit ec: ExecutionContext) extends NotificationService {
 
   override def notifySuccessfulCallback(uploadedFile: SuccessfulProcessingDetails): Future[Seq[Checkpoint]] =
     makeCallback(
@@ -58,8 +56,7 @@ class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock) ex
 
   private def makeCallback[T, M <: ProcessingDetails](callback: T, metadata: M, notificationType: String)(
     implicit writes: Writes[T]): Future[Seq[Checkpoint]] = {
-
-    implicit val ld = LoggingDetails.fromFileReference(metadata.reference)
+    implicit val ld: HeaderCarrier = LoggingDetails.fromFileReference(metadata.reference)
 
     for (WithTimeMeasurement(measurement, httpResult) <- timed(
                                                           httpClient.POST[T, HttpResponse](
@@ -107,6 +104,7 @@ object UploadDetails {
 }
 
 object ReadyCallbackBody {
+  implicit val urlFormats = JsonWriteHelpers.urlFormats
   implicit val writesReadyCallback: Writes[ReadyCallbackBody] = Json.writes[ReadyCallbackBody]
 }
 

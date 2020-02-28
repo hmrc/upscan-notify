@@ -21,15 +21,15 @@ import java.time.Instant
 import java.util.Date
 
 import com.amazonaws.services.s3.AmazonS3
-
-import scala.concurrent.duration._
-import org.mockito.ArgumentMatchers.{any, eq => meq}
-import org.mockito.Mockito.when
-import org.scalatest.mockito.MockitoSugar.mock
 import config.ServiceConfiguration
 import model.{FileReference, RequestContext, S3ObjectLocation}
+import org.mockito.ArgumentMatchers.{any, eq => meq}
+import org.mockito.Mockito.when
+import org.scalatestplus.mockito.MockitoSugar.mock
 import services.SuccessfulFileDetails
 import uk.gov.hmrc.play.test.UnitSpec
+
+import scala.concurrent.duration._
 
 class S3DownloadUrlGeneratorSpec extends UnitSpec {
 

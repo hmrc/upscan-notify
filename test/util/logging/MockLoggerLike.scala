@@ -16,9 +16,9 @@
 
 package util.logging
 
-import org.mockito.{ArgumentCaptor, Mockito}
 import org.mockito.Mockito.when
-import org.scalatest.mockito.MockitoSugar.mock
+import org.mockito.{ArgumentCaptor, Mockito}
+import org.scalatestplus.mockito.MockitoSugar.mock
 import play.api.LoggerLike
 
 import scala.collection.JavaConverters._
