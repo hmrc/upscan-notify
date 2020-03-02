@@ -9,9 +9,9 @@ import scala.concurrent.duration._
 class ServiceConfigurationIntegrationSpec extends WordSpec with Matchers with GuiceOneServerPerSuite {
   override implicit lazy val app: Application = new GuiceApplicationBuilder()
     .configure(
-      s"Test.upscan.consuming-services.1hour-ok.aws.s3.urlExpirationPeriod"  -> "1 hour",
-      s"Test.upscan.consuming-services.7days-ok.aws.s3.urlExpirationPeriod"  -> "7 days",
-      s"Test.upscan.consuming-services.8days-bad.aws.s3.urlExpirationPeriod" -> "8 days"
+      s"consuming-services.1hour-ok.aws.s3.urlExpirationPeriod"  -> "1 hour",
+      s"consuming-services.7days-ok.aws.s3.urlExpirationPeriod"  -> "7 days",
+      s"consuming-services.8days-bad.aws.s3.urlExpirationPeriod" -> "8 days"
     )
     .build()
 

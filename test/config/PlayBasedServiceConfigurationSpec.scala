@@ -20,7 +20,6 @@ import config.PlayBasedServiceConfiguration.S3UrlExpirationPeriod
 import org.mockito.Mockito.when
 import org.scalatestplus.mockito.MockitoSugar.mock
 import play.api.Configuration
-import uk.gov.hmrc.play.bootstrap.config.RunMode
 import uk.gov.hmrc.play.test.UnitSpec
 
 import scala.concurrent.duration._
@@ -30,10 +29,7 @@ class PlayBasedServiceConfigurationSpec extends UnitSpec {
   import PlayBasedServiceConfigurationSpec._
 
   private val mockConfiguration = mock[Configuration]
-  private val mockRunMode = mock[RunMode]
-  when(mockRunMode.env).thenReturn("Test")
-
-  private val playBasedServiceConfiguration = new PlayBasedServiceConfiguration(mockConfiguration, mockRunMode)
+  private val playBasedServiceConfiguration = new PlayBasedServiceConfiguration(mockConfiguration)
 
   "s3UrlExpirationPeriod" should {
 
@@ -95,8 +91,8 @@ class PlayBasedServiceConfigurationSpec extends UnitSpec {
 
 private object PlayBasedServiceConfigurationSpec {
   val SomeServiceName = "business-rates-attachments"
-  val DefaultS3UrlExpirationKey = "Test.upscan.default.aws.s3.urlExpirationPeriod"
+  val DefaultS3UrlExpirationKey = "default.aws.s3.urlExpirationPeriod"
 
   def s3UrlExpirationPeriodKeyFor(service: String): String =
-    s"Test.upscan.consuming-services.$service.aws.s3.urlExpirationPeriod"
+    s"consuming-services.$service.aws.s3.urlExpirationPeriod"
 }

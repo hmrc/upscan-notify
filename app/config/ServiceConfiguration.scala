@@ -18,7 +18,6 @@ package config
 
 import javax.inject.Inject
 import play.api.{Configuration, Logger}
-import uk.gov.hmrc.play.bootstrap.config.RunMode
 
 import scala.concurrent.duration._
 
@@ -42,7 +41,7 @@ trait ServiceConfiguration {
   def endToEndProcessingThreshold(): Duration
 }
 
-class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, runMode: RunMode) extends ServiceConfiguration {
+class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) extends ServiceConfiguration {
   import PlayBasedServiceConfiguration._
 
   override def outboundSuccessfulQueueUrl: String =
@@ -89,10 +88,10 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, runM
     configuration.getOptional[scala.concurrent.duration.Duration](key).map(_.toMillis)
 
   private def configKeyForDefault(configDescriptor: String): String =
-    s"${runMode.env}.upscan.default.$configDescriptor"
+    s"default.$configDescriptor"
 
   private def configKeyForConsumingService(serviceName: String, configDescriptor: String): String =
-    s"${runMode.env}.upscan.consuming-services.${replaceInvalidJsonChars(serviceName)}.$configDescriptor"
+    s"consuming-services.${replaceInvalidJsonChars(serviceName)}.$configDescriptor"
 }
 
 private[config] object PlayBasedServiceConfiguration {
