@@ -26,7 +26,7 @@ import connectors.aws.S3EventParser
 import model._
 import org.mockito.Mockito._
 import org.scalatest.{Matchers, WordSpec}
-import org.scalatest.mockito.MockitoSugar.mock
+import org.scalatestplus.mockito.MockitoSugar.mock
 import util.logging.MockLoggerLike
 
 import scala.concurrent.ExecutionContext.Implicits.global

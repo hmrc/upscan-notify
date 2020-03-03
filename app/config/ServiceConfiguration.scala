@@ -17,8 +17,7 @@
 package config
 
 import javax.inject.Inject
-import play.api.{Configuration, Environment, Logger}
-import uk.gov.hmrc.play.config.RunMode
+import play.api.{Configuration, Logger}
 
 import scala.concurrent.duration._
 
@@ -42,26 +41,24 @@ trait ServiceConfiguration {
   def endToEndProcessingThreshold(): Duration
 }
 
-class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env: Environment) extends ServiceConfiguration {
+class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) extends ServiceConfiguration {
   import PlayBasedServiceConfiguration._
 
-  private val runMode = RunMode(env.mode, configuration)
-
   override def outboundSuccessfulQueueUrl: String =
-    getRequired(configuration.getString(_), "aws.sqs.queue.outbound.successful")
+    getRequired(configuration.getOptional[String](_), "aws.sqs.queue.outbound.successful")
 
   override def outboundQuarantineQueueUrl: String =
-    getRequired(configuration.getString(_), "aws.sqs.queue.outbound.quarantine")
+    getRequired(configuration.getOptional[String](_), "aws.sqs.queue.outbound.quarantine")
 
-  override def awsRegion = getRequired(configuration.getString(_), "aws.s3.region")
+  override def awsRegion: String = getRequired(configuration.getOptional[String](_), "aws.s3.region")
 
-  override def accessKeyId = getRequired(configuration.getString(_), "aws.accessKeyId")
+  override def accessKeyId: String = getRequired(configuration.getOptional[String](_), "aws.accessKeyId")
 
-  override def secretAccessKey = getRequired(configuration.getString(_), "aws.secretAccessKey")
+  override def secretAccessKey: String = getRequired(configuration.getOptional[String](_), "aws.secretAccessKey")
 
-  override def sessionToken = configuration.getString("aws.sessionToken")
+  override def sessionToken: Option[String] = configuration.getOptional[String]("aws.sessionToken")
 
-  override def retryInterval = getRequired(configuration.getMilliseconds, "aws.sqs.retry.interval").milliseconds
+  override def retryInterval: FiniteDuration = getRequired(readDurationAsMillis,"aws.sqs.retry.interval").milliseconds
 
   override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = {
       val serviceS3UrlExpiry = validS3UrlExpirationPeriodWithKey(configKeyForConsumingService(serviceName, S3UrlExpirationPeriod.ConfigDescriptor))
@@ -74,7 +71,7 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env:
     }
 
   override def endToEndProcessingThreshold(): Duration =
-    getRequired(configuration.getMilliseconds, "upscan.endToEndProcessing.threshold").seconds
+    getRequired(readDurationAsMillis,"upscan.endToEndProcessing.threshold").seconds
 
   private def getRequired[T](function: String => Option[T], key: String): T =
     function(key).getOrElse(throw new IllegalStateException(s"Configuration key not found: $key"))
@@ -83,15 +80,18 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration, env:
     serviceName.replaceAll("[/.]", "-")
 
   private def validS3UrlExpirationPeriodWithKey(key: String): Option[(String, FiniteDuration)] =
-    configuration.getMilliseconds(key).map(_.milliseconds)
+    readDurationAsMillis(key).map(_.milliseconds)
       .filter(_ <= S3UrlExpirationPeriod.MaxValue)
       .map(key -> _)
 
+  private def readDurationAsMillis(key: String): Option[Long] =
+    configuration.getOptional[scala.concurrent.duration.Duration](key).map(_.toMillis)
+
   private def configKeyForDefault(configDescriptor: String): String =
-    s"${runMode.env}.upscan.default.$configDescriptor"
+    s"default.$configDescriptor"
 
   private def configKeyForConsumingService(serviceName: String, configDescriptor: String): String =
-    s"${runMode.env}.upscan.consuming-services.${replaceInvalidJsonChars(serviceName)}.$configDescriptor"
+    s"consuming-services.${replaceInvalidJsonChars(serviceName)}.$configDescriptor"
 }
 
 private[config] object PlayBasedServiceConfiguration {

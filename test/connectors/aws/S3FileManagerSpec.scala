@@ -26,9 +26,11 @@ import model.{FileReference, RequestContext, S3ObjectLocation}
 import org.mockito.Mockito
 import org.scalatest.Matchers
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import services.SuccessfulFileDetails
 import uk.gov.hmrc.play.test.UnitSpec
+
+import scala.concurrent.ExecutionContext
 
 class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
 
@@ -36,6 +38,7 @@ class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
   private val initiateDate     = Instant.parse("2018-04-24T09:30:00Z")
   private val checksum         = "1a2b3c4d5e"
   private val consumingService = "consumingService"
+  private implicit val ec      = ExecutionContext.Implicits.global
 
   "FileManager" should {
     "allow to fetch objects metadata" in {

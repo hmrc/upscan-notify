@@ -21,13 +21,12 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.ActorSystem
 import config.ServiceConfiguration
 import org.scalatest.concurrent.Eventually
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import play.api.inject.DefaultApplicationLifecycle
 import uk.gov.hmrc.play.test.UnitSpec
 
+import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration._
-import scala.concurrent.duration.FiniteDuration
 
 class ContinuousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
 
@@ -62,11 +61,11 @@ class ContinuousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
         override def run() = Future.successful(callCount.incrementAndGet())
       }
 
-      val jobs = new PollingJobs(List(orchestrator))
+      val jobs = PollingJobs(List(orchestrator))
 
       val serviceLifecycle = new DefaultApplicationLifecycle()
 
-      val queuePollingJob = new ContinuousPoller(jobs, serviceConfiguration)(
+      new ContinuousPoller(jobs, serviceConfiguration)(
         actorSystem,
         serviceLifecycle,
         ExecutionContext.Implicits.global)
@@ -76,7 +75,6 @@ class ContinuousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
       }
 
       serviceLifecycle.stop()
-
     }
 
     "recover from failure after some time" in {
@@ -91,10 +89,10 @@ class ContinuousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
           }
       }
 
-      val jobs             = new PollingJobs(List(orchestrator))
+      val jobs             = PollingJobs(List(orchestrator))
       val serviceLifecycle = new DefaultApplicationLifecycle()
 
-      val queuePollingJob = new ContinuousPoller(jobs, serviceConfiguration)(
+      new ContinuousPoller(jobs, serviceConfiguration)(
         actorSystem,
         serviceLifecycle,
         ExecutionContext.Implicits.global)

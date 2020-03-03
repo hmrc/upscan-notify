@@ -18,27 +18,21 @@ package services
 
 import java.time.Instant
 
-import javax.inject.Inject
 import config.ServiceConfiguration
+import javax.inject.Inject
 import model._
 import play.api.Logger
 import play.api.libs.json.{JsError, JsSuccess, Json}
-import uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext.fromLoggingDetails
-import util.logging.LoggingDetails
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 class S3FileNotificationDetailsRetriever @Inject()(
   fileManager: FileManager,
   config: ServiceConfiguration,
-  downloadUrlGenerator: DownloadUrlGenerator)
-    extends FileNotificationDetailsRetriever {
+  downloadUrlGenerator: DownloadUrlGenerator)(implicit ec: ExecutionContext) extends FileNotificationDetailsRetriever {
 
-  override def retrieveUploadedFileDetails(
-    objectLocation: S3ObjectLocation): Future[WithCheckpoints[SuccessfulProcessingDetails]] = {
-    implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
-
+  override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[WithCheckpoints[SuccessfulProcessingDetails]] =
     for {
       metadata <- fileManager.receiveSuccessfulFileDetails(objectLocation)
       downloadUrl = downloadUrlGenerator.generate(objectLocation, metadata)
@@ -60,12 +54,8 @@ class S3FileNotificationDetailsRetriever @Inject()(
         s"Retrieved file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
       WithCheckpoints(retrieved, Checkpoints(checkpoints))
     }
-  }
 
-  override def retrieveQuarantinedFileDetails(
-    objectLocation: S3ObjectLocation): Future[WithCheckpoints[FailedProcessingDetails]] = {
-    implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
-
+  override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[WithCheckpoints[FailedProcessingDetails]] =
     for {
       quarantineFile <- fileManager.receiveFailedFileDetails(objectLocation)
     } yield {
@@ -83,7 +73,6 @@ class S3FileNotificationDetailsRetriever @Inject()(
         s"Retrieved quarantined file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
       WithCheckpoints(retrieved, Checkpoints(checkpoints))
     }
-  }
 
   private def parseCheckpoints(userMetadata: Map[String, String]) =
     userMetadata

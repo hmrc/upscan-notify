@@ -26,12 +26,12 @@ import model._
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{GivenWhenThen, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 import uk.gov.hmrc.play.test.UnitSpec
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
 
@@ -57,6 +57,8 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with Matchers with
 
     val invalidUploadDetails =
       FailedFileMetadata("test.pdf", Instant.parse("2018-04-24T09:30:00Z"))
+
+    implicit val ec = ExecutionContext.Implicits.global
 
     "return callback URL from S3 metadata for uploaded file with all required metadata" in {
       val objectMetadata =

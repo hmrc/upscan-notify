@@ -17,6 +17,7 @@
 package connectors.aws
 
 import java.net.URL
+import java.nio.charset.StandardCharsets.UTF_8
 import java.time.Instant
 
 import com.amazonaws.services.s3.AmazonS3
@@ -26,27 +27,22 @@ import model.{FileReference, RequestContext, S3ObjectLocation}
 import org.apache.commons.io.IOUtils
 import play.api.Logger
 import services._
-import uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext.fromLoggingDetails
-import util.logging.LoggingDetails
 
 import scala.collection.JavaConverters._
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
+class S3FileManager @Inject()(s3Client: AmazonS3)(implicit ec: ExecutionContext) extends FileManager {
 
-  override def receiveSuccessfulFileDetails(objectLocation: S3ObjectLocation): Future[SuccessfulFileDetails] = {
-    implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
-
+  override def receiveSuccessfulFileDetails(objectLocation: S3ObjectLocation): Future[SuccessfulFileDetails] =
     for {
       metadata       <- Future(s3Client.getObjectMetadata(objectLocation.bucket, objectLocation.objectKey))
       parsedMetadata <- Future.fromTry(parseReadyObjectMetadata(metadata, objectLocation))
     } yield {
       parsedMetadata
     }
-  }
 
-  private def parseReadyObjectMetadata(metadata: ObjectMetadata, objectLocation: S3ObjectLocation) = {
+  private def parseReadyObjectMetadata(metadata: ObjectMetadata, objectLocation: S3ObjectLocation): Try[SuccessfulFileDetails] = {
     val userMetadata = S3ObjectMetadata(metadata, objectLocation)
 
     for {
@@ -66,17 +62,15 @@ class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
         size             = metadata.getContentLength,
         requestContext   = requestContext,
         consumingService = consumingService,
-        userMetadata     = metadata.getUserMetadata().asScala.toMap
+        userMetadata     = metadata.getUserMetadata.asScala.toMap
       )
     }
   }
 
-  override def receiveFailedFileDetails(objectLocation: S3ObjectLocation): Future[FailedFileDetails] = {
-    implicit val ld = LoggingDetails.fromS3ObjectLocation(objectLocation)
-
+  override def receiveFailedFileDetails(objectLocation: S3ObjectLocation): Future[FailedFileDetails] =
     for {
       s3Object <- Future(s3Client.getObject(objectLocation.bucket, objectLocation.objectKey))
-      content  <- Future.fromTry(Try(IOUtils.toString(s3Object.getObjectContent)))
+      content  <- Future.fromTry(Try(IOUtils.toString(s3Object.getObjectContent, UTF_8)))
       metadata = S3ObjectMetadata(s3Object.getObjectMetadata, objectLocation)
       callbackUrl    <- Future.fromTry(retrieveCallbackUrl(metadata))
       fileReference  <- Future.fromTry(metadata.get("file-reference", FileReference.apply))
@@ -91,11 +85,10 @@ class S3FileManager @Inject()(s3Client: AmazonS3) extends FileManager {
         uploadTimestamp = uploadDetails.uploadTimestamp,
         size            = metadata.underlying.getContentLength,
         requestContext  = requestContext,
-        userMetadata    = metadata.underlying.getUserMetadata().asScala.toMap,
+        userMetadata    = metadata.underlying.getUserMetadata.asScala.toMap,
         content
       )
     }
-  }
 
   private def retrieveCallbackUrl(metadata: S3ObjectMetadata): Try[URL] =
     metadata.get("callback-url", { new URL(_) })
