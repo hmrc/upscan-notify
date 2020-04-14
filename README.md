@@ -55,8 +55,7 @@ export AWS_DEFAULT_PROFILE=name_of_proper_profile_in_dot_aws_credentials_file
 These commands will give you an access to SBT shell where you can run the service using 'run' or 'start' commands.
 
 ### Tests
-
 Upscan service has end-to-end acceptance tests which can be found in https://github.com/hmrc/upscan-acceptance-tests repository
-### License
 
+### License
 This code is open source software licensed under the [Apache 2.0 License]("http://www.apache.org/licenses/LICENSE-2.0.html")
