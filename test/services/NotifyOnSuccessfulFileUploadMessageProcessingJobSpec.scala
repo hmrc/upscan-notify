@@ -25,14 +25,12 @@ import config.ServiceConfiguration
 import connectors.aws.S3EventParser
 import model._
 import org.mockito.Mockito._
-import org.scalatest.{Matchers, WordSpec}
-import org.scalatestplus.mockito.MockitoSugar.mock
-import util.logging.MockLoggerLike
+import test.{MockLoggerLike, UnitSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
-class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends WordSpec with Matchers {
+class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends UnitSpec {
 
   val consumer             = mock[SuccessfulQueueConsumer]
   val parser               = new S3EventParser()

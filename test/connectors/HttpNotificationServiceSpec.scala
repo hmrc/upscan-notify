@@ -26,23 +26,19 @@ import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.typesafe.config.Config
 import model._
-import org.scalatest.{BeforeAndAfterAll, GivenWhenThen, Matchers}
-import org.scalatestplus.mockito.MockitoSugar
+import org.scalatest.{BeforeAndAfterAll, GivenWhenThen}
 import play.api.libs.ws.ahc.AhcWSClient
+import test.{IncrementingClock, UnitSpec}
 import uk.gov.hmrc.play.bootstrap.http.HttpClient
 import uk.gov.hmrc.play.http.ws.WSHttp
-import uk.gov.hmrc.play.test.UnitSpec
-import util.IncrementingClock
 
-import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
 
 class HttpNotificationServiceSpec
     extends UnitSpec
-    with Matchers
     with GivenWhenThen
-    with MockitoSugar
     with BeforeAndAfterAll {
   private val callbackServer = new WireMockServer(wireMockConfig().port(11111))
 

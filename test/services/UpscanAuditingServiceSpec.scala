@@ -21,16 +21,15 @@ import java.time.Instant
 
 import model._
 import org.mockito.{ArgumentCaptor, ArgumentMatchers, Mockito}
-import org.scalatest.{GivenWhenThen, Matchers}
-import org.scalatestplus.mockito.MockitoSugar
+import org.scalatest.GivenWhenThen
+import test.UnitSpec
 import uk.gov.hmrc.http.{HeaderCarrier, HeaderNames}
 import uk.gov.hmrc.play.audit.http.connector.AuditConnector
 import uk.gov.hmrc.play.audit.model.DataEvent
-import uk.gov.hmrc.play.test.UnitSpec
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class UpscanAuditingServiceSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
+class UpscanAuditingServiceSpec extends UnitSpec with GivenWhenThen {
 
   "UpscanAuditingService" should {
 

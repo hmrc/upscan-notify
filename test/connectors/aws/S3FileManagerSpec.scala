@@ -24,15 +24,13 @@ import java.util
 import com.amazonaws.services.s3.AmazonS3
 import model.{FileReference, RequestContext, S3ObjectLocation}
 import org.mockito.Mockito
-import org.scalatest.Matchers
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatestplus.mockito.MockitoSugar
 import services.SuccessfulFileDetails
-import uk.gov.hmrc.play.test.UnitSpec
+import test.UnitSpec
 
 import scala.concurrent.ExecutionContext
 
-class S3FileManagerSpec extends UnitSpec with Matchers with MockitoSugar {
+class S3FileManagerSpec extends UnitSpec {
 
   private val callbackUrl      = new URL("http://my.callback.url")
   private val initiateDate     = Instant.parse("2018-04-24T09:30:00Z")

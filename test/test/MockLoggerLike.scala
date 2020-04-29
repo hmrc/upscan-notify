@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package util.logging
+package test
 
 import org.mockito.Mockito.when
 import org.mockito.{ArgumentCaptor, Mockito}

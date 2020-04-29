@@ -13,11 +13,11 @@ import harness.application.IntegrationTestsApplication
 import harness.aws.Mocks
 import harness.model.JsonReads._
 import harness.wiremock.WithWireMock
+import org.scalatest.{Matchers, WordSpecLike}
 import org.scalatestplus.play.guice.GuiceOneServerPerSuite
 import play.api.Application
 import play.api.inject.guice.GuiceableModuleConversions
 import play.api.libs.json._
-import uk.gov.hmrc.play.test.UnitSpec
 
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{Await, Future}
@@ -82,7 +82,8 @@ object TestData {
 }
 
 class UrlExpirationIntegrationSpec
-    extends UnitSpec
+    extends WordSpecLike
+    with Matchers
     with GuiceOneServerPerSuite
     with GuiceableModuleConversions
     with WithWireMock {

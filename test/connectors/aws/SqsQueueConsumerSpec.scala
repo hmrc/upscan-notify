@@ -42,15 +42,14 @@ import model.Message
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Assertions, GivenWhenThen, Matchers}
-import org.scalatestplus.mockito.MockitoSugar
-import uk.gov.hmrc.play.test.UnitSpec
+import org.scalatest.{Assertions, GivenWhenThen}
+import test.UnitSpec
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class SqsQueueConsumerSpec extends UnitSpec with Matchers with Assertions with GivenWhenThen with MockitoSugar {
+class SqsQueueConsumerSpec extends UnitSpec with Assertions with GivenWhenThen {
 
   private def sqsMessages(messageCount: Int): JList[SqsMessage] = {
     val messages: JList[SqsMessage] = new util.ArrayList[SqsMessage]()

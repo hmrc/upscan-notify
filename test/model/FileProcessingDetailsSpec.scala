@@ -18,9 +18,9 @@ package model
 
 import java.time.Instant
 
-import org.scalatest.{Matchers, WordSpec}
+import test.UnitSpec
 
-class FileProcessingDetailsSpec extends WordSpec with Matchers {
+class FileProcessingDetailsSpec extends UnitSpec {
 
   private val testInstance = Checkpoints(
     Seq(

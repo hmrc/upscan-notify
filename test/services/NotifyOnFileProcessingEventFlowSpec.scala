@@ -25,15 +25,14 @@ import config.ServiceConfiguration
 import model._
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{times, verify, verifyNoMoreInteractions, when}
-import org.scalatest.{GivenWhenThen, Matchers}
-import org.scalatestplus.mockito.MockitoSugar
-import uk.gov.hmrc.play.test.UnitSpec
+import org.scalatest.GivenWhenThen
+import test.UnitSpec
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with GivenWhenThen with MockitoSugar {
+class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen {
 
   val messageParser = new MessageParser {
     override def parse(message: Message) = message.body match {
@@ -90,7 +89,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       val validMessage = Message("ID", "VALID-BODY", "RECEIPT-1", clock.instant())
 
       val queueConsumer = mock[SuccessfulQueueConsumer]
-      when(queueConsumer.poll()).thenReturn(List(validMessage))
+      when(queueConsumer.poll()).thenReturn(Future.successful(List(validMessage)))
       when(queueConsumer.confirm(any())).thenReturn(Future.successful(()))
 
       val notificationService = mock[NotificationService]
@@ -201,7 +200,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with Matchers with Gi
       val validMessage3 = Message("ID3", "VALID-BODY", "RECEIPT-3", clock.instant())
 
       val queueConsumer = mock[SuccessfulQueueConsumer]
-      when(queueConsumer.poll()).thenReturn(List(validMessage1, validMessage2, validMessage3))
+      when(queueConsumer.poll()).thenReturn(Future.successful(List(validMessage1, validMessage2, validMessage3)))
       when(queueConsumer.confirm(any()))
         .thenReturn(Future.successful(()))
         .thenReturn(Future.successful(()))

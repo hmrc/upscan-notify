@@ -25,9 +25,8 @@ import config.ServiceConfiguration
 import model.{FileReference, RequestContext, S3ObjectLocation}
 import org.mockito.ArgumentMatchers.{any, eq => meq}
 import org.mockito.Mockito.when
-import org.scalatestplus.mockito.MockitoSugar.mock
 import services.SuccessfulFileDetails
-import uk.gov.hmrc.play.test.UnitSpec
+import test.UnitSpec
 
 import scala.concurrent.duration._
 
