@@ -13,7 +13,8 @@ import harness.application.IntegrationTestsApplication
 import harness.aws.Mocks
 import harness.model.JsonReads._
 import harness.wiremock.WithWireMock
-import org.scalatest.{Matchers, WordSpecLike}
+import org.scalatest.matchers.should
+import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatestplus.play.guice.GuiceOneServerPerSuite
 import play.api.Application
 import play.api.inject.guice.GuiceableModuleConversions
@@ -82,8 +83,8 @@ object TestData {
 }
 
 class UrlExpirationIntegrationSpec
-    extends WordSpecLike
-    with Matchers
+    extends AnyWordSpecLike
+    with should.Matchers
     with GuiceOneServerPerSuite
     with GuiceableModuleConversions
     with WithWireMock {

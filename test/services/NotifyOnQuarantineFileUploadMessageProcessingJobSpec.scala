@@ -24,7 +24,6 @@ import com.kenshoo.play.metrics.Metrics
 import config.ServiceConfiguration
 import connectors.aws.S3EventParser
 import model._
-import org.mockito.Mockito._
 import test.{MockLoggerLike, UnitSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global

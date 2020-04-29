@@ -22,8 +22,8 @@ import java.time.format.DateTimeFormatter
 import java.util
 
 import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3.model.ObjectMetadata
 import model.{FileReference, RequestContext, S3ObjectLocation}
-import org.mockito.Mockito
 import org.scalatest.concurrent.ScalaFutures
 import services.SuccessfulFileDetails
 import test.UnitSpec
@@ -36,6 +36,7 @@ class S3FileManagerSpec extends UnitSpec {
   private val initiateDate     = Instant.parse("2018-04-24T09:30:00Z")
   private val checksum         = "1a2b3c4d5e"
   private val consumingService = "consumingService"
+  private val contentLength    = 42
   private implicit val ec      = ExecutionContext.Implicits.global
 
   "FileManager" should {
@@ -57,12 +58,11 @@ class S3FileManagerSpec extends UnitSpec {
       userMetadata.put("file-reference", "ref1")
       userMetadata.put("consuming-service", consumingService)
 
-      val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
-      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+      val objectMetadata = mock[ObjectMetadata]
+      when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+      when(objectMetadata.getContentLength).thenReturn(contentLength)
 
-      Mockito
-        .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
-        .thenReturn(objectMetadata)
+      when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey)).thenReturn(objectMetadata)
 
       val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
@@ -74,7 +74,7 @@ class S3FileManagerSpec extends UnitSpec {
           fileMimeType     = "application/pdf",
           uploadTimestamp  = initiateDate,
           checksum         = checksum,
-          size             = 0L,
+          size             = contentLength,
           requestContext   = RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1"),
           consumingService = consumingService,
           userMetadata = Map(
@@ -107,12 +107,10 @@ class S3FileManagerSpec extends UnitSpec {
       userMetadata.put("client-ip", "127.0.0.1")
       userMetadata.put("file-reference", "ref1")
 
-      val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
-      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+      val objectMetadata = mock[ObjectMetadata]
+      when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
 
-      Mockito
-        .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
-        .thenReturn(objectMetadata)
+      when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey)).thenReturn(objectMetadata)
 
       val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
@@ -136,12 +134,10 @@ class S3FileManagerSpec extends UnitSpec {
       userMetadata.put("client-ip", "127.0.0.1")
       userMetadata.put("file-reference", "ref1")
 
-      val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
-      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+      val objectMetadata = mock[ObjectMetadata]
+      when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
 
-      Mockito
-        .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
-        .thenReturn(objectMetadata)
+      when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey)).thenReturn(objectMetadata)
 
       val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
@@ -165,12 +161,10 @@ class S3FileManagerSpec extends UnitSpec {
       userMetadata.put("client-ip", "127.0.0.1")
       userMetadata.put("file-reference", "ref1")
 
-      val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
-      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+      val objectMetadata = mock[ObjectMetadata]
+      when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
 
-      Mockito
-        .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
-        .thenReturn(objectMetadata)
+      when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey)).thenReturn(objectMetadata)
 
       val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
@@ -192,12 +186,10 @@ class S3FileManagerSpec extends UnitSpec {
       userMetadata.put("client-ip", "127.0.0.1")
       userMetadata.put("file-reference", "ref1")
 
-      val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
-      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+      val objectMetadata = mock[ObjectMetadata]
+      when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
 
-      Mockito
-        .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
-        .thenReturn(objectMetadata)
+      when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey)).thenReturn(objectMetadata)
 
       val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
@@ -221,12 +213,10 @@ class S3FileManagerSpec extends UnitSpec {
       userMetadata.put("client-ip", "127.0.0.1")
       userMetadata.put("file-reference", "ref1")
 
-      val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
-      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+      val objectMetadata = mock[ObjectMetadata]
+      when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
 
-      Mockito
-        .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
-        .thenReturn(objectMetadata)
+      when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey)).thenReturn(objectMetadata)
 
       val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
@@ -250,12 +240,10 @@ class S3FileManagerSpec extends UnitSpec {
       userMetadata.put("checksum", "123456")
       userMetadata.put("file-reference", "ref1")
 
-      val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
-      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+      val objectMetadata = mock[ObjectMetadata]
+      when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
 
-      Mockito
-        .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
-        .thenReturn(objectMetadata)
+      when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey)).thenReturn(objectMetadata)
 
       val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
@@ -278,12 +266,10 @@ class S3FileManagerSpec extends UnitSpec {
       userMetadata.put("client-ip", "127.0.0.1")
       userMetadata.put("file-reference", "ref1")
 
-      val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
-      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+      val objectMetadata = mock[ObjectMetadata]
+      when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
 
-      Mockito
-        .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
-        .thenReturn(objectMetadata)
+      when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey)).thenReturn(objectMetadata)
 
       val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
@@ -307,12 +293,10 @@ class S3FileManagerSpec extends UnitSpec {
       userMetadata.put("client-ip", "127.0.0.1")
       userMetadata.put("file-reference", "ref1")
 
-      val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
-      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+      val objectMetadata = mock[ObjectMetadata]
+      when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
 
-      Mockito
-        .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
-        .thenReturn(objectMetadata)
+      when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey)).thenReturn(objectMetadata)
 
       val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 
@@ -329,16 +313,8 @@ class S3FileManagerSpec extends UnitSpec {
       val s3client    = mock[AmazonS3]
       val fileManager = new S3FileManager(s3client)
 
-      val userMetadata = new util.TreeMap[String, String]()
-      userMetadata.put("key1", "value1")
-      userMetadata.put("key2", "value2")
-
-      val objectMetadata = mock[com.amazonaws.services.s3.model.ObjectMetadata]
-      Mockito.when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
-
-      Mockito
-        .when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
-        .thenThrow(new RuntimeException("Exception"))
+      when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey)).thenThrow(
+        new RuntimeException("Exception"))
 
       val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
 

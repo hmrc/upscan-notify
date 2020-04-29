@@ -1,12 +1,13 @@
 package config
-import org.scalatest.{Matchers, WordSpecLike}
+import org.scalatest.matchers.should
+import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatestplus.play.guice.GuiceOneServerPerSuite
 import play.api.Application
 import play.api.inject.guice.GuiceApplicationBuilder
 
 import scala.concurrent.duration._
 
-class ServiceConfigurationIntegrationSpec extends WordSpecLike with Matchers with GuiceOneServerPerSuite {
+class ServiceConfigurationIntegrationSpec extends AnyWordSpecLike with should.Matchers with GuiceOneServerPerSuite {
   override implicit lazy val app: Application = new GuiceApplicationBuilder()
     .configure(
       s"consuming-services.1hour-ok.aws.s3.urlExpirationPeriod"  -> "1 hour",

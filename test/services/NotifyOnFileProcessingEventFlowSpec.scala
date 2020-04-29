@@ -23,8 +23,6 @@ import com.codahale.metrics.MetricRegistry
 import com.kenshoo.play.metrics.Metrics
 import config.ServiceConfiguration
 import model._
-import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.{times, verify, verifyNoMoreInteractions, when}
 import org.scalatest.GivenWhenThen
 import test.UnitSpec
 
@@ -90,10 +88,10 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen {
 
       val queueConsumer = mock[SuccessfulQueueConsumer]
       when(queueConsumer.poll()).thenReturn(Future.successful(List(validMessage)))
-      when(queueConsumer.confirm(any())).thenReturn(Future.successful(()))
+      when(queueConsumer.confirm(any[Message])).thenReturn(Future.successful(()))
 
       val notificationService = mock[NotificationService]
-      when(notificationService.notifySuccessfulCallback(any())).thenReturn(Future.successful(Nil))
+      when(notificationService.notifySuccessfulCallback(any[SuccessfulProcessingDetails])).thenReturn(Future.successful(Nil))
 
       val metrics = metricsStub()
 
@@ -116,7 +114,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen {
       verify(queueConsumer).poll()
 
       And("callback recipient is notified")
-      verify(notificationService).notifySuccessfulCallback(any())
+      verify(notificationService).notifySuccessfulCallback(any[SuccessfulProcessingDetails])
 
       And("successfully processed messages are confirmed")
       verify(queueConsumer).confirm(validMessage)
@@ -141,7 +139,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen {
     }
 
     "get messages from the queue consumer, and call notification service for valid messages and ignore invalid messages" in {
-      Given("there are only valid messages in a message queue")
+      Given("a mix of valid & invalid messages in a message queue")
       val validMessage1  = Message("ID1", "VALID-BODY", "RECEIPT-1", clock.instant())
       val invalidMessage = Message("ID2", "INVALID-BODY", "RECEIPT-2", clock.instant())
       val validMessage2  = Message("ID3", "VALID-BODY", "RECEIPT-3", clock.instant())
@@ -150,12 +148,10 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen {
       when(queueConsumer.poll())
         .thenReturn(Future.successful(List(validMessage1, invalidMessage, validMessage2)))
 
-      when(queueConsumer.confirm(any()))
-        .thenReturn(Future.successful(()))
-        .thenReturn(Future.successful(()))
+      when(queueConsumer.confirm(any[Message])).thenReturn(Future.successful(()))
 
       val notificationService = mock[NotificationService]
-      when(notificationService.notifySuccessfulCallback(any())).thenReturn(Future.successful(Nil))
+      when(notificationService.notifySuccessfulCallback(any[SuccessfulProcessingDetails])).thenReturn(Future.successful(Nil))
 
       val metrics = metricsStub()
 
@@ -178,7 +174,10 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen {
       verify(queueConsumer).poll()
 
       And("notification service is called only for valid messages")
-      verify(notificationService, times(2)).notifySuccessfulCallback(any())
+      verify(notificationService, times(2)).notifySuccessfulCallback(any[SuccessfulProcessingDetails])
+
+      And("auditing service is called only for valid messages")
+      verify(auditingService, times(2)).notifyFileUploadedSuccessfully(any[SuccessfulProcessingDetails])
 
       And("successfully processed messages are confirmed")
       verify(queueConsumer).confirm(validMessage1)
@@ -187,7 +186,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen {
       And("invalid messages are not confirmed")
       verifyNoMoreInteractions(queueConsumer)
 
-      And("counter of successful processed messages is incremented by count of successfuly processed messages")
+      And("counter of successful processed messages is incremented by count of successfully processed messages")
       metrics.defaultRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 2
       metrics.defaultRegistry.histogram("fileSize").getSnapshot.getValues          shouldBe Array(10L, 10L)
     }
@@ -201,9 +200,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen {
 
       val queueConsumer = mock[SuccessfulQueueConsumer]
       when(queueConsumer.poll()).thenReturn(Future.successful(List(validMessage1, validMessage2, validMessage3)))
-      when(queueConsumer.confirm(any()))
-        .thenReturn(Future.successful(()))
-        .thenReturn(Future.successful(()))
+      when(queueConsumer.confirm(any[Message])).thenReturn(Future.successful(()))
 
       val notificationService = mock[NotificationService]
       when(
@@ -269,7 +266,10 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen {
       verify(queueConsumer).poll()
 
       And("notification service is called for all valid messages")
-      verify(notificationService, times(3)).notifySuccessfulCallback(any())
+      verify(notificationService, times(3)).notifySuccessfulCallback(any[SuccessfulProcessingDetails])
+
+      And("auditing service is called for all valid messages")
+      verify(auditingService, times(3)).notifyFileUploadedSuccessfully(any[SuccessfulProcessingDetails])
 
       And("successfully processed messages are confirmed")
       verify(queueConsumer).confirm(validMessage1)
