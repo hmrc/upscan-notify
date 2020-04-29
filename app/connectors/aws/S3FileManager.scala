@@ -25,14 +25,14 @@ import com.amazonaws.services.s3.model.ObjectMetadata
 import javax.inject.Inject
 import model.{FileReference, RequestContext, S3ObjectLocation}
 import org.apache.commons.io.IOUtils
-import play.api.Logger
+import play.api.Logging
 import services._
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-class S3FileManager @Inject()(s3Client: AmazonS3)(implicit ec: ExecutionContext) extends FileManager {
+class S3FileManager @Inject()(s3Client: AmazonS3)(implicit ec: ExecutionContext) extends FileManager with Logging {
 
   override def receiveSuccessfulFileDetails(objectLocation: S3ObjectLocation): Future[SuccessfulFileDetails] =
     for {
@@ -77,7 +77,7 @@ class S3FileManager @Inject()(s3Client: AmazonS3)(implicit ec: ExecutionContext)
       uploadDetails  <- Future.fromTry(parseFailedFileMetadata(metadata))
       requestContext <- Future.fromTry(retrieveUserContext(metadata))
     } yield {
-      Logger.debug(s"Fetched object with metadata for objectKey: [${objectLocation.objectKey}].")
+      logger.debug(s"Fetched object with metadata for objectKey: [${objectLocation.objectKey}].")
       FailedFileDetails(
         fileReference   = fileReference,
         callbackUrl     = callbackUrl,

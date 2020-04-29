@@ -18,7 +18,7 @@ package connectors.aws
 
 import javax.inject.Inject
 import model.{FileUploadEvent, Message, S3ObjectLocation}
-import play.api.Logger
+import play.api.Logging
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
@@ -27,7 +27,7 @@ import services._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class S3EventParser @Inject()(implicit ec: ExecutionContext) extends MessageParser {
+class S3EventParser @Inject()(implicit ec: ExecutionContext) extends MessageParser with Logging {
 
   case class S3EventNotification(records: Seq[S3EventNotificationRecord])
 
@@ -66,7 +66,7 @@ class S3EventParser @Inject()(implicit ec: ExecutionContext) extends MessagePars
 
   private def interpretS3EventMessage(result: S3EventNotification): Future[FileUploadEvent] =
     result.records match {
-      case S3EventNotificationRecord(_, "aws:s3", _, _, ObjectCreatedEventPattern(), s3Details) :: Nil => {
+      case Seq(S3EventNotificationRecord(_, "aws:s3", _, _, ObjectCreatedEventPattern(), s3Details)) =>
         import org.slf4j.MDC
 
         val event = FileUploadEvent(S3ObjectLocation(s3Details.bucketName, s3Details.objectKey))
@@ -77,12 +77,12 @@ class S3EventParser @Inject()(implicit ec: ExecutionContext) extends MessagePars
         // use MdcLoggingExecutionContext / LoggingDetails.
         try {
           MDC.put("file-reference", event.location.objectKey)
-          Logger.debug(s"Created FileUploadEvent for objectKey: [${event.location.objectKey}].")
+          logger.debug(s"Created FileUploadEvent for objectKey: [${event.location.objectKey}].")
           Future.successful(event)
         } finally {
           MDC.remove("file-reference")
         }
-      }
+
       case _ => Future.failed(new Exception(s"Unexpected records in event ${result.records.toString}"))
     }
 }

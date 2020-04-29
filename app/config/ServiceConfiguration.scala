@@ -17,7 +17,7 @@
 package config
 
 import javax.inject.Inject
-import play.api.{Configuration, Logger}
+import play.api.{Configuration, Logging}
 
 import scala.concurrent.duration._
 
@@ -41,7 +41,7 @@ trait ServiceConfiguration {
   def endToEndProcessingThreshold(): Duration
 }
 
-class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) extends ServiceConfiguration {
+class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) extends ServiceConfiguration with Logging {
   import PlayBasedServiceConfiguration._
 
   override def outboundSuccessfulQueueUrl: String =
@@ -66,7 +66,7 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
       lazy val fallbackS3UrlExpiry = "FallbackS3UrlExpirationPeriod" -> S3UrlExpirationPeriod.FallbackValue
 
       val (source, value) = serviceS3UrlExpiry.orElse(defaultS3UrlExpiry).getOrElse(fallbackS3UrlExpiry)
-      Logger.debug(s"Using configuration value of [$value] for s3UrlExpirationPeriod for service [$serviceName] from config [$source]")
+      logger.debug(s"Using configuration value of [$value] for s3UrlExpirationPeriod for service [$serviceName] from config [$source]")
       value
     }
 

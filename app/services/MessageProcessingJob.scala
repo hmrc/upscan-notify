@@ -25,7 +25,7 @@ import com.kenshoo.play.metrics.Metrics
 import config.ServiceConfiguration
 import javax.inject.Inject
 import model._
-import play.api.{Logger, LoggerLike}
+import play.api.{Logger, LoggerLike, Logging}
 import uk.gov.hmrc.http.logging.LoggingDetails
 import util.logging.LoggingDetails
 import util.logging.WithLoggingDetails.withLoggingDetails
@@ -36,7 +36,7 @@ case class MessageContext(ld: LoggingDetails)
 
 case class ExceptionWithContext(e: Exception, context: Option[MessageContext])
 
-trait MessageProcessingJob extends PollingJob {
+trait MessageProcessingJob extends PollingJob { this: Logging =>
 
   implicit def executionContext: ExecutionContext
 
@@ -62,14 +62,14 @@ trait MessageProcessingJob extends PollingJob {
     outcome.value.map {
       case Left(ExceptionWithContext(exception, Some(context))) =>
         withLoggingDetails(context.ld) {
-          Logger.error(
+          logger.error(
             s"Failed to process message '${message.id}' for file '${context.ld.mdcData
               .getOrElse("file-reference", "???")}', cause ${exception.getMessage}",
             exception
           )
         }
       case Left(ExceptionWithContext(exception, None)) =>
-        Logger.error(s"Failed to process message '${message.id}', cause ${exception.getMessage}", exception)
+        logger.error(s"Failed to process message '${message.id}', cause ${exception.getMessage}", exception)
       case Right(_) =>
         ()
     }
@@ -96,7 +96,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
   upscanAuditingService: UpscanAuditingService,
   serviceConfiguration: ServiceConfiguration
 )(implicit val executionContext: ExecutionContext)
-    extends MessageProcessingJob {
+    extends Logging with MessageProcessingJob {
 
   private val timingsLogger = Logger(classOf[NotifyOnSuccessfulFileUploadMessageProcessingJob])
 
@@ -121,7 +121,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
     val totalProcessingTime = Duration.between(notification.uploadTimestamp, clock.instant())
 
     if (totalProcessingTime.isNegative) {
-      Logger.warn(
+      logger.warn(
         "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement"
       )
     } else {
@@ -143,7 +143,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
     val totalProcessingTime = Duration.between(notification.uploadTimestamp, respondedAt)
 
     if (totalProcessingTime.isNegative) {
-      Logger.warn(
+      logger.warn(
         "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
     } else {
       metrics.defaultRegistry
@@ -153,7 +153,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
       val endToEndProcessingThreshold: scala.concurrent.duration.Duration =
         serviceConfiguration.endToEndProcessingThreshold()
 
-      if (totalProcessingTime.toMillis() > endToEndProcessingThreshold.toMillis) {
+      if (totalProcessingTime.toMillis > endToEndProcessingThreshold.toMillis) {
 
         val checkpoints = newCheckpoints.sortedCheckpoints.mkString("[", ", ", "]")
 
@@ -179,7 +179,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
   upscanAuditingService: UpscanAuditingService,
   serviceConfiguration: ServiceConfiguration
 )(implicit val executionContext: ExecutionContext)
-    extends MessageProcessingJob {
+    extends Logging with MessageProcessingJob {
 
   private val timingsLogger = Logger(classOf[NotifyOnQuarantineFileUploadMessageProcessingJob])
 
@@ -213,7 +213,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
     val totalProcessingTime = Duration.between(notification.uploadTimestamp, respondedAt)
 
     if (totalProcessingTime.isNegative) {
-      Logger.warn(
+      logger.warn(
         "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
     } else {
       metrics.defaultRegistry.counter("quarantinedUploadNotificationSent").inc()
@@ -221,7 +221,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
       val endToEndProcessingThreshold: scala.concurrent.duration.Duration =
         serviceConfiguration.endToEndProcessingThreshold()
 
-      if (totalProcessingTime.toMillis() > endToEndProcessingThreshold.toMillis) {
+      if (totalProcessingTime.toMillis > endToEndProcessingThreshold.toMillis) {
 
         val checkpoints = updatedCheckpoints.sortedCheckpoints.mkString("[", ", ", "]")
 
