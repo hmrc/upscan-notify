@@ -5,7 +5,7 @@ import com.amazonaws.services.sqs.AmazonSQS
 import harness.modules.FilteredNotifyModule
 import javax.inject.Provider
 import modules.NotifyModule
-import org.scalatestplus.mockito.MockitoSugar.mock
+import org.mockito.MockitoSugar.mock
 import play.api.inject.bind
 import play.api.inject.guice.GuiceApplicationBuilder
 import services.ContinuousPoller

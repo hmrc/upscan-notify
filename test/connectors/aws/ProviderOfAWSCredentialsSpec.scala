@@ -18,12 +18,11 @@ package connectors.aws
 
 import com.amazonaws.auth.{AWSCredentialsProvider, AWSSessionCredentials}
 import config.ServiceConfiguration
-import org.scalatest.Matchers
-import uk.gov.hmrc.play.test.UnitSpec
+import test.UnitSpec
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
-class ProviderOfAWSCredentialsSpec extends UnitSpec with Matchers {
+class ProviderOfAWSCredentialsSpec extends UnitSpec {
 
   "ProviderOfAWSCredentials" should {
     "create BasicSessionCredentials if session token provided" in {

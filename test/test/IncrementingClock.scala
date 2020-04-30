@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package util
+package test
 
 import java.time.{Clock, Duration, Instant, ZoneId}
 import java.util.concurrent.atomic.AtomicLong

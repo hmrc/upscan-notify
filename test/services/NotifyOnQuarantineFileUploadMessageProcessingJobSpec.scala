@@ -24,15 +24,12 @@ import com.kenshoo.play.metrics.Metrics
 import config.ServiceConfiguration
 import connectors.aws.S3EventParser
 import model._
-import org.mockito.Mockito._
-import org.scalatest.{Matchers, WordSpec}
-import org.scalatestplus.mockito.MockitoSugar.mock
-import util.logging.MockLoggerLike
+import test.{MockLoggerLike, UnitSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
-class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends WordSpec with Matchers {
+class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends UnitSpec {
 
   val consumer             = mock[QuarantineQueueConsumer]
   val parser               = new S3EventParser()

@@ -16,11 +16,11 @@
 
 package services
 
-import javax.inject.Inject
 import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
 import akka.event.Logging
 import config.ServiceConfiguration
-import play.api.Logger
+import javax.inject.Inject
+import play.api.Logging
 import play.api.inject.ApplicationLifecycle
 import services.ContinuousPollingActor.Poll
 
@@ -39,22 +39,22 @@ case class PollingJobs(jobs: Seq[PollingJob])
 class ContinuousPoller @Inject()(pollingJobs: PollingJobs, serviceConfiguration: ServiceConfiguration)(
   implicit actorSystem: ActorSystem,
   applicationLifecycle: ApplicationLifecycle,
-  ec: ExecutionContext) {
+  ec: ExecutionContext) extends Logging {
 
   private val pollingActors = pollingJobs.jobs map { job =>
-    Logger.info(s"Creating ContinuousPollingActor for PollingJob: [${job.jobName}].")
+    logger.info(s"Creating ContinuousPollingActor for PollingJob: [${job.jobName}].")
     actorSystem.actorOf(ContinuousPollingActor(job, serviceConfiguration.retryInterval))
   }
 
   pollingActors foreach { pollingActor =>
-    Logger.info(s"Sending initial Poll message to Actor: [${pollingActor.toString}].")
+    logger.info(s"Sending initial Poll message to Actor: [${pollingActor.toString}].")
     pollingActor ! Poll
   }
 
   applicationLifecycle.addStopHook { () =>
     val actorStopResults = Future.sequence {
       pollingActors map { pollingActor =>
-        Logger.info(s"Sending PoisonPill message to Actor: [${pollingActor.toString}].")
+        logger.info(s"Sending PoisonPill message to Actor: [${pollingActor.toString}].")
         pollingActor ! PoisonPill
         Future.successful(())
       }

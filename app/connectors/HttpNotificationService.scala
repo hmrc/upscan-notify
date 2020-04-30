@@ -22,7 +22,7 @@ import java.time.{Clock, Instant}
 import _root_.util.logging.LoggingDetails
 import javax.inject.Inject
 import model._
-import play.api.Logger
+import play.api.Logging
 import play.api.libs.json._
 import services.NotificationService
 import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse}
@@ -30,7 +30,7 @@ import uk.gov.hmrc.play.bootstrap.http.HttpClient
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock)(implicit ec: ExecutionContext) extends NotificationService {
+class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock)(implicit ec: ExecutionContext) extends NotificationService with Logging {
 
   override def notifySuccessfulCallback(uploadedFile: SuccessfulProcessingDetails): Future[Seq[Checkpoint]] =
     makeCallback(
@@ -62,7 +62,7 @@ class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock)(im
                                                           httpClient.POST[T, HttpResponse](
                                                             metadata.callbackUrl.toString,
                                                             callback))) yield {
-      Logger.info(
+      logger.info(
         s"""$notificationType notification sent to service with callbackUrl: [${metadata.callbackUrl}].
            | Response status was: [${httpResult.status}].""".stripMargin
       )

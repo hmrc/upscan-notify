@@ -21,7 +21,7 @@ import java.time.Instant
 import config.ServiceConfiguration
 import javax.inject.Inject
 import model._
-import play.api.Logger
+import play.api.Logging
 import play.api.libs.json.{JsError, JsSuccess, Json}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,7 +30,7 @@ import scala.util.{Failure, Success, Try}
 class S3FileNotificationDetailsRetriever @Inject()(
   fileManager: FileManager,
   config: ServiceConfiguration,
-  downloadUrlGenerator: DownloadUrlGenerator)(implicit ec: ExecutionContext) extends FileNotificationDetailsRetriever {
+  downloadUrlGenerator: DownloadUrlGenerator)(implicit ec: ExecutionContext) extends FileNotificationDetailsRetriever with Logging {
 
   override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[WithCheckpoints[SuccessfulProcessingDetails]] =
     for {
@@ -50,7 +50,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
           checksum        = metadata.checksum,
           metadata.requestContext
         )
-      Logger.debug(
+      logger.debug(
         s"Retrieved file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
       WithCheckpoints(retrieved, Checkpoints(checkpoints))
     }
@@ -69,7 +69,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
           error           = parseContents(quarantineFile.failureDetailsAsJson),
           requestContext  = quarantineFile.requestContext
         )
-      Logger.debug(
+      logger.debug(
         s"Retrieved quarantined file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
       WithCheckpoints(retrieved, Checkpoints(checkpoints))
     }
@@ -82,7 +82,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
           Try(Instant.parse(value)) match {
             case Success(parsedTimestamp) => Some(Checkpoint(key, parsedTimestamp))
             case Failure(exception) =>
-              Logger.warn(s"Checkpoint field $key has invalid format", exception)
+              logger.warn(s"Checkpoint field $key has invalid format", exception)
               None
           }
       }

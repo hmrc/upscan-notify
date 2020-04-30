@@ -21,14 +21,13 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor.ActorSystem
 import config.ServiceConfiguration
 import org.scalatest.concurrent.Eventually
-import org.scalatestplus.mockito.MockitoSugar
 import play.api.inject.DefaultApplicationLifecycle
-import uk.gov.hmrc.play.test.UnitSpec
+import test.UnitSpec
 
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
 
-class ContinuousPollerSpec extends UnitSpec with MockitoSugar with Eventually {
+class ContinuousPollerSpec extends UnitSpec with Eventually {
 
   implicit def actorSystem = ActorSystem()
 

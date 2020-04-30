@@ -14,26 +14,19 @@
  * limitations under the License.
  */
 
-package util.logging
+package test
 
-import org.mockito.Mockito.when
-import org.mockito.{ArgumentCaptor, Mockito}
-import org.scalatestplus.mockito.MockitoSugar.mock
+import org.mockito.MockitoSugar._
+import org.mockito.captor.ArgCaptor
 import play.api.LoggerLike
 
-import scala.collection.JavaConverters._
-
 class MockLoggerLike extends LoggerLike {
-  private val warnCaptor: ArgumentCaptor[String] = ArgumentCaptor.forClass(classOf[String])
+  private val warnCaptor = ArgCaptor[String]
 
   override val logger = mock[org.slf4j.Logger]
   when(logger.isWarnEnabled()).thenReturn(true)
+  doNothing.when(logger).warn(warnCaptor.capture)
 
-  Mockito.doNothing().when(logger).warn(warnCaptor.capture())
-
-  def getWarnMessage(): String = getMessage(warnCaptor)
-  def getWarnMessages(): Seq[String] = getMessages(warnCaptor)
-
-  private def getMessage(captor: ArgumentCaptor[String]): String = captor.getValue()
-  private def getMessages(captor: ArgumentCaptor[String]): Seq[String] = captor.getAllValues().asScala
+  def getWarnMessage(): String = warnCaptor.value
+  def getWarnMessages(): Seq[String] = warnCaptor.values
 }

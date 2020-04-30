@@ -17,10 +17,8 @@
 package config
 
 import config.PlayBasedServiceConfiguration.S3UrlExpirationPeriod
-import org.mockito.Mockito.when
-import org.scalatestplus.mockito.MockitoSugar.mock
 import play.api.Configuration
-import uk.gov.hmrc.play.test.UnitSpec
+import test.UnitSpec
 
 import scala.concurrent.duration._
 
