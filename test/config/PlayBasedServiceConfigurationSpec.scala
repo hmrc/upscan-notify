@@ -31,10 +31,21 @@ class PlayBasedServiceConfigurationSpec extends UnitSpec {
 
   "s3UrlExpirationPeriod" should {
 
-    "return relevant config for a translated serviceName with invalid chars" in {
+    "return relevant config for a translated serviceName containing the invalid '/' and '.' characters" in {
       when(mockConfiguration.getOptional[Duration](s3UrlExpirationPeriodKeyFor("Mozilla-4-0"))).thenReturn(Some(1.day))
 
       playBasedServiceConfiguration.s3UrlExpirationPeriod("Mozilla/4.0") shouldBe 1.day
+    }
+
+    /*
+     * A typesafe config path cannot contain a comma.
+     * Invoking config.get("one,two") results in the exception:
+     * com.typesafe.config.ConfigException$BadPath: path parameter: Invalid path 'one,two': Token not allowed in path expression: ',' (you can double-quote this token if you really want it here)
+     */
+    "return relevant config for a translated serviceName containing the invalid ',' character" in {
+      when(mockConfiguration.getOptional[Duration](s3UrlExpirationPeriodKeyFor("serviceName-withComma"))).thenReturn(Some(1.day))
+
+      playBasedServiceConfiguration.s3UrlExpirationPeriod("serviceName,withComma") shouldBe 1.day
     }
 
     "return bespoke service configuration when defined and valid (at most 7 days)" in {
