@@ -76,8 +76,8 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
   private def getRequired[T](function: String => Option[T], key: String): T =
     function(key).getOrElse(throw new IllegalStateException(s"Configuration key not found: $key"))
 
-  private def replaceInvalidJsonChars(serviceName: String): String =
-    serviceName.replaceAll("[/.]", "-")
+  private def replaceInvalidChars(serviceName: String): String =
+    serviceName.replaceAll("[/.,]", "-")
 
   private def validS3UrlExpirationPeriodWithKey(key: String): Option[(String, FiniteDuration)] =
     readDurationAsMillis(key).map(_.milliseconds)
@@ -91,7 +91,7 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
     s"default.$configDescriptor"
 
   private def configKeyForConsumingService(serviceName: String, configDescriptor: String): String =
-    s"consuming-services.${replaceInvalidJsonChars(serviceName)}.$configDescriptor"
+    s"consuming-services.${replaceInvalidChars(serviceName)}.$configDescriptor"
 }
 
 private[config] object PlayBasedServiceConfiguration {
