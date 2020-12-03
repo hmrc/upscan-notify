@@ -4,7 +4,7 @@ Microservice for notifying services that requested upload of files created exter
 This is not intended to be used for transfer of files from one HMRC service to another, for this you need to intergrate
 directly with the file transfer service.
 
-[![Build Status](https://travis-ci.org/hmrc/upscan-notify.svg)](https://travis-ci.org/hmrc/upscan-notify) [ ![Download](https://api.bintray.com/packages/hmrc/releases/upscan-notify/images/download.svg) ](https://bintray.com/hmrc/releases/upscan-notify/_latestVersion)
+[ ![Download](https://api.bintray.com/packages/hmrc/releases/upscan-notify/images/download.svg) ](https://bintray.com/hmrc/releases/upscan-notify/_latestVersion)
 
 # Running locally
 
