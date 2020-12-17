@@ -51,7 +51,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
           metadata.requestContext
         )
       logger.debug(
-        s"Retrieved file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
+        s"Retrieved file with callbackUrl: [${retrieved.callbackUrl}], for Key=[${objectLocation.objectKey}].")
       WithCheckpoints(retrieved, Checkpoints(checkpoints))
     }
 
@@ -70,7 +70,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
           requestContext  = quarantineFile.requestContext
         )
       logger.debug(
-        s"Retrieved quarantined file with callbackUrl: [${retrieved.callbackUrl}], for objectKey: [${objectLocation.objectKey}].")
+        s"Retrieved quarantined file with callbackUrl: [${retrieved.callbackUrl}], for Key=[${objectLocation.objectKey}].")
       WithCheckpoints(retrieved, Checkpoints(checkpoints))
     }
 

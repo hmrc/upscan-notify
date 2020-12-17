@@ -77,7 +77,7 @@ class S3FileManager @Inject()(s3Client: AmazonS3)(implicit ec: ExecutionContext)
       uploadDetails  <- Future.fromTry(parseFailedFileMetadata(metadata))
       requestContext <- Future.fromTry(retrieveUserContext(metadata))
     } yield {
-      logger.debug(s"Fetched object with metadata for objectKey: [${objectLocation.objectKey}].")
+      logger.debug(s"Fetched object with metadata for Key=[${objectLocation.objectKey}].")
       FailedFileDetails(
         fileReference   = fileReference,
         callbackUrl     = callbackUrl,
@@ -130,14 +130,14 @@ case class S3ObjectMetadata(underlying: ObjectMetadata, location: S3ObjectLocati
     userMetadata.get(key) match {
       case Some(metadataValue) => Success(metadataValue)
       case None =>
-        Failure(new NoSuchElementException(s"Metadata not found: [$key], for objectKey: [${location.objectKey}]."))
+        Failure(new NoSuchElementException(s"Metadata not found: [$key] for Key=[${location.objectKey}]."))
     }
 
   def get[T](key: String, parseFunc: String => T): Try[T] =
     userMetadata.get(key) match {
       case Some(metadataValue) => parse(metadataValue, parseFunc, key)
       case None =>
-        Failure(new NoSuchElementException(s"Metadata not found: [$key], for objectKey: [${location.objectKey}]."))
+        Failure(new NoSuchElementException(s"Metadata not found: [$key] for Key=[${location.objectKey}]."))
     }
 
   private def parse[T](originalValue: String, parsingFunction: String => T, key: String): Try[T] =
@@ -146,7 +146,7 @@ case class S3ObjectMetadata(underlying: ObjectMetadata, location: S3ObjectLocati
       case Failure(error) =>
         Failure(
           new Exception(
-            s"Invalid metadata: [$key: $originalValue], for objectKey: [${location.objectKey}]. Error: $error"
+            s"Invalid metadata: [$key: $originalValue] for Key=[${location.objectKey}]. Error: $error"
           ))
     }
 

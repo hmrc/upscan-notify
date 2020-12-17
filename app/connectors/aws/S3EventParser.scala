@@ -77,7 +77,7 @@ class S3EventParser @Inject()(implicit ec: ExecutionContext) extends MessagePars
         // use MdcLoggingExecutionContext / LoggingDetails.
         try {
           MDC.put("file-reference", event.location.objectKey)
-          logger.debug(s"Created FileUploadEvent for objectKey: [${event.location.objectKey}].")
+          logger.debug(s"Created FileUploadEvent for Key=[${event.location.objectKey}].")
           Future.successful(event)
         } finally {
           MDC.remove("file-reference")

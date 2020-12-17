@@ -63,7 +63,7 @@ class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock)(im
                                                             metadata.callbackUrl.toString,
                                                             callback))) yield {
       logger.info(
-        s"""$notificationType notification sent to service with callbackUrl: [${metadata.callbackUrl}].
+        s"""$notificationType notification for Key=[${metadata.reference.reference}] sent to service with callbackUrl: [${metadata.callbackUrl}].
            | Response status was: [${httpResult.status}].""".stripMargin
       )
       collectExecutionTimeMetadata(measurement)
