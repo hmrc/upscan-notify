@@ -18,15 +18,14 @@ package connectors
 
 import java.net.URL
 import java.time.{Clock, Instant}
-
 import _root_.util.logging.LoggingDetails
+
 import javax.inject.Inject
 import model._
 import play.api.Logging
 import play.api.libs.json._
 import services.NotificationService
-import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse}
-import uk.gov.hmrc.play.bootstrap.http.HttpClient
+import uk.gov.hmrc.http.{HeaderCarrier, HttpClient, HttpResponse}
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -29,7 +29,7 @@ import model._
 import org.scalatest.{BeforeAndAfterAll, GivenWhenThen}
 import play.api.libs.ws.ahc.AhcWSClient
 import test.{IncrementingClock, UnitSpec}
-import uk.gov.hmrc.play.bootstrap.http.HttpClient
+import uk.gov.hmrc.http.HttpClient
 import uk.gov.hmrc.play.http.ws.WSHttp
 
 import scala.concurrent.duration._
