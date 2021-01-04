@@ -19,6 +19,7 @@ package connectors
 import java.net.URL
 import java.time.{Clock, Instant}
 import _root_.util.logging.LoggingDetails
+import _root_.util.logging.WithLoggingDetails.withLoggingDetails
 
 import javax.inject.Inject
 import model._
@@ -61,10 +62,12 @@ class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock)(im
                                                           httpClient.POST[T, HttpResponse](
                                                             metadata.callbackUrl.toString,
                                                             callback))) yield {
-      logger.info(
-        s"""$notificationType notification for Key=[${metadata.reference.reference}] sent to service with callbackUrl: [${metadata.callbackUrl}].
-           | Response status was: [${httpResult.status}].""".stripMargin
-      )
+      withLoggingDetails(ld) {
+        logger.info(
+          s"""$notificationType notification for Key=[${metadata.reference.reference}] sent to service with callbackUrl: [${metadata.callbackUrl}].
+             | Response status was: [${httpResult.status}].""".stripMargin
+        )
+      }
       collectExecutionTimeMetadata(measurement)
     }
   }

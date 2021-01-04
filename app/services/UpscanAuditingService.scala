@@ -62,7 +62,7 @@ trait EventBuilder[T] {
 
 class UpscanAuditingService @Inject()(auditConnector: AuditConnector)(implicit ec: ExecutionContext) {
 
-  def notifyFileUploadedSuccessfully[T](notification: SuccessfulProcessingDetails)(): Unit = {
+  def notifyFileUploadedSuccessfully[T](notification: SuccessfulProcessingDetails): Unit = {
 
     val event =
       new CleanFileUploaded(notification.reference.reference, notification.size, notification.requestContext)

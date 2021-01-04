@@ -62,9 +62,10 @@ trait MessageProcessingJob extends PollingJob { this: Logging =>
     outcome.value.map {
       case Left(ExceptionWithContext(exception, Some(context))) =>
         withLoggingDetails(context.ld) {
+          val objectKey = context.ld.mdcData.getOrElse(LoggingDetails.ObjectKey, "???")
+          val fileReference = context.ld.mdcData.getOrElse(LoggingDetails.FileReference, "???")
           logger.error(
-            s"Failed to process message '${message.id}' for Key=[${context.ld.mdcData
-              .getOrElse("file-reference", "???")}], cause ${exception.getMessage}",
+            s"Failed to process message '${message.id}' for object=[$objectKey] with upload Key=[$fileReference], cause ${exception.getMessage}",
             exception
           )
         }
@@ -103,11 +104,12 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
   override def processMessage(message: Message): EitherT[Future, ExceptionWithContext, MessageContext] =
     for {
       parsedMessage <- toEitherT(parser.parse(message))
-      context = MessageContext(LoggingDetails.fromS3ObjectLocation(parsedMessage.location))
+      contextWithoutFileReference = MessageContext(LoggingDetails.fromS3ObjectLocation(parsedMessage.location))
       notificationWithCheckpoints <- toEitherT(
                                       fileRetriever.retrieveUploadedFileDetails(parsedMessage.location),
-                                      Some(context))
+                                      Some(contextWithoutFileReference))
       WithCheckpoints(notification, checkpoints1) = notificationWithCheckpoints
+      context = MessageContext(LoggingDetails.fromS3ObjectLocationWithReference(parsedMessage.location, notification.reference))
       checkpoint2                                 = Checkpoint("x-amz-meta-upscan-notify-received", message.receivedAt)
       _                                           = upscanAuditingService.notifyFileUploadedSuccessfully(notification)
       _                                           = collectMetricsBeforeNotification(notification)
@@ -186,12 +188,13 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
   override def processMessage(message: Message): EitherT[Future, ExceptionWithContext, MessageContext] =
     for {
       parsedMessage <- toEitherT(parser.parse(message))
-      context = MessageContext(LoggingDetails.fromS3ObjectLocation(parsedMessage.location))
+      contextWithoutFileReference = MessageContext(LoggingDetails.fromS3ObjectLocation(parsedMessage.location))
       notificationWithCheckpoints <- toEitherT(
                                       fileRetriever.retrieveQuarantinedFileDetails(parsedMessage.location),
-                                      Some(context)
+                                      Some(contextWithoutFileReference)
                                     )
       WithCheckpoints(notification, checkpoints1) = notificationWithCheckpoints
+      context = MessageContext(LoggingDetails.fromS3ObjectLocationWithReference(parsedMessage.location, notification.reference))
       checkpoint2                                 = model.Checkpoint("x-amz-meta-upscan-notify-received", message.receivedAt)
       _                                           = upscanAuditingService.notifyFileIsQuarantined(notification)
       checkpoints3 <- toEitherT(notificationService.notifyFailedCallback(notification), Some(context))

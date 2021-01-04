@@ -12,7 +12,7 @@ import org.mockito.ArgumentMatchersSugar._
 import org.mockito.MockitoSugar._
 
 object Mocks {
-  def setup(mock: AmazonSQS, bucketName: String, objectKey: String, message: Message): AmazonSQS = {
+  def setup(mock: AmazonSQS, message: Message): AmazonSQS = {
     when(mock.receiveMessage(any[ReceiveMessageRequest]))
       .thenReturn(new ReceiveMessageResult().withMessages(asList(message)))
     mock

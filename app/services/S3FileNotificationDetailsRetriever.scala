@@ -17,12 +17,14 @@
 package services
 
 import java.time.Instant
-
 import config.ServiceConfiguration
+
 import javax.inject.Inject
 import model._
 import play.api.Logging
 import play.api.libs.json.{JsError, JsSuccess, Json}
+import util.logging.WithLoggingDetails.withLoggingDetails
+import util.logging.LoggingDetails
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -50,8 +52,10 @@ class S3FileNotificationDetailsRetriever @Inject()(
           checksum        = metadata.checksum,
           metadata.requestContext
         )
-      logger.debug(
-        s"Retrieved file with callbackUrl: [${retrieved.callbackUrl}], for Key=[${objectLocation.objectKey}].")
+      withLoggingDetails(LoggingDetails.fromFileReference(retrieved.reference)) {
+        logger.debug(
+          s"Retrieved file with Key=[${retrieved.reference.reference}] and callbackUrl=[${retrieved.callbackUrl}] for object=[${objectLocation.objectKey}].")
+      }
       WithCheckpoints(retrieved, Checkpoints(checkpoints))
     }
 
@@ -69,8 +73,10 @@ class S3FileNotificationDetailsRetriever @Inject()(
           error           = parseContents(quarantineFile.failureDetailsAsJson),
           requestContext  = quarantineFile.requestContext
         )
-      logger.debug(
-        s"Retrieved quarantined file with callbackUrl: [${retrieved.callbackUrl}], for Key=[${objectLocation.objectKey}].")
+      withLoggingDetails(LoggingDetails.fromFileReference(retrieved.reference)) {
+        logger.debug(
+          s"Retrieved quarantined file with Key=[${retrieved.reference.reference}] and callbackUrl=[${retrieved.callbackUrl}] for object=[${objectLocation.objectKey}].")
+      }
       WithCheckpoints(retrieved, Checkpoints(checkpoints))
     }
 
