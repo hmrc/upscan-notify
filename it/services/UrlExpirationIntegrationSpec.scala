@@ -30,10 +30,11 @@ object TestData {
   val callbackUrl                      = s"http://localhost:8080$callbackPath"
   val expirationPeriod: FiniteDuration = 7.days
   val expirationUrl                    = new URL(s"https://$bucketName.$objectKey.${expirationPeriod.toMillis}.com")
+  val fileReference                    = "file-reference-UrlExpirationIntegrationSpec"
 
   def metadata(
-    fileReference: String    = "file-reference",
-    callbackUrl: String      = TestData.callbackUrl,
+    fileReference: String    = fileReference,
+    callbackUrl: String      = callbackUrl,
     initiateDate: String     = Instant.now.toString,
     checksum: String         = "checksum-123",
     originalFilename: String = "original-filename123",
@@ -95,8 +96,6 @@ class UrlExpirationIntegrationSpec
     "generate pre-signed download url with expiration period derived from application.conf Test section" in {
       Mocks.setup(
         IntegrationTestsApplication.mockAmazonSQS,
-        TestData.bucketName,
-        TestData.objectKey,
         TestData.outboundMessage)
       Mocks.setup(
         IntegrationTestsApplication.mockAmazonS3,
@@ -133,8 +132,11 @@ class UrlExpirationIntegrationSpec
       val callbackBodyResult: JsResult[ReadyCallbackBody] = json.validate[ReadyCallbackBody]
 
       callbackBodyResult match {
-        case JsSuccess(callbackBody, _) => callbackBody.downloadUrl shouldBe TestData.expirationUrl
-        case _                          => fail(s"Failed to find sent notification for file reference: [${TestData.objectKey}].")
+        case JsSuccess(callbackBody, _) =>
+          callbackBody.downloadUrl shouldBe TestData.expirationUrl
+          callbackBody.reference.reference shouldBe TestData.fileReference
+        case _                          =>
+          fail(s"Failed to find sent notification for file reference: [${TestData.fileReference}].")
       }
     }
   }

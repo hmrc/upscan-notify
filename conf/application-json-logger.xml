@@ -12,7 +12,7 @@
     <!--Used to log warnings about slowly processed requests. -->
     <logger name="services.NotifyOnQuarantineFileUploadMessageProcessingJob" level="${logger.uk.gov:-INFO}"/>
 
-    <root level="${logger.root:-WARN}">
+    <root level="${logger.root:-INFO}">
         <appender-ref ref="STDOUT"/>
     </root>
 </configuration>

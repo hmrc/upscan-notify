@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 HM Revenue & Customs
+ * Copyright 2021 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,14 +23,20 @@ import uk.gov.hmrc.http.HeaderCarrier
  * Convenience methods to create a [[uk.gov.hmrc.http.logging.LoggingDetails]] instance, required by [[uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext]].
  */
 object LoggingDetails {
+  val ObjectKey = "object-key"
+  val FileReference = "file-reference"
+
   def fromS3ObjectLocation(s3ObjectLocation: S3ObjectLocation): HeaderCarrier =
-    fromString(s3ObjectLocation.objectKey)
+    fromValues(ObjectKey -> s3ObjectLocation.objectKey)
 
   def fromFileReference(fileReference: FileReference): HeaderCarrier =
-    fromString(fileReference.reference)
+    fromValues(FileReference -> fileReference.reference)
 
-  private def fromString(reference: String): HeaderCarrier =
+  def fromS3ObjectLocationWithReference(s3ObjectLocation: S3ObjectLocation, fileReference: FileReference): HeaderCarrier =
+    fromValues(ObjectKey -> s3ObjectLocation.objectKey, FileReference -> fileReference.reference)
+
+  private def fromValues(values: (String, String)*): HeaderCarrier =
     new HeaderCarrier() {
-      override lazy val mdcData: Map[String, String] = super.mdcData + ("file-reference" -> reference)
+      override lazy val mdcData: Map[String, String] = super.mdcData ++ values
     }
 }

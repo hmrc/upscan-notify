@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 HM Revenue & Customs
+ * Copyright 2021 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,7 +116,7 @@ class S3FileManagerSpec extends UnitSpec {
 
       ScalaFutures.whenReady(result.failed) { error =>
         error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"Metadata not found: [callback-url], for objectKey: [${fileLocation.objectKey}]."
+        error.getMessage shouldBe s"Metadata not found: [callback-url] for object=[${fileLocation.objectKey}]."
       }
     }
 
@@ -143,7 +143,7 @@ class S3FileManagerSpec extends UnitSpec {
 
       ScalaFutures.whenReady(result.failed) { error =>
         error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"Metadata not found: [original-filename], for objectKey: [${fileLocation.objectKey}]."
+        error.getMessage shouldBe s"Metadata not found: [original-filename] for object=[${fileLocation.objectKey}]."
       }
     }
 
@@ -170,7 +170,7 @@ class S3FileManagerSpec extends UnitSpec {
 
       ScalaFutures.whenReady(result.failed) { error =>
         error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"Metadata not found: [mime-type], for objectKey: [${fileLocation.objectKey}]."
+        error.getMessage shouldBe s"Metadata not found: [mime-type] for object=[${fileLocation.objectKey}]."
       }
     }
 
@@ -195,7 +195,7 @@ class S3FileManagerSpec extends UnitSpec {
 
       ScalaFutures.whenReady(result.failed) { error =>
         error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"Metadata not found: [initiate-date], for objectKey: [${fileLocation.objectKey}]."
+        error.getMessage shouldBe s"Metadata not found: [initiate-date] for object=[${fileLocation.objectKey}]."
       }
     }
 
@@ -222,7 +222,7 @@ class S3FileManagerSpec extends UnitSpec {
 
       ScalaFutures.whenReady(result.failed) { error =>
         error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"Metadata not found: [checksum], for objectKey: [${fileLocation.objectKey}]."
+        error.getMessage shouldBe s"Metadata not found: [checksum] for object=[${fileLocation.objectKey}]."
       }
     }
 
@@ -249,7 +249,7 @@ class S3FileManagerSpec extends UnitSpec {
 
       ScalaFutures.whenReady(result.failed) { error =>
         error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"Metadata not found: [client-ip], for objectKey: [${fileLocation.objectKey}]."
+        error.getMessage shouldBe s"Metadata not found: [client-ip] for object=[${fileLocation.objectKey}]."
       }
     }
 
@@ -275,7 +275,7 @@ class S3FileManagerSpec extends UnitSpec {
 
       ScalaFutures.whenReady(result.failed) { error =>
         error shouldBe a[Exception]
-        error.getMessage shouldBe s"Invalid metadata: [callback-url: not-a-valid-url], for objectKey: [${fileLocation.objectKey}]. " +
+        error.getMessage shouldBe s"Invalid metadata: [callback-url: not-a-valid-url] for object=[${fileLocation.objectKey}]. " +
           s"Error: java.net.MalformedURLException: no protocol: not-a-valid-url"
       }
     }
@@ -302,7 +302,7 @@ class S3FileManagerSpec extends UnitSpec {
 
       ScalaFutures.whenReady(result.failed) { error =>
         error shouldBe a[Exception]
-        error.getMessage shouldBe s"Invalid metadata: [initiate-date: not-a-valid-date], for objectKey: [${fileLocation.objectKey}]. " +
+        error.getMessage shouldBe s"Invalid metadata: [initiate-date: not-a-valid-date] for object=[${fileLocation.objectKey}]. " +
           s"Error: java.time.format.DateTimeParseException: Text 'not-a-valid-date' could not be parsed at index 0"
       }
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 HM Revenue & Customs
+ * Copyright 2021 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import model._
 import org.scalatest.{BeforeAndAfterAll, GivenWhenThen}
 import play.api.libs.ws.ahc.AhcWSClient
 import test.{IncrementingClock, UnitSpec}
-import uk.gov.hmrc.play.bootstrap.http.HttpClient
+import uk.gov.hmrc.http.HttpClient
 import uk.gov.hmrc.play.http.ws.WSHttp
 
 import scala.concurrent.duration._
