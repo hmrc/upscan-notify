@@ -84,7 +84,7 @@ class HttpNotificationServiceSpec
         callbackUrl     = callbackUrl,
         reference       = FileReference("upload-file-reference"),
         downloadUrl     = downloadUrl,
-        size            = 0L,
+        size            = 123L,
         fileName        = "test.pdf",
         fileMimeType    = "application/pdf",
         uploadTimestamp = initiateDate,
@@ -113,7 +113,8 @@ class HttpNotificationServiceSpec
           |	    "uploadTimestamp": "2018-04-24T09:30:00Z",
           |	    "checksum": "1a2b3c4d5e",
           |     "fileMimeType": "application/pdf",
-          |     "fileName": "test.pdf"
+          |     "fileName": "test.pdf",
+          |     "size": 123
           |  }
           |}
         """.stripMargin)))

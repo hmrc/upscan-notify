@@ -41,7 +41,8 @@ class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock)(im
           fileName        = uploadedFile.fileName,
           fileMimeType    = uploadedFile.fileMimeType,
           uploadTimestamp = uploadedFile.uploadTimestamp,
-          checksum        = uploadedFile.checksum
+          checksum        = uploadedFile.checksum,
+          size            = uploadedFile.size
         )
       ),
       uploadedFile,
@@ -99,10 +100,16 @@ case class ReadyCallbackBody(
   uploadDetails: UploadDetails
 )
 
-case class UploadDetails(fileName: String, fileMimeType: String, uploadTimestamp: Instant, checksum: String)
+case class UploadDetails(
+  fileName: String,
+  fileMimeType: String,
+  uploadTimestamp: Instant,
+  checksum: String,
+  size: Long  // bytes
+)
 
 object UploadDetails {
-  implicit val formatsValidUploadDetails: Format[UploadDetails] = Json.format[UploadDetails]
+  implicit val writesUploadDetails: Writes[UploadDetails] = Json.writes[UploadDetails]
 }
 
 object ReadyCallbackBody {
