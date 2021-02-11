@@ -31,6 +31,7 @@ object TestData {
   val expirationPeriod: FiniteDuration = 7.days
   val expirationUrl                    = new URL(s"https://$bucketName.$objectKey.${expirationPeriod.toMillis}.com")
   val fileReference                    = "file-reference-UrlExpirationIntegrationSpec"
+  val fileSizeInBytes                  = 12345678L
 
   def metadata(
     fileReference: String    = fileReference,
@@ -43,7 +44,9 @@ object TestData {
     requestId: String        = "request-id-123",
     sessionId: String        = "session-id-123",
     consumingService: String = "consuming-service-123"): ObjectMetadata = {
+
     val metadata = new ObjectMetadata()
+    metadata.setContentLength(fileSizeInBytes)
     metadata.addUserMetadata("file-reference", fileReference)
     metadata.addUserMetadata("callback-url", callbackUrl)
     metadata.addUserMetadata("initiate-date", initiateDate)
@@ -135,6 +138,7 @@ class UrlExpirationIntegrationSpec
         case JsSuccess(callbackBody, _) =>
           callbackBody.downloadUrl shouldBe TestData.expirationUrl
           callbackBody.reference.reference shouldBe TestData.fileReference
+          callbackBody.uploadDetails.size shouldBe TestData.fileSizeInBytes
         case _                          =>
           fail(s"Failed to find sent notification for file reference: [${TestData.fileReference}].")
       }

@@ -1,8 +1,7 @@
 package harness.model
 
 import java.net.URL
-
-import connectors.{FailedFileStatus, FileStatus, ReadyCallbackBody, ReadyFileStatus}
+import connectors.{FailedFileStatus, FileStatus, ReadyCallbackBody, ReadyFileStatus, UploadDetails}
 import model._
 import play.api.libs.json._
 
@@ -32,5 +31,6 @@ object JsonReads {
       }
   }
 
+  private implicit val uploadDetialsReads = Json.reads[UploadDetails]
   implicit val readyCallbackBodyReads = Json.reads[ReadyCallbackBody]
 }
