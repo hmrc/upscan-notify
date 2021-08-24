@@ -19,39 +19,31 @@ package connectors
 import java.net.URL
 import java.time.{Clock, Duration, Instant, ZoneId}
 
-import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
-import com.typesafe.config.Config
 import model._
 import org.scalatest.{BeforeAndAfterAll, GivenWhenThen}
-import play.api.libs.ws.ahc.AhcWSClient
 import test.{IncrementingClock, UnitSpec}
-import uk.gov.hmrc.http.HttpClient
-import uk.gov.hmrc.play.http.ws.WSHttp
+import uk.gov.hmrc.http.test.HttpClientSupport
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
 
-class HttpNotificationServiceSpec
-    extends UnitSpec
-    with GivenWhenThen
-    with BeforeAndAfterAll {
+class HttpNotificationServiceSpec extends UnitSpec with GivenWhenThen with BeforeAndAfterAll with HttpClientSupport {
   private val callbackServer = new WireMockServer(wireMockConfig().port(11111))
 
   private val baseTime = Instant.parse("2018-12-01T14:36:30Z")
 
-  private val fixedClock = Clock.fixed(baseTime, ZoneId.systemDefault())
-  private val clock      = new IncrementingClock(fixedClock.millis(), Duration.ofSeconds(1))
-  private implicit val ec = ExecutionContext.Implicits.global
+  private val fixedClock                    = Clock.fixed(baseTime, ZoneId.systemDefault())
+  private val clock                         = new IncrementingClock(fixedClock.millis(), Duration.ofSeconds(1))
+  private implicit val ec: ExecutionContext = ExecutionContext.Implicits.global
 
-  override def beforeAll() =
+  override def beforeAll(): Unit =
     callbackServer.start()
 
-  override def afterAll() =
+  override def afterAll(): Unit =
     callbackServer.stop()
 
   private def stubCallbackReceiverToReturnValidResponse(): Unit =
@@ -80,7 +72,7 @@ class HttpNotificationServiceSpec
       val initiateDate = Instant.parse("2018-04-24T09:30:00Z")
 
       When("the service is called")
-      val notification = new SuccessfulProcessingDetails(
+      val notification = SuccessfulProcessingDetails(
         callbackUrl     = callbackUrl,
         reference       = FileReference("upload-file-reference"),
         downloadUrl     = downloadUrl,
@@ -91,7 +83,7 @@ class HttpNotificationServiceSpec
         checksum        = "1a2b3c4d5e",
         requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
       )
-      val service = new HttpNotificationService(new TestHttpClient, clock)
+      val service = new HttpNotificationService(httpClient, clock)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return success")
@@ -137,7 +129,7 @@ class HttpNotificationServiceSpec
           error           = ErrorDetails("QUARANTINE", "This file has a virus"),
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = new HttpNotificationService(new TestHttpClient, clock)
+      val service = new HttpNotificationService(httpClient, clock)
       val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
 
       Then("service should return success")
@@ -176,7 +168,7 @@ class HttpNotificationServiceSpec
           error           = ErrorDetails("REJECTED", "MIME type [some-type] not allowed for service [some-service]"),
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = new HttpNotificationService(new TestHttpClient, clock)
+      val service = new HttpNotificationService(httpClient, clock)
       val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
 
       Then("service should return success")
@@ -218,7 +210,7 @@ class HttpNotificationServiceSpec
           checksum        = "1a2b3c4d5e",
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = new HttpNotificationService(new TestHttpClient, clock)
+      val service = new HttpNotificationService(httpClient, clock)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return an error")
@@ -246,7 +238,7 @@ class HttpNotificationServiceSpec
           checksum        = "1a2b3c4d5e",
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = new HttpNotificationService(new TestHttpClient, clock)
+      val service = new HttpNotificationService(httpClient, clock)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return an error")
@@ -254,12 +246,4 @@ class HttpNotificationServiceSpec
     }
   }
 
-}
-
-class TestHttpClient extends HttpClient with WSHttp {
-  implicit val actorSystem: ActorSystem           = ActorSystem()
-  implicit val materializer                       = ActorMaterializer()
-  override val wsClient                           = AhcWSClient()
-  override lazy val configuration: Option[Config] = None
-  override val hooks                              = Seq.empty
 }
