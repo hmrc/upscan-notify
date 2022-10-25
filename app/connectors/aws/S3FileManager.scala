@@ -18,6 +18,7 @@ package connectors.aws
 
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
+import com.sun.xml.internal.messaging.saaj.packaging.mime.internet.MimeUtility
 import model.{FileReference, RequestContext, S3ObjectLocation}
 import org.apache.commons.io.IOUtils
 import play.api.Logging
@@ -113,16 +114,20 @@ class S3FileManager @Inject()(s3Client: AmazonS3)(implicit ec: ExecutionContext)
     for {
       uploadTimestamp <- metadata.get("initiate-date", Instant.parse)
       checksum        <- metadata.get("checksum")
-      fileName        <- metadata.get("original-filename")
+      fileName        <- parseOriginalFileName(metadata)
       mimeType        <- metadata.get("mime-type")
     } yield SuccessfulFileMetadata(fileName, mimeType, uploadTimestamp, checksum)
 
   private def parseFailedFileMetadata(metadata: S3ObjectMetadata): Try[FailedFileMetadata] =
     for {
       uploadTimestamp <- metadata.get("initiate-date", Instant.parse)
-      fileName        <- metadata.get("original-filename")
+      fileName        <- parseOriginalFileName(metadata)
     } yield FailedFileMetadata(fileName, uploadTimestamp)
 
+  private def parseOriginalFileName(metadata: S3ObjectMetadata): Try[String] = {
+    val fileName = metadata.get("original-filename")
+    fileName.flatMap(f => Try(MimeUtility.decodeText(f))).orElse(fileName)
+  }
 }
 
 case class SuccessfulFileMetadata(fileName: String, fileMimeType: String, uploadTimestamp: Instant, checksum: String)
