@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import java.net.URL
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util
-
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
 import model.{FileReference, RequestContext, S3ObjectLocation}
@@ -28,6 +27,7 @@ import org.scalatest.concurrent.ScalaFutures
 import services.SuccessfulFileDetails
 import test.UnitSpec
 
+import javax.mail.internet.MimeUtility
 import scala.concurrent.ExecutionContext
 
 class S3FileManagerSpec extends UnitSpec {
@@ -320,6 +320,40 @@ class S3FileManagerSpec extends UnitSpec {
 
       ScalaFutures.whenReady(result.failed) { result =>
         result.getMessage shouldBe "Exception"
+      }
+    }
+
+    "decode MIME-encoded original filenames from metadata" in {
+
+      val originalFileName = "赴任・着任証明書-tteesstt.pdf"
+
+      val fileLocation = S3ObjectLocation("bucket", "objectKey")
+
+      val s3client    = mock[AmazonS3]
+      val fileManager = new S3FileManager(s3client)
+
+      val userMetadata = new util.TreeMap[String, String]()
+      userMetadata.put("callback-url", callbackUrl.toString)
+      userMetadata.put("initiate-date", DateTimeFormatter.ISO_INSTANT.format(initiateDate))
+      userMetadata.put("checksum", checksum)
+      userMetadata.put("request-id", "REQUEST_ID")
+      userMetadata.put("session-id", "SESSION_ID")
+      userMetadata.put("original-filename", MimeUtility.encodeText(originalFileName))
+      userMetadata.put("mime-type", "application/pdf")
+      userMetadata.put("client-ip", "127.0.0.1")
+      userMetadata.put("file-reference", "ref1")
+      userMetadata.put("consuming-service", consumingService)
+
+      val objectMetadata = mock[ObjectMetadata]
+      when(objectMetadata.getUserMetadata).thenReturn(userMetadata)
+      when(objectMetadata.getContentLength).thenReturn(contentLength)
+
+      when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey)).thenReturn(objectMetadata)
+
+      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
+
+      ScalaFutures.whenReady(result) { result =>
+        result.fileName shouldBe originalFileName
       }
     }
   }

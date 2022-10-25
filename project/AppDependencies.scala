@@ -9,7 +9,8 @@ object AppDependencies {
     "org.typelevel" %% "cats-core"                 % "2.1.1",
     "com.amazonaws" % "aws-java-sdk-s3"            % "1.11.921",
     "com.amazonaws" % "aws-java-sdk-sqs"           % "1.11.921",
-    "commons-io"    % "commons-io"                 % "2.8.0"
+    "commons-io"    % "commons-io"                 % "2.8.0",
+    "com.sun.mail"  % "javax.mail"                 % "1.6.2"
   )
 
   private val test = Seq(

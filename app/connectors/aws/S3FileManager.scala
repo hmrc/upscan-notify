@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import java.net.URL
 import java.nio.charset.StandardCharsets.UTF_8
 import java.time.Instant
 import javax.inject.Inject
+import javax.mail.internet.MimeUtility
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -113,16 +114,20 @@ class S3FileManager @Inject()(s3Client: AmazonS3)(implicit ec: ExecutionContext)
     for {
       uploadTimestamp <- metadata.get("initiate-date", Instant.parse)
       checksum        <- metadata.get("checksum")
-      fileName        <- metadata.get("original-filename")
+      fileName        <- parseOriginalFileName(metadata)
       mimeType        <- metadata.get("mime-type")
     } yield SuccessfulFileMetadata(fileName, mimeType, uploadTimestamp, checksum)
 
   private def parseFailedFileMetadata(metadata: S3ObjectMetadata): Try[FailedFileMetadata] =
     for {
       uploadTimestamp <- metadata.get("initiate-date", Instant.parse)
-      fileName        <- metadata.get("original-filename")
+      fileName        <- parseOriginalFileName(metadata)
     } yield FailedFileMetadata(fileName, uploadTimestamp)
 
+  private def parseOriginalFileName(metadata: S3ObjectMetadata): Try[String] = {
+    val fileName = metadata.get("original-filename")
+    fileName.flatMap(f => Try(MimeUtility.decodeText(f))).orElse(fileName)
+  }
 }
 
 case class SuccessfulFileMetadata(fileName: String, fileMimeType: String, uploadTimestamp: Instant, checksum: String)
