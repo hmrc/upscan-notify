@@ -18,7 +18,6 @@ package connectors.aws
 
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
-import com.sun.xml.internal.messaging.saaj.packaging.mime.internet.MimeUtility
 import model.{FileReference, RequestContext, S3ObjectLocation}
 import org.apache.commons.io.IOUtils
 import play.api.Logging
@@ -30,6 +29,7 @@ import java.net.URL
 import java.nio.charset.StandardCharsets.UTF_8
 import java.time.Instant
 import javax.inject.Inject
+import javax.mail.internet.MimeUtility
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}

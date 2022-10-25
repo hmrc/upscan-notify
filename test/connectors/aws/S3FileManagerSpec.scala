@@ -22,12 +22,12 @@ import java.time.format.DateTimeFormatter
 import java.util
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
-import com.sun.xml.internal.messaging.saaj.packaging.mime.internet.MimeUtility
 import model.{FileReference, RequestContext, S3ObjectLocation}
 import org.scalatest.concurrent.ScalaFutures
 import services.SuccessfulFileDetails
 import test.UnitSpec
 
+import javax.mail.internet.MimeUtility
 import scala.concurrent.ExecutionContext
 
 class S3FileManagerSpec extends UnitSpec {
