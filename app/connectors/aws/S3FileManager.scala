@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 HM Revenue & Customs
+ * Copyright 2023 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,6 +55,10 @@ class S3FileManager @Inject()(s3Client: AmazonS3)(implicit ec: ExecutionContext)
       consumingService <- retrieveConsumingService(userMetadata)
     } yield {
       withLoggingDetails(LoggingDetails.fromFileReference(fileReference)) {
+        if (uploadDetails.fileName.contains("{filename}")) {
+          //Debug whether filename is ever ${filename}
+          logger.warn(s"Unexpected original filename ${uploadDetails.fileName} for object=[${objectLocation.objectKey}] with upload Key=[${fileReference.reference}].")
+        }
         logger.info(s"Fetched SuccessfulFileDetails for object=[${objectLocation.objectKey}] with upload Key=[${fileReference.reference}].")
       }
       SuccessfulFileDetails(

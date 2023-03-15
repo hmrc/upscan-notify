@@ -30,7 +30,7 @@ tmp
 .idea_modules
 bin
 **/Scratchpad.scala
-
+.bsp
 *.log
 t
 nohup.out
