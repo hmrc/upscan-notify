@@ -55,6 +55,10 @@ class S3FileManager @Inject()(s3Client: AmazonS3)(implicit ec: ExecutionContext)
       consumingService <- retrieveConsumingService(userMetadata)
     } yield {
       withLoggingDetails(LoggingDetails.fromFileReference(fileReference)) {
+        if (uploadDetails.fileName.contains("{filename}")) {
+          //Debug whether filename is ever ${filename}
+          logger.warn(s"Unexpected original filename ${uploadDetails.fileName} for object=[${objectLocation.objectKey}] with upload Key=[${fileReference.reference}].")
+        }
         logger.info(s"Fetched SuccessfulFileDetails for object=[${objectLocation.objectKey}] with upload Key=[${fileReference.reference}].")
       }
       SuccessfulFileDetails(
