@@ -18,13 +18,12 @@ package services
 
 import java.net.URL
 import java.time.{Clock, Instant}
-
 import com.codahale.metrics.MetricRegistry
-import com.kenshoo.play.metrics.Metrics
 import config.ServiceConfiguration
 import connectors.aws.S3EventParser
 import model._
 import test.{MockLoggerLike, UnitSpec}
+import uk.gov.hmrc.play.bootstrap.metrics.Metrics
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -46,7 +45,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends UnitSpec {
   when(defaultMetricsRegistry.counter("quarantinedUploadNotificationSent"))
     .thenReturn(mock[com.codahale.metrics.Counter])
 
-  when(serviceConfiguration.endToEndProcessingThreshold()).thenReturn(0 seconds)
+  when(serviceConfiguration.endToEndProcessingThreshold()).thenReturn(0.seconds)
 
   val testInstance = new NotifyOnQuarantineFileUploadMessageProcessingJob(
     consumer,

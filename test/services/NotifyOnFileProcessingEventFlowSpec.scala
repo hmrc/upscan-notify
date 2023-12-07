@@ -18,13 +18,12 @@ package services
 
 import java.net.URL
 import java.time._
-
 import com.codahale.metrics.MetricRegistry
-import com.kenshoo.play.metrics.Metrics
 import config.ServiceConfiguration
 import model._
 import org.scalatest.GivenWhenThen
 import test.UnitSpec
+import uk.gov.hmrc.play.bootstrap.metrics.Metrics
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -49,8 +48,6 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen {
 
   def metricsStub() = new Metrics {
     override val defaultRegistry: MetricRegistry = new MetricRegistry
-
-    override def toJson: String = ???
   }
 
   val sampleRequestContext = RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1")
@@ -79,7 +76,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen {
   }
 
   val serviceConfiguration = mock[ServiceConfiguration]
-  when(serviceConfiguration.endToEndProcessingThreshold()).thenReturn(1 minute)
+  when(serviceConfiguration.endToEndProcessingThreshold()).thenReturn(1.minute)
 
   "SuccessfulUploadNotificationProcessingFlow" should {
     "get messages from the queue consumer, and call notification service for valid messages" in {
@@ -108,7 +105,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen {
         serviceConfiguration)
 
       When("the orchestrator is called")
-      Await.result(queueOrchestrator.run(), 30 seconds)
+      Await.result(queueOrchestrator.run(), 30.seconds)
 
       Then("the queue consumer should poll for messages")
       verify(queueConsumer).poll()
@@ -125,12 +122,12 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen {
       metrics.defaultRegistry
         .timer("totalFileProcessingTime")
         .getSnapshot
-        .getValues shouldBe Array((5 seconds).toNanos) //5 seconds in nanoseconds
+        .getValues shouldBe Array((5.seconds).toNanos) //5 seconds in nanoseconds
 
       metrics.defaultRegistry
         .timer("fileProcessingTimeExcludingNotification")
         .getSnapshot
-        .getValues shouldBe Array((5 seconds).toNanos) //5 seconds in nanoseconds
+        .getValues shouldBe Array((5.seconds).toNanos) //5 seconds in nanoseconds
 
       And("audit events are emitted for all the events")
 
@@ -168,7 +165,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen {
         serviceConfiguration)
 
       When("the orchestrator is called")
-      Await.result(queueOrchestrator.run(), 30 seconds)
+      Await.result(queueOrchestrator.run(), 30.seconds)
 
       Then("the queue consumer should poll for messages")
       verify(queueConsumer).poll()
@@ -260,7 +257,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen {
         serviceConfiguration)
 
       When("the orchestrator is called")
-      Await.result(queueOrchestrator.run(), 30 seconds)
+      Await.result(queueOrchestrator.run(), 30.seconds)
 
       Then("the queue consumer should poll for messages")
       verify(queueConsumer).poll()

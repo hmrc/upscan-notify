@@ -16,9 +16,10 @@
 
 package services
 
-import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
-import akka.event.Logging
 import config.ServiceConfiguration
+import org.apache.pekko.actor.{Actor, ActorSystem, PoisonPill, Props}
+import org.apache.pekko.event.Logging
+
 import javax.inject.Inject
 import play.api.Logging
 import play.api.inject.ApplicationLifecycle
