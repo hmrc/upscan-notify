@@ -1,12 +1,16 @@
 import play.sbt.PlayImport.PlayKeys.playDefaultPort
-import sbt.Keys._
-import sbt._
+import sbt.Keys.*
+import sbt.*
 import scoverage.ScoverageKeys
+import uk.gov.hmrc.DefaultBuildSettings
 import uk.gov.hmrc.DefaultBuildSettings.integrationTestSettings
 import uk.gov.hmrc.sbtdistributables.SbtDistributablesPlugin
 
 
 val appName = "upscan-notify"
+
+ThisBuild / majorVersion := 0
+ThisBuild / scalaVersion := "2.13.12"
 
 lazy val scoverageSettings = {
   Seq(
@@ -25,13 +29,14 @@ lazy val microservice = Project(appName, file("."))
   .enablePlugins(play.sbt.PlayScala, SbtAutoBuildPlugin, SbtDistributablesPlugin)
   .disablePlugins(JUnitXmlReportPlugin) //Required to prevent https://github.com/scalatest/scalatest/issues/1427
   .settings(scoverageSettings: _*)
-  .settings(majorVersion := 0)
-  .settings(SbtDistributablesPlugin.publishingSettings: _*)
   .settings(playDefaultPort := 9573)
   .settings(libraryDependencies ++= AppDependencies())
   .settings(resolvers += Resolver.jcenterRepo)
   .settings(scalacOptions += "-target:jvm-1.8")
-  .settings(scalaVersion := "2.13.12")
   .settings(Test / parallelExecution := false)
-  .configs(IntegrationTest)
-  .settings(integrationTestSettings(): _*)
+
+lazy val it = project
+  .enablePlugins(PlayScala)
+  .dependsOn(microservice % "test->test") // the "test->test" allows reusing test code and test dependencies
+  .settings(DefaultBuildSettings.itSettings)
+  .settings(libraryDependencies ++= AppDependencies.test)

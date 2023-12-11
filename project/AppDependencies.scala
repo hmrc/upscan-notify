@@ -4,7 +4,7 @@ object AppDependencies {
 
   private val bootstrapVersion = "8.1.0"
 
-  private val compile = Seq(
+  val compile = Seq(
     "uk.gov.hmrc"   %% "bootstrap-backend-play-30" % bootstrapVersion,
     "org.typelevel" %% "cats-core"                 % "2.10.0",
     "com.amazonaws" % "aws-java-sdk-s3"            % "1.12.606",
@@ -13,10 +13,11 @@ object AppDependencies {
     "com.sun.mail"  % "jakarta.mail"               % "2.0.1"
   )
 
-  private val test = Seq(
-    "uk.gov.hmrc"            %% "bootstrap-test-play-30"  % bootstrapVersion % s"$Test,$IntegrationTest",
-    "org.mockito"            %% "mockito-scala-scalatest" % "1.17.29"         % s"$Test,$IntegrationTest"
+  val test = Seq(
+    "uk.gov.hmrc"            %% "bootstrap-test-play-30"  % bootstrapVersion % Test,
+    "org.mockito"            %% "mockito-scala-scalatest" % "1.17.29"        % Test
   )
 
   def apply(): Seq[ModuleID] = compile ++ test
+  
 }
