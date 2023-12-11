@@ -18,15 +18,15 @@ package services
 
 import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
-
 import cats.data.EitherT
 import cats.implicits._
-import com.kenshoo.play.metrics.Metrics
 import config.ServiceConfiguration
+
 import javax.inject.Inject
 import model._
 import play.api.{Logger, LoggerLike, Logging}
 import uk.gov.hmrc.http.logging.LoggingDetails
+import uk.gov.hmrc.play.bootstrap.metrics.Metrics
 import util.logging.LoggingDetails
 import util.logging.WithLoggingDetails.withLoggingDetails
 

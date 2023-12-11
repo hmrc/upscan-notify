@@ -24,7 +24,7 @@ import model.Message
 import play.api.Logging
 import services.QueueConsumer
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 abstract class SqsQueueConsumer(val sqsClient: AmazonSQS, queueUrl: String, clock: Clock)(implicit val ec: ExecutionContext)
@@ -43,7 +43,7 @@ abstract class SqsQueueConsumer(val sqsClient: AmazonSQS, queueUrl: String, cloc
       result.getMessages.asScala.map { sqsMessage =>
         logger.debug(s"Received message with id: [${sqsMessage.getMessageId}] and receiptHandle: [${sqsMessage.getReceiptHandle}].")
         Message(sqsMessage.getMessageId, sqsMessage.getBody, sqsMessage.getReceiptHandle, receivedAt)
-      }
+      }.toSeq
     }
   }
 

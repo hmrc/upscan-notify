@@ -29,18 +29,18 @@ trait WithWireMock extends BeforeAndAfterEach with BeforeAndAfterAll {
   lazy val wireMockServer = new WireMockServer(wireMockConfig().port(WIREMOCK_PORT))
 
   override def beforeAll() = {
-    super.beforeAll
+    super.beforeAll()
     wireMockServer.start
     WireMock.configureFor(WIREMOCK_PORT)
   }
 
   override def afterAll(): Unit = {
     wireMockServer.stop
-    super.afterAll
+    super.afterAll()
   }
 
   override def beforeEach() = {
-    super.beforeEach
+    super.beforeEach()
     WireMock.reset
   }
 }

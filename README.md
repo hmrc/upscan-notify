@@ -14,7 +14,7 @@ role. See [UpScan Accounts/roles](https://github.com/hmrc/aws-users/blob/master/
 for proper details.
 
 Prerequisites:
-- AWS accounts with proper roles setup
+- AWS accounts with proper roles setup, i.e, `RoleUpscanEngineer`, `[platops_engineer, platform_member, upscan_engineer]`
 - Proper AWS credential configuration set up according to this document [aws-credential-configuration](https://github.com/hmrc/aws-users), with the credentials below:
 ```
 [upscan-service-prototypes-engineer]
@@ -24,27 +24,21 @@ aws_secret_access_key = YOUR_SECRET_KEY_HERE
 output = json
 region = eu-west-2
 mfa_serial = arn:aws:iam::638924580364:mfa/your.username
-role_arn = arn:aws:iam::063874132475:role/RoleServiceUpscanEngineer
+role_arn = arn:aws:iam::063874132475:role/RoleUpscanEngineer
 
 [webops-users]
 aws_access_key_id = YOUR_ACCESS_KEY_HERE
 aws_secret_access_key = YOUR_SECRET_KEY_HERE
 mfa_serial = arn:aws:iam::638924580364:mfa/your.username
 region = eu-west-2
-role_arn = arn:aws:iam::063874132475:role/RoleServiceUpscanEngineer
+role_arn = arn:aws:iam::063874132475:role/RoleUpscanEngineer
 ```
 - Working AWS MFA authentication
-- Have python 2.7 installed
 - Install botocore and awscli python modules locally:
-  - For Linux:
+
 ```
 sudo pip install botocore
 sudo pip install awscli
-```
-  - For Mac (Mac has issues with pre-installed version of ```six``` as discussed [here](https://github.com/pypa/pip/issues/3165):
-```
-sudo pip install botocore --ignore-installed six
-sudo pip install awscli --ignore-installed six
 ```
 
 In order to run the app against lab environment it's neeeded to run the following commands:

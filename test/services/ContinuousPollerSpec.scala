@@ -17,9 +17,8 @@
 package services
 
 import java.util.concurrent.atomic.AtomicInteger
-
-import akka.actor.ActorSystem
 import config.ServiceConfiguration
+import org.apache.pekko.actor.ActorSystem
 import org.scalatest.concurrent.Eventually
 import play.api.inject.DefaultApplicationLifecycle
 import test.UnitSpec
@@ -29,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ContinuousPollerSpec extends UnitSpec with Eventually {
 
-  implicit def actorSystem = ActorSystem()
+  implicit def actorSystem: ActorSystem = ActorSystem()
 
   val serviceConfiguration = new ServiceConfiguration {
     override def accessKeyId: String = ???
@@ -40,7 +39,7 @@ class ContinuousPollerSpec extends UnitSpec with Eventually {
 
     override def sessionToken: Option[String] = ???
 
-    override def retryInterval: FiniteDuration = 1 second
+    override def retryInterval: FiniteDuration = 1.second
 
     override def outboundSuccessfulQueueUrl: String = ???
 

@@ -82,7 +82,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
 
   private def parseCheckpoints(userMetadata: Map[String, String]) =
     userMetadata
-      .filterKeys(_.startsWith("x-amz-meta-upscan-"))
+      .view.filterKeys(_.startsWith("x-amz-meta-upscan-"))
       .flatMap {
         case (key, value) =>
           Try(Instant.parse(value)) match {

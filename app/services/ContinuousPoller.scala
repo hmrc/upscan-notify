@@ -16,9 +16,10 @@
 
 package services
 
-import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
-import akka.event.Logging
 import config.ServiceConfiguration
+import org.apache.pekko.actor.{Actor, ActorSystem, PoisonPill, Props}
+import org.apache.pekko.event.Logging
+
 import javax.inject.Inject
 import play.api.Logging
 import play.api.inject.ApplicationLifecycle
@@ -31,7 +32,7 @@ import scala.util.{Failure, Success}
 trait PollingJob {
   def run(): Future[Unit]
 
-  def jobName(): String = this.getClass.getName
+  def jobName: String = this.getClass.getName
 }
 
 case class PollingJobs(jobs: Seq[PollingJob])
@@ -75,7 +76,7 @@ class ContinuousPollingActor(job: PollingJob, retryInterval: FiniteDuration) ext
 
     case Poll =>
       log.debug(s"Polling for flow: [${job.jobName}].")
-      job.run andThen {
+      job.run() andThen {
         case Success(r) =>
           log.debug(s"Polling succeeded for flow: [${job.jobName}].")
           self ! Poll

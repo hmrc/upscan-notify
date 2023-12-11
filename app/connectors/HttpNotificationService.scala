@@ -113,7 +113,7 @@ object UploadDetails {
 }
 
 object ReadyCallbackBody {
-  implicit val urlFormats = JsonWriteHelpers.urlFormats
+  implicit val urlFormats: Writes[URL] = JsonWriteHelpers.urlFormats
   implicit val writesReadyCallback: Writes[ReadyCallbackBody] = Json.writes[ReadyCallbackBody]
 }
 

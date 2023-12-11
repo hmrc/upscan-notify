@@ -7,7 +7,7 @@
 
     <logger name="application" level="${logger.application:-WARN}"/>
 
-    <logger name="uk.gov" level="${logger.uk.gov:-WARN}"/>
+    <logger name="uk.gov" level="WARN"/>
 
     <!--Used to log warnings about slowly processed requests. -->
     <logger name="services.NotifyOnQuarantineFileUploadMessageProcessingJob" level="${logger.uk.gov:-INFO}"/>
