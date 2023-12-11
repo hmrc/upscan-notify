@@ -30,7 +30,7 @@ import java.net.URL
 import java.nio.charset.StandardCharsets.UTF_8
 import java.time.Instant
 import javax.inject.Inject
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 

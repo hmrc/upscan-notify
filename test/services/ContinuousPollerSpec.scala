@@ -28,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ContinuousPollerSpec extends UnitSpec with Eventually {
 
-  implicit def actorSystem = ActorSystem()
+  implicit def actorSystem: ActorSystem = ActorSystem()
 
   val serviceConfiguration = new ServiceConfiguration {
     override def accessKeyId: String = ???

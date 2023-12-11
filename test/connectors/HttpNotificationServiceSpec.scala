@@ -89,7 +89,7 @@ class HttpNotificationServiceSpec extends UnitSpec with GivenWhenThen with Befor
       Then("service should return success")
       result.isSuccess shouldBe true
 
-      result.get should contain allOf (
+      result.get should contain.allOf (
         Checkpoint("x-amz-meta-upscan-notify-callback-started", baseTime),
         Checkpoint("x-amz-meta-upscan-notify-callback-ended", baseTime.plusSeconds(1))
       )

@@ -47,6 +47,6 @@ object JsonReads {
       }
   }
 
-  private implicit val uploadDetialsReads = Json.reads[UploadDetails]
-  implicit val readyCallbackBodyReads = Json.reads[ReadyCallbackBody]
+  private implicit val uploadDetialsReads: Reads[UploadDetails] = Json.reads[UploadDetails]
+  implicit val readyCallbackBodyReads: Reads[ReadyCallbackBody] = Json.reads[ReadyCallbackBody]
 }
