@@ -24,19 +24,22 @@ import config.ServiceConfiguration
 
 import javax.inject.Inject
 import model._
-import play.api.{Logger, LoggerLike, Logging}
 import uk.gov.hmrc.http.logging.LoggingDetails
 import uk.gov.hmrc.play.bootstrap.metrics.Metrics
 import util.logging.LoggingDetails
 import util.logging.WithLoggingDetails.withLoggingDetails
 
 import scala.concurrent.{ExecutionContext, Future}
+import play.api.LoggerLike
+import play.api.Logger
 
 case class MessageContext(ld: LoggingDetails)
 
 case class ExceptionWithContext(e: Exception, context: Option[MessageContext])
 
-trait MessageProcessingJob extends PollingJob { this: Logging =>
+trait MessageProcessingJob extends PollingJob {
+
+  private[services] val logger: LoggerLike
 
   implicit def executionContext: ExecutionContext
 
@@ -97,9 +100,9 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
   upscanAuditingService: UpscanAuditingService,
   serviceConfiguration: ServiceConfiguration
 )(implicit val executionContext: ExecutionContext)
-    extends Logging with MessageProcessingJob {
+    extends MessageProcessingJob {
 
-  private val timingsLogger = Logger(classOf[NotifyOnSuccessfulFileUploadMessageProcessingJob])
+  private[services] override val logger: Logger = Logger(getClass)
 
   override def processMessage(message: Message): EitherT[Future, ExceptionWithContext, MessageContext] =
     for {
@@ -115,7 +118,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
       _                                           = collectMetricsBeforeNotification(notification)
       checkpoints3 <- toEitherT(notificationService.notifySuccessfulCallback(notification), Some(context))
     } yield {
-      collectMetricsAfterNotification(notification, (checkpoints1 :+ checkpoint2) ++ checkpoints3, timingsLogger)
+      collectMetricsAfterNotification(notification, (checkpoints1 :+ checkpoint2) ++ checkpoints3)
       context
     }
 
@@ -135,8 +138,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
 
   private[services] def collectMetricsAfterNotification(
     notification: SuccessfulProcessingDetails,
-    checkpoints: Checkpoints,
-    perfLogger: LoggerLike): Unit = {
+    checkpoints: Checkpoints): Unit = {
 
     val respondedAt = clock.instant()
 
@@ -159,7 +161,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
 
         val checkpoints = newCheckpoints.sortedCheckpoints.mkString("[", ", ", "]")
 
-        perfLogger.warn(
+        logger.warn(
           s"""Accepted file total processing time: [${totalProcessingTime.getSeconds} seconds] exceeded threshold of [$endToEndProcessingThreshold].
              |Processing checkpoints were: $checkpoints.
            """.stripMargin)
@@ -181,9 +183,9 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
   upscanAuditingService: UpscanAuditingService,
   serviceConfiguration: ServiceConfiguration
 )(implicit val executionContext: ExecutionContext)
-    extends Logging with MessageProcessingJob {
+    extends MessageProcessingJob {
 
-  private val timingsLogger = Logger(classOf[NotifyOnQuarantineFileUploadMessageProcessingJob])
+  private[services] override val logger: Logger = Logger(getClass)
 
   override def processMessage(message: Message): EitherT[Future, ExceptionWithContext, MessageContext] =
     for {
@@ -199,14 +201,13 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
       _                                           = upscanAuditingService.notifyFileIsQuarantined(notification)
       checkpoints3 <- toEitherT(notificationService.notifyFailedCallback(notification), Some(context))
     } yield {
-      collectMetricsAfterNotification(notification, checkpoints1.:+(checkpoint2).++(checkpoints3), timingsLogger)
+      collectMetricsAfterNotification(notification, checkpoints1.:+(checkpoint2).++(checkpoints3))
       context
     }
 
   private[services] def collectMetricsAfterNotification(
     notification: FailedProcessingDetails,
-    checkpoints: Checkpoints,
-    perfLogger: LoggerLike): Unit = {
+    checkpoints: Checkpoints): Unit = {
 
     val respondedAt = clock.instant()
 
@@ -228,7 +229,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
 
         val checkpoints = updatedCheckpoints.sortedCheckpoints.mkString("[", ", ", "]")
 
-        perfLogger.warn(
+        logger.warn(
           s"""Rejected file total processing time: [${totalProcessingTime.getSeconds} seconds] exceeded threshold of [$endToEndProcessingThreshold].
              |Processing checkpoints were: $checkpoints.
            """.stripMargin)
