@@ -20,15 +20,17 @@ import com.codahale.metrics.MetricRegistry
 import config.ServiceConfiguration
 import connectors.aws.S3EventParser
 import model._
-import test.{MockLoggerLike, UnitSpec}
+import test.UnitSpec
 import uk.gov.hmrc.play.bootstrap.metrics.Metrics
 
 import java.net.URL
 import java.time.{Clock, Instant}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import uk.gov.hmrc.play.bootstrap.tools.LogCapturing
+import ch.qos.logback.classic.Level
 
-class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends UnitSpec {
+class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends UnitSpec with LogCapturing {
 
   val consumer             = mock[SuccessfulQueueConsumer]
   val parser               = new S3EventParser()
@@ -38,7 +40,6 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends UnitSpec {
   val clock                = Clock.systemDefaultZone()
   val auditingService      = mock[UpscanAuditingService]
   val serviceConfiguration = mock[ServiceConfiguration]
-  val mockLogger           = new MockLoggerLike()
 
   val defaultMetricsRegistry = mock[MetricRegistry]
   when(metrics.defaultRegistry).thenReturn(defaultMetricsRegistry)
@@ -83,14 +84,17 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends UnitSpec {
           )
         )
 
-        testInstance.collectMetricsAfterNotification(notification, checkpoints, mockLogger)
+        withCaptureOfLoggingFrom(testInstance.logger) { logs =>
+          testInstance.collectMetricsAfterNotification(notification, checkpoints)
 
-        val logMessage = mockLogger.getWarnMessage()
+          val warnMessages = logs.filter(_.getLevel == Level.WARN).map(_.getFormattedMessage)
 
-        logMessage should include("x-amz-meta-upscan-notify-received")
-        logMessage should include("x-amz-meta-upscan-notify-callback-started")
-        logMessage should include("x-amz-meta-upscan-notify-callback-end")
-        logMessage should include("x-amz-meta-upscan-notify-responded")
+          warnMessages.size shouldBe 1
+          warnMessages.head should include("x-amz-meta-upscan-notify-received")
+          warnMessages.head should include("x-amz-meta-upscan-notify-callback-started")
+          warnMessages.head should include("x-amz-meta-upscan-notify-callback-end")
+          warnMessages.head should include("x-amz-meta-upscan-notify-responded")
+        }
       }
     }
   }

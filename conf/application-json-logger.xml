@@ -10,7 +10,7 @@
     <logger name="uk.gov" level="WARN"/>
 
     <!--Used to log warnings about slowly processed requests. -->
-    <logger name="services.NotifyOnQuarantineFileUploadMessageProcessingJob" level="${logger.uk.gov:-INFO}"/>
+    <logger name="services.NotifyOnQuarantineFileUploadMessageProcessingJob" level="INFO"/>
 
     <root level="INFO">
         <appender-ref ref="STDOUT"/>

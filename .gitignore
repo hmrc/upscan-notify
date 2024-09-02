@@ -36,5 +36,6 @@ t
 nohup.out
 nohup
 **/*.bloop
-*/.metals/
 */metals*
+.metals/
+.vscode/
