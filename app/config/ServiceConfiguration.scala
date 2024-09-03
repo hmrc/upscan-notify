@@ -45,20 +45,25 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
   import PlayBasedServiceConfiguration._
 
   override def outboundSuccessfulQueueUrl: String =
-    getRequired(configuration.getOptional[String](_), "aws.sqs.queue.outbound.successful")
+    configuration.get[String]("aws.sqs.queue.outbound.successful")
 
   override def outboundQuarantineQueueUrl: String =
-    getRequired(configuration.getOptional[String](_), "aws.sqs.queue.outbound.quarantine")
+    configuration.get[String]("aws.sqs.queue.outbound.quarantine")
 
-  override def awsRegion: String = getRequired(configuration.getOptional[String](_), "aws.s3.region")
+  override def awsRegion: String =
+    configuration.get[String]("aws.s3.region")
 
-  override def accessKeyId: String = getRequired(configuration.getOptional[String](_), "aws.accessKeyId")
+  override def accessKeyId: String =
+    configuration.get[String]("aws.accessKeyId")
 
-  override def secretAccessKey: String = getRequired(configuration.getOptional[String](_), "aws.secretAccessKey")
+  override def secretAccessKey: String =
+    configuration.get[String]("aws.secretAccessKey")
 
-  override def sessionToken: Option[String] = configuration.getOptional[String]("aws.sessionToken")
+  override def sessionToken: Option[String] =
+    configuration.getOptional[String]("aws.sessionToken")
 
-  override def retryInterval: FiniteDuration = getRequired(readDurationAsMillis,"aws.sqs.retry.interval").milliseconds
+  override def retryInterval: FiniteDuration =
+    configuration.get[FiniteDuration]("aws.sqs.retry.interval")
 
   override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = {
       val serviceS3UrlExpiry = validS3UrlExpirationPeriodWithKey(configKeyForConsumingService(serviceName, S3UrlExpirationPeriod.ConfigDescriptor))
@@ -71,10 +76,7 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
     }
 
   override def endToEndProcessingThreshold(): Duration =
-    getRequired(readDurationAsMillis,"upscan.endToEndProcessing.threshold").seconds
-
-  private def getRequired[T](function: String => Option[T], key: String): T =
-    function(key).getOrElse(throw new IllegalStateException(s"Configuration key not found: $key"))
+    configuration.get[Duration]("upscan.endToEndProcessing.threshold")
 
   private def replaceInvalidChars(serviceName: String): String =
     serviceName.replaceAll("[/.,]", "-")
