@@ -80,19 +80,26 @@ class S3FileNotificationDetailsRetriever @Inject()(
       WithCheckpoints(retrieved, Checkpoints(checkpoints))
     }
 
-  private def parseCheckpoints(userMetadata: Map[String, String]) =
+  private def parseCheckpoints(userMetadata: Map[String, String]) = {
+    val prettyPrint = userMetadata.map { case (key, value) =>
+      s"  $key -> $value"
+    }.mkString("{\n", ",\n", "\n}")
+
+    logger.info(s"userMetadata: $prettyPrint")
+    
     userMetadata
       .view.filterKeys(_.startsWith("x-amz-meta-upscan-"))
-      .flatMap {
-        case (key, value) =>
-          Try(Instant.parse(value)) match {
-            case Success(parsedTimestamp) => Some(Checkpoint(key, parsedTimestamp))
-            case Failure(exception) =>
-              logger.warn(s"Checkpoint field $key has invalid format", exception)
-              None
-          }
-      }
-      .toSeq
+        .flatMap {
+          case (key, value) =>
+            Try(Instant.parse(value)) match {
+              case Success(parsedTimestamp) => Some(Checkpoint(key, parsedTimestamp))
+              case Failure(exception) =>
+                logger.warn(s"Checkpoint field $key has invalid format", exception)
+                None
+            }
+        }
+        .toSeq
+  }
 
   private def parseContents(contents: String): ErrorDetails = {
     def unknownError(): ErrorDetails = ErrorDetails("UNKNOWN", contents)
