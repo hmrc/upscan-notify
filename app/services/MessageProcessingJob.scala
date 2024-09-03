@@ -146,6 +146,8 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
 
     val totalProcessingTime = Duration.between(notification.uploadTimestamp, respondedAt)
 
+    logger.info(s"uploadTimestamp: ${notification.uploadTimestamp}\nrespondedAt: $respondedAt\ntotalProcessingTime (ms): ${totalProcessingTime.toMillis()}")
+
     if (totalProcessingTime.isNegative) {
       logger.warn(
         "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
