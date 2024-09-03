@@ -84,10 +84,11 @@ class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends UnitSpec with
           val warnMessages = logs.filter(_.getLevel == Level.WARN).map(_.getFormattedMessage)
           
           warnMessages.size shouldBe 1
-          warnMessages.head should include("x-amz-meta-upscan-notify-received")
-          warnMessages.head should include("x-amz-meta-upscan-notify-callback-started")
-          warnMessages.head should include("x-amz-meta-upscan-notify-callback-end")
-          warnMessages.head should include("x-amz-meta-upscan-notify-responded")
+          warnMessages.head should include("upscan-file-uploaded")
+          warnMessages.head should include("upscan-notify-received")
+          warnMessages.head should include("upscan-notify-callback-started")
+          warnMessages.head should include("upscan-notify-callback-end")
+          warnMessages.head should include("upscan-notify-responded")
         }
       }
     }

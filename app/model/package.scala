@@ -40,6 +40,18 @@ case class Checkpoints(items: Seq[Checkpoint]) {
 
   def sortedCheckpoints =
     items.sortBy(_.timestamp)
+
+  def breakdown = {
+    def display(checkpoint: Checkpoint): String =
+      s"${checkpoint.name.stripPrefix("x-amz-meta-")} @ ${checkpoint.timestamp}}"
+
+    sortedCheckpoints.foldLeft((Option.empty[Checkpoint], List.empty[String])) {
+      case ((None          , acc), current) => (Some(current), acc :+ display(current))
+      case ((Some(previous), acc), current) =>
+        val duration = java.time.Duration.between(previous.timestamp, current.timestamp).toMillis
+        (Some(current), acc :+ display(current) + s", took $duration ms")
+    }._2.mkString("\n")
+  }
 }
 
 case class WithCheckpoints[T](details: T, checkpoints: Checkpoints)
