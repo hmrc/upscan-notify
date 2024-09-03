@@ -142,7 +142,11 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
 
     val respondedAt = clock.instant()
 
-    val newCheckpoints = checkpoints :+ Checkpoint("x-amz-meta-upscan-notify-responded", clock.instant())
+    val updatedCheckpoints =
+      checkpoints ++ Seq(
+        Checkpoint("x-amz-meta-upscan-file-uploaded", notification.uploadTimestamp),
+        Checkpoint("x-amz-meta-upscan-notify-responded", clock.instant())
+      )
 
     val totalProcessingTime = Duration.between(notification.uploadTimestamp, respondedAt)
 
@@ -158,12 +162,9 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
         serviceConfiguration.endToEndProcessingThreshold()
 
       if (totalProcessingTime.toMillis > endToEndProcessingThreshold.toMillis) {
-
-        val checkpoints = newCheckpoints.sortedCheckpoints.mkString("[", ", ", "]")
-
         logger.warn(
           s"""Accepted file total processing time: [${totalProcessingTime.getSeconds} seconds] exceeded threshold of [$endToEndProcessingThreshold].
-             |Processing checkpoints were: $checkpoints.
+             |Processing checkpoints were:\n${updatedCheckpoints.breakdown}.
            """.stripMargin)
       }
     }
@@ -201,7 +202,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
       _                                           = upscanAuditingService.notifyFileIsQuarantined(notification)
       checkpoints3 <- toEitherT(notificationService.notifyFailedCallback(notification), Some(context))
     } yield {
-      collectMetricsAfterNotification(notification, checkpoints1.:+(checkpoint2).++(checkpoints3))
+      collectMetricsAfterNotification(notification, (checkpoints1 :+ checkpoint2) ++ checkpoints3)
       context
     }
 
@@ -212,7 +213,10 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
     val respondedAt = clock.instant()
 
     val updatedCheckpoints =
-      checkpoints :+ model.Checkpoint("x-amz-meta-upscan-notify-responded", clock.instant())
+      checkpoints ++ Seq(
+        Checkpoint("x-amz-meta-upscan-file-uploaded", notification.uploadTimestamp),
+        Checkpoint("x-amz-meta-upscan-notify-responded", clock.instant())
+      )
 
     val totalProcessingTime = Duration.between(notification.uploadTimestamp, respondedAt)
 
@@ -226,12 +230,9 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
         serviceConfiguration.endToEndProcessingThreshold()
 
       if (totalProcessingTime.toMillis > endToEndProcessingThreshold.toMillis) {
-
-        val checkpoints = updatedCheckpoints.sortedCheckpoints.mkString("[", ", ", "]")
-
         logger.warn(
           s"""Rejected file total processing time: [${totalProcessingTime.getSeconds} seconds] exceeded threshold of [$endToEndProcessingThreshold].
-             |Processing checkpoints were: $checkpoints.
+             |Processing checkpoints were:\n${updatedCheckpoints.breakdown}.
            """.stripMargin)
       }
     }
