@@ -16,22 +16,6 @@
 
 package connectors.aws
 
-/*
- * Copyright 2018 HM Revenue & Customs
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import java.time.{Clock, Instant, ZoneId}
 import java.util
 import java.util.{List => JList}
@@ -64,7 +48,8 @@ class SqsQueueConsumerSpec extends UnitSpec with Assertions with GivenWhenThen {
   }
 
   private val receivedAt = Instant.parse("2018-11-30T16:29:15Z")
-  private val clock       = Clock.fixed(receivedAt, ZoneId.systemDefault())
+  private val batchSize  = 10
+  private val clock      = Clock.fixed(receivedAt, ZoneId.systemDefault())
 
   "SqsQueueConsumer" should {
     "call an SQS endpoint to receive messages" in {
@@ -74,7 +59,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Assertions with GivenWhenThen {
 
       val sqsClient: AmazonSQS = mock[AmazonSQS]
       when(sqsClient.receiveMessage(any[ReceiveMessageRequest])).thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", clock) {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, clock) {}
 
       When("the consumer poll method is called")
       val messages: Seq[Message] = Await.result(consumer.poll(), 2.seconds)
@@ -95,7 +80,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Assertions with GivenWhenThen {
 
       val sqsClient: AmazonSQS = mock[AmazonSQS]
       when(sqsClient.receiveMessage(any[ReceiveMessageRequest])).thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", clock) {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, clock) {}
 
       When("the consumer poll method is called")
       val messages: Seq[Message] = Await.result(consumer.poll(), 2.seconds)
@@ -112,7 +97,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Assertions with GivenWhenThen {
       val sqsClient: AmazonSQS = mock[AmazonSQS]
       when(sqsClient.receiveMessage(any[ReceiveMessageRequest])).thenThrow(new OverLimitException(""))
 
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", clock) {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, clock) {}
 
       When("the consumer confirm method is called")
       val result = consumer.poll()
@@ -134,7 +119,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Assertions with GivenWhenThen {
 
       val sqsClient: AmazonSQS = mock[AmazonSQS]
       when(sqsClient.receiveMessage(any[ReceiveMessageRequest])).thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", clock) {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, clock) {}
 
       val message: Message = Await.result(consumer.poll(), 2.seconds).head
 
@@ -155,7 +140,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Assertions with GivenWhenThen {
 
       val sqsClient: AmazonSQS = mock[AmazonSQS]
       when(sqsClient.receiveMessage(any[ReceiveMessageRequest])).thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", clock) {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, clock) {}
 
       And("an SQS endpoint which is throwing an error")
       when(sqsClient.deleteMessage(any[DeleteMessageRequest])).thenThrow(new ReceiptHandleIsInvalidException(""))

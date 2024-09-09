@@ -36,6 +36,10 @@ trait ServiceConfiguration {
 
   def awsRegion: String
 
+  def successfulProcessingBatchSize: Int
+
+  def quarantineProcessingBatchSize: Int
+
   def s3UrlExpirationPeriod(serviceName: String): FiniteDuration
 
   def endToEndProcessingThreshold(): Duration
@@ -74,6 +78,12 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
       logger.debug(s"Using configuration value of [$value] for s3UrlExpirationPeriod for service [$serviceName] from config [$source]")
       value
     }
+
+  override def successfulProcessingBatchSize: Int =
+    configuration.get[Int]("successful.processingBatchSize")
+
+  override def quarantineProcessingBatchSize: Int =
+    configuration.get[Int]("quarantine.processingBatchSize")
 
   override def endToEndProcessingThreshold(): Duration =
     configuration.get[Duration]("upscan.endToEndProcessing.threshold")
