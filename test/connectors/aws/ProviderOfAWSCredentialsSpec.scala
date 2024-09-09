@@ -29,6 +29,11 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec {
 
       val configuration = new ServiceConfiguration {
 
+        override def successfulProcessingBatchSize: Int = ???
+
+        override def quarantineProcessingBatchSize: Int = ???
+
+
         override def accessKeyId: String = "KEY_ID"
 
         override def awsRegion: String = ???
@@ -58,6 +63,11 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec {
 
     "create BasicAWSCredentials in no session token provided" in {
       val configuration = new ServiceConfiguration {
+
+        override def successfulProcessingBatchSize: Int = ???
+
+        override def quarantineProcessingBatchSize: Int = ???
+
 
         override def accessKeyId: String = "KEY_ID"
 

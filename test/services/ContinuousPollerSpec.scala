@@ -31,6 +31,11 @@ class ContinuousPollerSpec extends UnitSpec with Eventually {
   implicit def actorSystem: ActorSystem = ActorSystem()
 
   val serviceConfiguration = new ServiceConfiguration {
+
+    override def successfulProcessingBatchSize: Int = 10
+
+    override def quarantineProcessingBatchSize: Int = 10
+
     override def accessKeyId: String = ???
 
     override def awsRegion: String = ???

@@ -27,11 +27,19 @@ import services.QueueConsumer
 import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class SqsQueueConsumer(val sqsClient: AmazonSQS, queueUrl: String, clock: Clock)(implicit val ec: ExecutionContext)
+abstract class SqsQueueConsumer(
+  val sqsClient      : AmazonSQS,
+  queueUrl           : String,
+  processingBatchSize: Int,
+  clock              : Clock
+)(implicit
+  val ec: ExecutionContext
+)
     extends QueueConsumer with Logging {
 
   override def poll(): Future[Seq[Message]] = {
     val receiveMessageRequest = new ReceiveMessageRequest(queueUrl)
+      .withMaxNumberOfMessages(processingBatchSize)
       .withWaitTimeSeconds(20)
 
     val receiveMessageResult: Future[ReceiveMessageResult] =
