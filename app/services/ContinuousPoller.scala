@@ -19,79 +19,74 @@ package services
 import config.ServiceConfiguration
 import org.apache.pekko.actor.{Actor, ActorSystem, PoisonPill, Props}
 import org.apache.pekko.event.Logging
-
-import javax.inject.Inject
 import play.api.Logging
 import play.api.inject.ApplicationLifecycle
 import services.ContinuousPollingActor.Poll
 
+import javax.inject.Inject
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-trait PollingJob {
+trait PollingJob:
   def run(): Future[Unit]
 
   def jobName: String = this.getClass.getName
-}
 
-case class PollingJobs(jobs: Seq[PollingJob])
+case class PollingJobs(
+  jobs: Seq[PollingJob]
+)
 
-class ContinuousPoller @Inject()(pollingJobs: PollingJobs, serviceConfiguration: ServiceConfiguration)(
-  implicit actorSystem: ActorSystem,
+class ContinuousPoller @Inject()(
+  pollingJobs         : PollingJobs,
+  serviceConfiguration: ServiceConfiguration
+)(implicit
+  actorSystem         : ActorSystem,
   applicationLifecycle: ApplicationLifecycle,
-  ec: ExecutionContext) extends Logging {
+  ec                  : ExecutionContext
+) extends Logging:
 
-  private val pollingActors = pollingJobs.jobs map { job =>
-    logger.info(s"Creating ContinuousPollingActor for PollingJob: [${job.jobName}].")
-    actorSystem.actorOf(ContinuousPollingActor(job, serviceConfiguration.retryInterval))
-  }
+  private val pollingActors =
+    pollingJobs.jobs.map: job =>
+      logger.info(s"Creating ContinuousPollingActor for PollingJob: [${job.jobName}].")
+      actorSystem.actorOf(ContinuousPollingActor(job, serviceConfiguration.retryInterval))
 
-  pollingActors foreach { pollingActor =>
+  pollingActors.foreach: pollingActor =>
     logger.info(s"Sending initial Poll message to Actor: [${pollingActor.toString}].")
     pollingActor ! Poll
-  }
 
-  applicationLifecycle.addStopHook { () =>
-    val actorStopResults = Future.sequence {
-      pollingActors map { pollingActor =>
+  applicationLifecycle.addStopHook: () =>
+    val actorStopResults =
+      Future.traverse(pollingActors): pollingActor =>
         logger.info(s"Sending PoisonPill message to Actor: [${pollingActor.toString}].")
         pollingActor ! PoisonPill
-        Future.successful(())
-      }
-    }
+        Future.unit
 
     actorStopResults.map(_ => ())
-  }
 
-}
-
-class ContinuousPollingActor(job: PollingJob, retryInterval: FiniteDuration) extends Actor {
+class ContinuousPollingActor(
+  job          : PollingJob,
+  retryInterval: FiniteDuration
+) extends Actor:
 
   import context.dispatcher
 
   val log = Logging(context.system, this)
 
-  override def receive: Receive = {
-
+  override def receive: Receive =
     case Poll =>
       log.debug(s"Polling for flow: [${job.jobName}].")
-      job.run() andThen {
+      job.run().andThen:
         case Success(r) =>
           log.debug(s"Polling succeeded for flow: [${job.jobName}].")
           self ! Poll
         case Failure(f) =>
           log.error(f, s"Polling failed for flow: [${job.jobName}].")
           context.system.scheduler.scheduleOnce(retryInterval, self, Poll)
-      }
-  }
 
-}
-
-object ContinuousPollingActor {
+object ContinuousPollingActor:
 
   def apply(orchestrator: PollingJob, retryInterval: FiniteDuration): Props =
     Props(new ContinuousPollingActor(orchestrator, retryInterval))
 
   case object Poll
-}

@@ -16,12 +16,12 @@
 
 package config
 
-import javax.inject.Inject
 import play.api.{Configuration, Logging}
 
+import javax.inject.Inject
 import scala.concurrent.duration._
 
-trait ServiceConfiguration {
+trait ServiceConfiguration:
   def retryInterval: FiniteDuration
 
   def outboundSuccessfulQueueUrl: String
@@ -43,9 +43,8 @@ trait ServiceConfiguration {
   def s3UrlExpirationPeriod(serviceName: String): FiniteDuration
 
   def endToEndProcessingThreshold(): Duration
-}
 
-class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) extends ServiceConfiguration with Logging {
+class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) extends ServiceConfiguration with Logging:
   import PlayBasedServiceConfiguration._
 
   override def outboundSuccessfulQueueUrl: String =
@@ -69,15 +68,14 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
   override def retryInterval: FiniteDuration =
     configuration.get[FiniteDuration]("aws.sqs.retry.interval")
 
-  override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = {
-      val serviceS3UrlExpiry = validS3UrlExpirationPeriodWithKey(configKeyForConsumingService(serviceName, S3UrlExpirationPeriod.ConfigDescriptor))
-      lazy val defaultS3UrlExpiry = validS3UrlExpirationPeriodWithKey(configKeyForDefault(S3UrlExpirationPeriod.ConfigDescriptor))
+  override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration =
+      val serviceS3UrlExpiry       = validS3UrlExpirationPeriodWithKey(configKeyForConsumingService(serviceName, S3UrlExpirationPeriod.ConfigDescriptor))
+      lazy val defaultS3UrlExpiry  = validS3UrlExpirationPeriodWithKey(configKeyForDefault(S3UrlExpirationPeriod.ConfigDescriptor))
       lazy val fallbackS3UrlExpiry = "FallbackS3UrlExpirationPeriod" -> S3UrlExpirationPeriod.FallbackValue
 
       val (source, value) = serviceS3UrlExpiry.orElse(defaultS3UrlExpiry).getOrElse(fallbackS3UrlExpiry)
       logger.debug(s"Using configuration value of [$value] for s3UrlExpirationPeriod for service [$serviceName] from config [$source]")
       value
-    }
 
   override def successfulProcessingBatchSize: Int =
     configuration.get[Int]("successful.processingBatchSize")
@@ -104,12 +102,9 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
 
   private def configKeyForConsumingService(serviceName: String, configDescriptor: String): String =
     s"consuming-services.${replaceInvalidChars(serviceName)}.$configDescriptor"
-}
 
-private[config] object PlayBasedServiceConfiguration {
-  object S3UrlExpirationPeriod {
-    val ConfigDescriptor: String = "aws.s3.urlExpirationPeriod"
-    val MaxValue: FiniteDuration = 7.days
-    val FallbackValue: FiniteDuration = 1.day
-  }
-}
+private[config] object PlayBasedServiceConfiguration:
+  object S3UrlExpirationPeriod:
+    val ConfigDescriptor: String         = "aws.s3.urlExpirationPeriod"
+    val MaxValue        : FiniteDuration = 7.days
+    val FallbackValue   : FiniteDuration = 1.day

@@ -16,10 +16,6 @@
 
 package connectors.aws
 
-import java.net.URL
-import java.time.Instant
-import java.util.Date
-
 import com.amazonaws.services.s3.AmazonS3
 import config.ServiceConfiguration
 import model.{FileReference, RequestContext, S3ObjectLocation}
@@ -28,22 +24,23 @@ import org.mockito.Mockito.when
 import services.SuccessfulFileDetails
 import test.UnitSpec
 
+import java.net.URL
+import java.time.Instant
+import java.util.Date
 import scala.concurrent.duration._
 
-class S3DownloadUrlGeneratorSpec extends UnitSpec {
-
-  "S3DownloadUrlGenerator.generate" should {
-
-    "return a pre-signed URL for a known serviceName" in {
-
+class S3DownloadUrlGeneratorSpec extends UnitSpec:
+  "S3DownloadUrlGenerator.generate" should:
+    "return a pre-signed URL for a known serviceName" in:
       val consumingService = "consuming-service"
-      val expectedUrl      = new URL("http://www.presignedurl.com")
+      val expectedUrl      = URL("http://www.presignedurl.com")
 
-      val mockAmazonS3: AmazonS3 = mock[AmazonS3]
-      val s3objectLocation       = S3ObjectLocation("bucket", "objectKey")
+      val mockAmazonS3     = mock[AmazonS3]
+      val s3objectLocation = S3ObjectLocation("bucket", "objectKey")
       when(
         mockAmazonS3
-          .generatePresignedUrl(eqTo(s3objectLocation.bucket), eqTo(s3objectLocation.objectKey), any[Date]))
+          .generatePresignedUrl(eqTo(s3objectLocation.bucket), eqTo(s3objectLocation.objectKey), any[Date])
+      )
         .thenReturn(expectedUrl)
 
       val mockServiceConfiguration: ServiceConfiguration = mock[ServiceConfiguration]
@@ -52,7 +49,7 @@ class S3DownloadUrlGeneratorSpec extends UnitSpec {
 
       val readyObjectMetadata: SuccessfulFileDetails = SuccessfulFileDetails(
         fileReference    = FileReference("file-reference"),
-        callbackUrl      = new URL("http://www.fakeurl.com"),
+        callbackUrl      = URL("http://www.fakeurl.com"),
         fileName         = "fileName",
         fileMimeType     = "fileMimeType",
         uploadTimestamp  = Instant.now,
@@ -63,10 +60,5 @@ class S3DownloadUrlGeneratorSpec extends UnitSpec {
         userMetadata     = Map()
       )
 
-      val s3DownloadUrlGenerator = new S3DownloadUrlGenerator(mockAmazonS3, mockServiceConfiguration)
+      val s3DownloadUrlGenerator = S3DownloadUrlGenerator(mockAmazonS3, mockServiceConfiguration)
       s3DownloadUrlGenerator.generate(S3ObjectLocation("bucket", "objectKey"), readyObjectMetadata) shouldBe expectedUrl
-    }
-
-  }
-
-}

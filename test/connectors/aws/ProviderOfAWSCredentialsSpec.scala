@@ -22,78 +22,70 @@ import test.UnitSpec
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
-class ProviderOfAWSCredentialsSpec extends UnitSpec {
+class ProviderOfAWSCredentialsSpec extends UnitSpec:
 
-  "ProviderOfAWSCredentials" should {
-    "create BasicSessionCredentials if session token provided" in {
+  "ProviderOfAWSCredentials" should:
+    "create BasicSessionCredentials if session token provided" in:
+      val configuration =
+        new ServiceConfiguration:
+          override def successfulProcessingBatchSize: Int = ???
 
-      val configuration = new ServiceConfiguration {
-
-        override def successfulProcessingBatchSize: Int = ???
-
-        override def quarantineProcessingBatchSize: Int = ???
+          override def quarantineProcessingBatchSize: Int = ???
 
 
-        override def accessKeyId: String = "KEY_ID"
+          override def accessKeyId: String = "KEY_ID"
 
-        override def awsRegion: String = ???
+          override def awsRegion: String = ???
 
-        override def secretAccessKey: String = "ACCESS_KEY"
+          override def secretAccessKey: String = "ACCESS_KEY"
 
-        override def sessionToken: Option[String] = Some("SESSION_TOKEN")
+          override def sessionToken: Option[String] = Some("SESSION_TOKEN")
 
-        override def outboundSuccessfulQueueUrl: String = ???
+          override def outboundSuccessfulQueueUrl: String = ???
 
-        override def retryInterval = ???
+          override def retryInterval = ???
 
-        override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = ???
+          override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = ???
 
-        override def outboundQuarantineQueueUrl: String = ???
+          override def outboundQuarantineQueueUrl: String = ???
 
-        override def endToEndProcessingThreshold(): Duration = ???
-      }
+          override def endToEndProcessingThreshold(): Duration = ???
 
-      val credentials: AWSCredentialsProvider = new ProviderOfAWSCredentials(configuration).get()
+      val credentials: AWSCredentialsProvider = ProviderOfAWSCredentials(configuration).get()
 
       credentials.getCredentials.getAWSAccessKeyId                                   shouldBe "KEY_ID"
       credentials.getCredentials.getAWSSecretKey                                     shouldBe "ACCESS_KEY"
       credentials.getCredentials                                                     shouldBe a[AWSSessionCredentials]
       credentials.getCredentials.asInstanceOf[AWSSessionCredentials].getSessionToken shouldBe "SESSION_TOKEN"
-    }
 
-    "create BasicAWSCredentials in no session token provided" in {
-      val configuration = new ServiceConfiguration {
+    "create BasicAWSCredentials in no session token provided" in:
+      val configuration =
+        new ServiceConfiguration:
+          override def successfulProcessingBatchSize: Int = ???
 
-        override def successfulProcessingBatchSize: Int = ???
-
-        override def quarantineProcessingBatchSize: Int = ???
+          override def quarantineProcessingBatchSize: Int = ???
 
 
-        override def accessKeyId: String = "KEY_ID"
+          override def accessKeyId: String = "KEY_ID"
 
-        override def awsRegion: String = ???
+          override def awsRegion: String = ???
 
-        override def secretAccessKey: String = "ACCESS_KEY"
+          override def secretAccessKey: String = "ACCESS_KEY"
 
-        override def sessionToken: Option[String] = None
+          override def sessionToken: Option[String] = None
 
-        override def outboundSuccessfulQueueUrl: String = ???
+          override def outboundSuccessfulQueueUrl: String = ???
 
-        override def retryInterval = ???
+          override def retryInterval = ???
 
-        override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = ???
+          override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = ???
 
-        override def outboundQuarantineQueueUrl: String = ???
+          override def outboundQuarantineQueueUrl: String = ???
 
-        override def endToEndProcessingThreshold(): Duration = ???
-      }
+          override def endToEndProcessingThreshold(): Duration = ???
 
-      val credentials: AWSCredentialsProvider = new ProviderOfAWSCredentials(configuration).get()
+      val credentials: AWSCredentialsProvider = ProviderOfAWSCredentials(configuration).get()
 
       credentials.getCredentials.getAWSAccessKeyId shouldBe "KEY_ID"
       credentials.getCredentials.getAWSSecretKey   shouldBe "ACCESS_KEY"
       credentials.getCredentials shouldNot be(a[AWSSessionCredentials])
-    }
-  }
-
-}

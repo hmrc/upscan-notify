@@ -31,10 +31,10 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import ch.qos.logback.classic.Level
 
-class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends UnitSpec with LogCapturing {
+class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends UnitSpec with LogCapturing:
 
   val consumer             = mock[QuarantineQueueConsumer]
-  val parser               = new S3EventParser()
+  val parser               = S3EventParser()
   val fileRetriever        = mock[FileNotificationDetailsRetriever]
   val notificationService  = mock[NotificationService]
   val metrics              = mock[Metrics]
@@ -43,13 +43,14 @@ class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends UnitSpec with
   val serviceConfiguration = mock[ServiceConfiguration]
 
   val defaultMetricsRegistry = mock[MetricRegistry]
-  when(metrics.defaultRegistry).thenReturn(defaultMetricsRegistry)
+  when(metrics.defaultRegistry)
+    .thenReturn(defaultMetricsRegistry)
   when(defaultMetricsRegistry.counter("quarantinedUploadNotificationSent"))
     .thenReturn(mock[com.codahale.metrics.Counter])
 
   when(serviceConfiguration.endToEndProcessingThreshold()).thenReturn(0.seconds)
 
-  val testInstance = new NotifyOnQuarantineFileUploadMessageProcessingJob(
+  val testInstance = NotifyOnQuarantineFileUploadMessageProcessingJob(
     consumer,
     parser,
     fileRetriever,
@@ -60,11 +61,11 @@ class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends UnitSpec with
     serviceConfiguration
   )
 
-  "NotifyOnQuarantineFileUploadMessageProcessingJobSpec" when {
-    "collectMetricsAfterNotification" should {
-      "log all metrics" in {
+  "NotifyOnQuarantineFileUploadMessageProcessingJobSpec" when:
+    "collectMetricsAfterNotification" should:
+      "log all metrics" in:
         val notification = FailedProcessingDetails(
-          callbackUrl     = new URL("http://my.callback.url"),
+          callbackUrl     = URL("http://my.callback.url"),
           reference       = FileReference("upload-file-reference"),
           fileName        = "test.pdf",
           uploadTimestamp = Instant.parse("2018-12-01T14:30:00Z"),
@@ -74,12 +75,12 @@ class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends UnitSpec with
 
         val checkpoints = Checkpoints(
           Seq(
-            Checkpoint("x-amz-meta-upscan-notify-received", Instant.parse("2018-12-01T14:36:20Z")),
+            Checkpoint("x-amz-meta-upscan-notify-received"        , Instant.parse("2018-12-01T14:36:20Z")),
             Checkpoint("x-amz-meta-upscan-notify-callback-started", Instant.parse("2018-12-01T14:36:30Z")),
-            Checkpoint("x-amz-meta-upscan-notify-callback-ended", Instant.parse("2018-12-01T14:36:31Z"))
+            Checkpoint("x-amz-meta-upscan-notify-callback-ended"  , Instant.parse("2018-12-01T14:36:31Z"))
           ))
 
-        withCaptureOfLoggingFrom(testInstance.logger) { logs =>
+        withCaptureOfLoggingFrom(testInstance.logger): logs =>
           testInstance.collectMetricsAfterNotification(notification, checkpoints)
 
           val warnMessages = logs.filter(_.getLevel == Level.WARN).map(_.getFormattedMessage)
@@ -90,8 +91,3 @@ class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends UnitSpec with
           warnMessages.head should include("upscan-notify-callback-started")
           warnMessages.head should include("upscan-notify-callback-end")
           warnMessages.head should include("upscan-notify-responded")
-        }
-      }
-    }
-  }
-}

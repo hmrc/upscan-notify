@@ -20,7 +20,7 @@ import model._
 
 import scala.concurrent.Future
 
-trait NotificationService {
+trait NotificationService:
   def notifySuccessfulCallback(notification: SuccessfulProcessingDetails): Future[Seq[Checkpoint]]
+
   def notifyFailedCallback(notification: FailedProcessingDetails): Future[Seq[Checkpoint]]
-}

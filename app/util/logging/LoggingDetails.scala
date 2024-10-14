@@ -22,8 +22,8 @@ import uk.gov.hmrc.http.HeaderCarrier
 /**
  * Convenience methods to create a [[uk.gov.hmrc.http.logging.LoggingDetails]] instance, required by [[uk.gov.hmrc.play.http.logging.MdcLoggingExecutionContext]].
  */
-object LoggingDetails {
-  val ObjectKey = "object-key"
+object LoggingDetails:
+  val ObjectKey     = "object-key"
   val FileReference = "file-reference"
 
   def fromS3ObjectLocation(s3ObjectLocation: S3ObjectLocation): HeaderCarrier =
@@ -33,10 +33,12 @@ object LoggingDetails {
     fromValues(FileReference -> fileReference.reference)
 
   def fromS3ObjectLocationWithReference(s3ObjectLocation: S3ObjectLocation, fileReference: FileReference): HeaderCarrier =
-    fromValues(ObjectKey -> s3ObjectLocation.objectKey, FileReference -> fileReference.reference)
+    fromValues(
+      ObjectKey     -> s3ObjectLocation.objectKey,
+      FileReference -> fileReference.reference
+    )
 
   private def fromValues(values: (String, String)*): HeaderCarrier =
-    new HeaderCarrier() {
-      override lazy val mdcData: Map[String, String] = super.mdcData ++ values
-    }
-}
+    new HeaderCarrier():
+      override lazy val mdcData: Map[String, String] =
+        super.mdcData ++ values

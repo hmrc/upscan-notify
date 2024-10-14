@@ -16,29 +16,29 @@
 
 package services
 
-import java.time.Instant
-import config.ServiceConfiguration
-
-import javax.inject.Inject
 import model._
 import play.api.Logging
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import util.logging.WithLoggingDetails.withLoggingDetails
 import util.logging.LoggingDetails
 
+import java.time.Instant
+import javax.inject.Inject
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 class S3FileNotificationDetailsRetriever @Inject()(
-  fileManager: FileManager,
-  config: ServiceConfiguration,
-  downloadUrlGenerator: DownloadUrlGenerator)(implicit ec: ExecutionContext) extends FileNotificationDetailsRetriever with Logging {
+  fileManager         : FileManager,
+  downloadUrlGenerator: DownloadUrlGenerator
+)(implicit
+  ec: ExecutionContext
+) extends FileNotificationDetailsRetriever with Logging:
 
   override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[WithCheckpoints[SuccessfulProcessingDetails]] =
-    for {
+    for
       metadata <- fileManager.receiveSuccessfulFileDetails(objectLocation)
       downloadUrl = downloadUrlGenerator.generate(objectLocation, metadata)
-    } yield {
+    yield
       val checkpoints = parseCheckpoints(metadata.userMetadata)
       val retrieved =
         SuccessfulProcessingDetails(
@@ -52,17 +52,15 @@ class S3FileNotificationDetailsRetriever @Inject()(
           checksum        = metadata.checksum,
           metadata.requestContext
         )
-      withLoggingDetails(LoggingDetails.fromFileReference(retrieved.reference)) {
-        logger.debug(
-          s"Retrieved file with Key=[${retrieved.reference.reference}] and callbackUrl=[${retrieved.callbackUrl}] for object=[${objectLocation.objectKey}].")
-      }
+      withLoggingDetails(LoggingDetails.fromFileReference(retrieved.reference)):
+        logger.debug:
+          s"Retrieved file with Key=[${retrieved.reference.reference}] and callbackUrl=[${retrieved.callbackUrl}] for object=[${objectLocation.objectKey}]."
       WithCheckpoints(retrieved, Checkpoints(checkpoints))
-    }
 
   override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[WithCheckpoints[FailedProcessingDetails]] =
-    for {
+    for
       quarantineFile <- fileManager.receiveFailedFileDetails(objectLocation)
-    } yield {
+    yield
       val checkpoints = parseCheckpoints(quarantineFile.userMetadata)
       val retrieved =
         FailedProcessingDetails(
@@ -73,37 +71,32 @@ class S3FileNotificationDetailsRetriever @Inject()(
           error           = parseContents(quarantineFile.failureDetailsAsJson),
           requestContext  = quarantineFile.requestContext
         )
-      withLoggingDetails(LoggingDetails.fromFileReference(retrieved.reference)) {
-        logger.debug(
-          s"Retrieved quarantined file with Key=[${retrieved.reference.reference}] and callbackUrl=[${retrieved.callbackUrl}] for object=[${objectLocation.objectKey}].")
-      }
+      withLoggingDetails(LoggingDetails.fromFileReference(retrieved.reference))
+        logger.debug:
+          s"Retrieved quarantined file with Key=[${retrieved.reference.reference}] and callbackUrl=[${retrieved.callbackUrl}] for object=[${objectLocation.objectKey}]."
       WithCheckpoints(retrieved, Checkpoints(checkpoints))
-    }
 
   private def parseCheckpoints(userMetadata: Map[String, String]) =
     userMetadata
-      .view.filterKeys(_.startsWith("x-amz-meta-upscan-"))
-      .flatMap {
+      .view
+      .filterKeys(_.startsWith("x-amz-meta-upscan-"))
+      .flatMap:
         case (key, value) =>
-          Try(Instant.parse(value)) match {
-            case Success(parsedTimestamp) => Some(Checkpoint(key, parsedTimestamp))
-            case Failure(exception) =>
+          Try(Instant.parse(value)) match
+            case Success(parsedTimestamp) =>
+              Some(Checkpoint(key, parsedTimestamp))
+            case Failure(exception)       =>
               logger.warn(s"Checkpoint field $key has invalid format", exception)
               None
-          }
-      }
       .toSeq
 
-  private def parseContents(contents: String): ErrorDetails = {
+  private def parseContents(contents: String): ErrorDetails =
     def unknownError(): ErrorDetails = ErrorDetails("UNKNOWN", contents)
 
-    Try(Json.parse(contents)) match {
+    Try(Json.parse(contents)) match
       case Success(json) =>
-        json.validate[ErrorDetails] match {
+        json.validate[ErrorDetails] match
           case JsSuccess(details, _) => details
           case _: JsError            => unknownError()
-        }
-      case Failure(_) => unknownError()
-    }
-  }
-}
+      case Failure(_)   =>
+        unknownError()

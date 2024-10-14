@@ -16,96 +16,88 @@
 
 package services
 
-import java.util.concurrent.atomic.AtomicInteger
 import config.ServiceConfiguration
 import org.apache.pekko.actor.ActorSystem
 import org.scalatest.concurrent.Eventually
 import play.api.inject.DefaultApplicationLifecycle
 import test.UnitSpec
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
 
-class ContinuousPollerSpec extends UnitSpec with Eventually {
+class ContinuousPollerSpec extends UnitSpec with Eventually:
 
   implicit def actorSystem: ActorSystem = ActorSystem()
 
-  val serviceConfiguration = new ServiceConfiguration {
+  val serviceConfiguration =
+    new ServiceConfiguration:
+      override def successfulProcessingBatchSize: Int = 10
 
-    override def successfulProcessingBatchSize: Int = 10
+      override def quarantineProcessingBatchSize: Int = 10
 
-    override def quarantineProcessingBatchSize: Int = 10
+      override def accessKeyId: String = ???
 
-    override def accessKeyId: String = ???
+      override def awsRegion: String = ???
 
-    override def awsRegion: String = ???
+      override def secretAccessKey: String = ???
 
-    override def secretAccessKey: String = ???
+      override def sessionToken: Option[String] = ???
 
-    override def sessionToken: Option[String] = ???
+      override def retryInterval: FiniteDuration = 1.second
 
-    override def retryInterval: FiniteDuration = 1.second
+      override def outboundSuccessfulQueueUrl: String = ???
 
-    override def outboundSuccessfulQueueUrl: String = ???
+      override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = ???
 
-    override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = ???
+      override def outboundQuarantineQueueUrl: String = ???
 
-    override def outboundQuarantineQueueUrl: String = ???
+      override def endToEndProcessingThreshold(): Duration = ???
 
-    override def endToEndProcessingThreshold(): Duration = ???
-  }
+  "QueuePollingJob" should:
+    "continuously poll the queue" in:
+      val callCount = AtomicInteger(0)
 
-  "QueuePollingJob" should {
-    "continuously poll the queue" in {
-
-      val callCount = new AtomicInteger(0)
-
-      val orchestrator: PollingJob = new PollingJob {
-        override def run() = Future.successful(callCount.incrementAndGet())
-      }
+      val orchestrator: PollingJob =
+        new PollingJob:
+          override def run() = Future.successful(callCount.incrementAndGet())
 
       val jobs = PollingJobs(List(orchestrator))
 
-      val serviceLifecycle = new DefaultApplicationLifecycle()
+      val serviceLifecycle = DefaultApplicationLifecycle()
 
-      new ContinuousPoller(jobs, serviceConfiguration)(
+      ContinuousPoller(jobs, serviceConfiguration)(
         actorSystem,
         serviceLifecycle,
-        ExecutionContext.Implicits.global)
+        ExecutionContext.Implicits.global
+      )
 
-      eventually {
+      eventually:
         callCount.get() > 5
-      }
 
       serviceLifecycle.stop()
-    }
 
-    "recover from failure after some time" in {
-      val callCount = new AtomicInteger(0)
+    "recover from failure after some time" in:
+      val callCount = AtomicInteger(0)
 
-      val orchestrator: PollingJob = new PollingJob {
-        override def run() =
-          if (callCount.get() == 1) {
-            Future.failed(new RuntimeException("Planned failure"))
-          } else {
-            Future.successful(callCount.incrementAndGet())
-          }
-      }
+      val orchestrator: PollingJob =
+        new PollingJob:
+          override def run() =
+            if (callCount.get() == 1)
+              Future.failed(RuntimeException("Planned failure"))
+            else
+              Future.successful(callCount.incrementAndGet())
 
       val jobs             = PollingJobs(List(orchestrator))
-      val serviceLifecycle = new DefaultApplicationLifecycle()
+      val serviceLifecycle = DefaultApplicationLifecycle()
 
-      new ContinuousPoller(jobs, serviceConfiguration)(
+      ContinuousPoller(jobs, serviceConfiguration)(
         actorSystem,
         serviceLifecycle,
-        ExecutionContext.Implicits.global)
+        ExecutionContext.Implicits.global
+      )
 
-      eventually {
+      eventually:
         callCount.get() > 5
-      }
 
       serviceLifecycle.stop()
-    }
-  }
-
-}

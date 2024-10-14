@@ -16,77 +16,106 @@
 
 package model
 
+import play.api.libs.json._
+
 import java.net.URL
 import java.time.Instant
 
-import play.api.libs.json._
+case class FileReference(
+  reference: String
+)
 
-case class FileReference(reference: String)
-object FileReference {
-  implicit val fileReferenceWrites: Writes[FileReference] = new Writes[FileReference] {
-    override def writes(o: FileReference): JsValue = JsString(o.reference)
-  }
-}
+object FileReference:
+  implicit val fileReferenceWrites: Writes[FileReference] =
+    (o: FileReference) => JsString(o.reference)
 
-case class Message(id: String, body: String, receiptHandle: String, receivedAt: Instant)
+case class Message(
+  id           : String,
+  body         : String,
+  receiptHandle: String,
+  receivedAt   : Instant
+)
 
-case class RequestContext(requestId: Option[String], sessionId: Option[String], clientIp: String)
+case class RequestContext(
+  requestId: Option[String],
+  sessionId: Option[String],
+  clientIp : String
+)
 
-case class Checkpoint(name: String, timestamp: Instant)
-case class Checkpoints(items: Seq[Checkpoint]) {
-  def :+(checkpoint: Checkpoint) = copy(items = items :+ checkpoint)
+case class Checkpoint(
+  name     : String,
+  timestamp: Instant
+)
 
-  def ++(newCheckpoints: Seq[Checkpoint]) = copy(items = items ++ newCheckpoints)
+case class Checkpoints(
+  items: Seq[Checkpoint]
+):
+  def :+(checkpoint: Checkpoint): Checkpoints =
+    copy(items = items :+ checkpoint)
 
-  def sortedCheckpoints =
+  def ++(newCheckpoints: Seq[Checkpoint]): Checkpoints =
+    copy(items = items ++ newCheckpoints)
+
+  def sortedCheckpoints: Seq[Checkpoint] =
     items.sortBy(_.timestamp)
 
-  def breakdown = {
+  def breakdown: String =
     def display(checkpoint: Checkpoint): String =
       s"${checkpoint.name.stripPrefix("x-amz-meta-")} @ ${checkpoint.timestamp}"
 
-    sortedCheckpoints.foldLeft((Option.empty[Checkpoint], List.empty[String])) {
-      case ((None          , acc), current) => (Some(current), acc :+ display(current))
-      case ((Some(previous), acc), current) =>
-        val duration = java.time.Duration.between(previous.timestamp, current.timestamp).toMillis
-        (Some(current), acc :+ display(current) + s", took $duration ms")
-    }._2.mkString("\n")
-  }
-}
+    sortedCheckpoints
+      .foldLeft((Option.empty[Checkpoint], List.empty[String])):
+        case ((None          , acc), current) =>
+          (Some(current), acc :+ display(current))
+        case ((Some(previous), acc), current) =>
+          val duration = java.time.Duration.between(previous.timestamp, current.timestamp).toMillis
+          (Some(current), acc :+ display(current) + s", took $duration ms")
+      ._2.mkString("\n")
 
-case class WithCheckpoints[T](details: T, checkpoints: Checkpoints)
+case class WithCheckpoints[T](
+  details    : T,
+  checkpoints: Checkpoints
+)
 
-sealed trait ProcessingDetails {
+sealed trait ProcessingDetails:
   def callbackUrl: URL
-  def reference: FileReference
-}
+  def reference  : FileReference
 
 case class SuccessfulProcessingDetails(
-  callbackUrl: URL,
-  reference: FileReference,
-  downloadUrl: URL,
-  size: Long,
-  fileName: String,
-  fileMimeType: String,
+  callbackUrl    : URL,
+  reference      : FileReference,
+  downloadUrl    : URL,
+  size           : Long,
+  fileName       : String,
+  fileMimeType   : String,
   uploadTimestamp: Instant,
-  checksum: String,
-  requestContext: RequestContext
+  checksum       : String,
+  requestContext : RequestContext
 ) extends ProcessingDetails
 
 case class FailedProcessingDetails(
-  callbackUrl: URL,
-  reference: FileReference,
-  fileName: String,
+  callbackUrl    : URL,
+  reference      : FileReference,
+  fileName       : String,
   uploadTimestamp: Instant,
-  error: ErrorDetails,
-  requestContext: RequestContext
+  error          : ErrorDetails,
+  requestContext : RequestContext
 ) extends ProcessingDetails
 
-case class S3ObjectLocation(bucket: String, objectKey: String)
-case class FileUploadEvent(location: S3ObjectLocation)
+case class S3ObjectLocation(
+  bucket   : String,
+  objectKey: String
+)
 
-case class ErrorDetails(failureReason: String, message: String)
+case class FileUploadEvent(
+  location: S3ObjectLocation
+)
 
-object ErrorDetails {
-  implicit val formatsErrorDetails: Format[ErrorDetails] = Json.format[ErrorDetails]
-}
+case class ErrorDetails(
+  failureReason: String,
+  message      : String
+)
+
+object ErrorDetails:
+  implicit val formatsErrorDetails: Format[ErrorDetails] =
+    Json.format[ErrorDetails]

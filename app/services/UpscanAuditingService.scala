@@ -16,66 +16,65 @@
 
 package services
 
-import javax.inject.Inject
 import model._
 import uk.gov.hmrc.http.HeaderNames
 import uk.gov.hmrc.play.audit.http.connector.AuditConnector
 import uk.gov.hmrc.play.audit.model.DataEvent
 
+import javax.inject.Inject
 import scala.concurrent.ExecutionContext
 
-object UpscanEvent {
+object UpscanEvent:
   def requestContentTags(requestContext: RequestContext): Map[String, String] =
     Map(
       "clientIp" -> requestContext.clientIp
-    ) ++
-      requestContext.requestId.map(value => HeaderNames.xRequestId -> value).toMap ++
-      requestContext.sessionId.map(value => HeaderNames.xSessionId -> value).toMap
-
-}
+    )
+      ++ requestContext.requestId.map(value => HeaderNames.xRequestId -> value).toMap
+      ++ requestContext.sessionId.map(value => HeaderNames.xSessionId -> value).toMap
 
 class CleanFileUploaded(fileReference: String, fileSize: Long, requestContext: RequestContext)
     extends DataEvent(
       auditSource = "upscan",
       auditType   = "cleanFileUploaded",
-      detail = Map(
-        "fileReference" -> fileReference,
-        "fileSize"      -> fileSize.toString
-      ),
-      tags = UpscanEvent.requestContentTags(requestContext) + ("transactionName" -> "clean-file-uploaded")
+      detail      = Map(
+                      "fileReference" -> fileReference,
+                      "fileSize"      -> fileSize.toString
+                    ),
+      tags        = UpscanEvent.requestContentTags(requestContext) + ("transactionName" -> "clean-file-uploaded")
     )
 
 class InvalidFileUploaded(fileReference: String, failureReason: String, requestContext: RequestContext)
     extends DataEvent(
       auditSource = "upscan",
       auditType   = "invalidFileUploaded",
-      detail = Map(
-        "fileReference" -> fileReference,
-        "failureReason" -> failureReason
-      ),
-      tags = UpscanEvent.requestContentTags(requestContext) + ("transactionName" -> "invalid-file-uploaded")
+      detail      = Map(
+                      "fileReference" -> fileReference,
+                      "failureReason" -> failureReason
+                    ),
+      tags        = UpscanEvent.requestContentTags(requestContext) + ("transactionName" -> "invalid-file-uploaded")
     )
 
-trait EventBuilder[T] {
+trait EventBuilder[T]:
   def build(input: T): DataEvent
-}
 
-class UpscanAuditingService @Inject()(auditConnector: AuditConnector)(implicit ec: ExecutionContext) {
+class UpscanAuditingService @Inject()(
+  auditConnector: AuditConnector
+)(implicit
+  ec: ExecutionContext
+):
 
-  def notifyFileUploadedSuccessfully[T](notification: SuccessfulProcessingDetails): Unit = {
+  def notifyFileUploadedSuccessfully[T](notification: SuccessfulProcessingDetails): Unit =
+    auditConnector.sendEvent:
+      CleanFileUploaded(
+        notification.reference.reference,
+        notification.size,
+        notification.requestContext
+      )
 
-    val event =
-      new CleanFileUploaded(notification.reference.reference, notification.size, notification.requestContext)
-    auditConnector.sendEvent(event = event)
-
-  }
-
-  def notifyFileIsQuarantined(notification: FailedProcessingDetails): Unit = {
-    val event = new InvalidFileUploaded(
-      notification.reference.reference,
-      notification.error.failureReason,
-      notification.requestContext)
-    auditConnector.sendEvent(event = event)
-  }
-
-}
+  def notifyFileIsQuarantined(notification: FailedProcessingDetails): Unit =
+    auditConnector.sendEvent:
+      InvalidFileUploaded(
+        notification.reference.reference,
+        notification.error.failureReason,
+        notification.requestContext
+      )

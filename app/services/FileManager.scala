@@ -16,39 +16,37 @@
 
 package services
 
-import java.net.URL
-import java.time.Instant
-
 import model._
 
+import java.net.URL
+import java.time.Instant
 import scala.concurrent.Future
 
 case class SuccessfulFileDetails(
-  fileReference: FileReference,
-  callbackUrl: URL,
-  fileName: String,
-  fileMimeType: String,
-  uploadTimestamp: Instant,
-  checksum: String,
-  size: Long,
-  requestContext: RequestContext,
+  fileReference   : FileReference,
+  callbackUrl     : URL,
+  fileName        : String,
+  fileMimeType    : String,
+  uploadTimestamp : Instant,
+  checksum        : String,
+  size            : Long,
+  requestContext  : RequestContext,
   consumingService: String,
-  userMetadata: Map[String, String])
+  userMetadata    : Map[String, String]
+)
 
 case class FailedFileDetails(
-  fileReference: FileReference,
-  callbackUrl: URL,
-  fileName: String,
-  uploadTimestamp: Instant,
-  size: Long,
-  requestContext: RequestContext,
-  userMetadata: Map[String, String],
-  failureDetailsAsJson: String)
+  fileReference       : FileReference,
+  callbackUrl         : URL,
+  fileName            : String,
+  uploadTimestamp     : Instant,
+  size                : Long,
+  requestContext      : RequestContext,
+  userMetadata        : Map[String, String],
+  failureDetailsAsJson: String
+)
 
-trait FileManager {
-
+trait FileManager:
   def receiveSuccessfulFileDetails(objectLocation: S3ObjectLocation): Future[SuccessfulFileDetails]
 
   def receiveFailedFileDetails(objectLocation: S3ObjectLocation): Future[FailedFileDetails]
-
-}

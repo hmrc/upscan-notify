@@ -16,99 +16,89 @@
 
 package connectors.aws
 
-import java.time.Clock
-
 import model.{FileUploadEvent, Message, S3ObjectLocation}
 import test.UnitSpec
 
+import java.time.Clock
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 
-class S3EventMessageParserSpec extends UnitSpec {
+class S3EventMessageParserSpec extends UnitSpec:
 
-  val parser = new S3EventParser()
+  val parser = S3EventParser()
 
   val clock = Clock.systemDefaultZone()
 
-  "MessageParser" should {
-    "properly parse valid S3 event message triggered by POST" in {
-
+  "MessageParser" should:
+    "properly parse valid S3 event message triggered by POST" in:
       Await.result(parser.parse(Message("ID", samplePostMessage, "HANDLE", clock.instant())), 2.seconds) shouldBe FileUploadEvent(
-        S3ObjectLocation("hmrc-upscan-live-transient", "acabd94b-4d74-4b04-a0ca-1914950f9c02"))
+        S3ObjectLocation("hmrc-upscan-live-transient", "acabd94b-4d74-4b04-a0ca-1914950f9c02")
+      )
 
-    }
-
-    "properly parse valid S3 event message triggered by copying object between buckets" in {
-
+    "properly parse valid S3 event message triggered by copying object between buckets" in:
       Await.result(parser.parse(Message("ID", sampleCopyMessage, "HANDLE", clock.instant())), 2.seconds) shouldBe FileUploadEvent(
-        S3ObjectLocation("fus-outbound-759b74ce43947f5f4c91aeddc3e5bad3", "16d77f7a-1f42-4bc2-aa7c-3e1b57b75b26"))
+        S3ObjectLocation("fus-outbound-759b74ce43947f5f4c91aeddc3e5bad3", "16d77f7a-1f42-4bc2-aa7c-3e1b57b75b26")
+      )
 
-    }
-
-    "return failure for test message" in {
-
+    "return failure for test message" in:
       val result: Future[FileUploadEvent] = parser.parse(Message("ID1", testMessage, "HANDLE", clock.instant()))
       Await.ready(result, 2.seconds)
       result.value.get.isSuccess shouldBe false
-    }
 
-    "return unparseable message for S3 message other than upload" in {
+    "return unparseable message for S3 message other than upload" in:
       val result: Future[FileUploadEvent] = parser.parse(Message("ID1", others3message, "HANDLE", clock.instant()))
       Await.ready(result, 2.seconds)
       result.value.get.isSuccess shouldBe false
-    }
 
-    "return unparseable message for S3 message with invalid JSON" in {
+    "return unparseable message for S3 message with invalid JSON" in:
       val result: Future[FileUploadEvent] = parser.parse(Message("ID1", "$>>>>", "HANDLE", clock.instant()))
       Await.ready(result, 2.seconds)
       result.value.get.isSuccess shouldBe false
-    }
-  }
 
   val samplePostMessage =
-    """ 
-                        |{
-                        |  "Records": [
-                        |    {
-                        |      "eventVersion": "2.0",
-                        |      "eventSource": "aws:s3",
-                        |      "awsRegion": "eu-west-2",
-                        |      "eventTime": "2018-02-23T08:02:46.764Z",
-                        |      "eventName": "ObjectCreated:Post",
-                        |      "userIdentity": {
-                        |        "principalId": "AWS:AIDAIIELOEELZHP2AGCQU"
-                        |      },
-                        |      "requestParameters": {
-                        |        "sourceIPAddress": "185.40.10.146"
-                        |      },
-                        |      "responseElements": {
-                        |        "x-amz-request-id": "119DF70CC1EA8B55",
-                        |        "x-amz-id-2": "KVdXT87To7UrY5a1XT4hZUgmK6cOz02WTIxxnUCT3/2accPt5fpq23/Cb0i/w23J6N4btF1NaXw="
-                        |      },
-                        |      "s3": {
-                        |        "s3SchemaVersion": "1.0",
-                        |        "configurationId": "NotifyFileUploadedEvent",
-                        |        "bucket": {
-                        |          "name": "hmrc-upscan-live-transient",
-                        |          "ownerIdentity": {
-                        |            "principalId": "A2XP2K6B42LFR5"
-                        |          },
-                        |          "arn": "arn:aws:s3:::hmrc-upscan-live-transient"
-                        |        },
-                        |        "object": {
-                        |          "key": "acabd94b-4d74-4b04-a0ca-1914950f9c02",
-                        |          "size": 1024,
-                        |          "eTag": "d54fcd247258c454fc6da20eac8aee86",
-                        |          "versionId": "laxvaXuSOlPXfoPi_gNmg5B4_AnVuBbW",
-                        |          "sequencer": "005A8FCAA6B34C4355"
-                        |        }
-                        |      }
-                        |    }
-                        |  ]
-                        |}
-                        |
-  """.stripMargin
+    """
+      |{
+      |  "Records": [
+      |    {
+      |      "eventVersion": "2.0",
+      |      "eventSource": "aws:s3",
+      |      "awsRegion": "eu-west-2",
+      |      "eventTime": "2018-02-23T08:02:46.764Z",
+      |      "eventName": "ObjectCreated:Post",
+      |      "userIdentity": {
+      |        "principalId": "AWS:AIDAIIELOEELZHP2AGCQU"
+      |      },
+      |      "requestParameters": {
+      |        "sourceIPAddress": "185.40.10.146"
+      |      },
+      |      "responseElements": {
+      |        "x-amz-request-id": "119DF70CC1EA8B55",
+      |        "x-amz-id-2": "KVdXT87To7UrY5a1XT4hZUgmK6cOz02WTIxxnUCT3/2accPt5fpq23/Cb0i/w23J6N4btF1NaXw="
+      |      },
+      |      "s3": {
+      |        "s3SchemaVersion": "1.0",
+      |        "configurationId": "NotifyFileUploadedEvent",
+      |        "bucket": {
+      |          "name": "hmrc-upscan-live-transient",
+      |          "ownerIdentity": {
+      |            "principalId": "A2XP2K6B42LFR5"
+      |          },
+      |          "arn": "arn:aws:s3:::hmrc-upscan-live-transient"
+      |        },
+      |        "object": {
+      |          "key": "acabd94b-4d74-4b04-a0ca-1914950f9c02",
+      |          "size": 1024,
+      |          "eTag": "d54fcd247258c454fc6da20eac8aee86",
+      |          "versionId": "laxvaXuSOlPXfoPi_gNmg5B4_AnVuBbW",
+      |          "sequencer": "005A8FCAA6B34C4355"
+      |        }
+      |      }
+      |    }
+      |  ]
+      |}
+      |
+    """.stripMargin
 
   val sampleCopyMessage =
     """
@@ -167,7 +157,7 @@ class S3EventMessageParserSpec extends UnitSpec {
     """.stripMargin
 
   val others3message =
-    """ 
+    """
       |{
       |  "Records": [
       |    {
@@ -209,5 +199,3 @@ class S3EventMessageParserSpec extends UnitSpec {
       |}
       |
   """.stripMargin
-
-}
