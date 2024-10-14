@@ -17,6 +17,7 @@
 package config
 
 import config.PlayBasedServiceConfiguration.S3UrlExpirationPeriod
+import org.mockito.Mockito.when
 import play.api.Configuration
 import test.UnitSpec
 

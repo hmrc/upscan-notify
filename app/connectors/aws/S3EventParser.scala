@@ -48,7 +48,7 @@ class S3EventParser @Inject()(implicit ec: ExecutionContext) extends MessagePars
   implicit val reads: Reads[S3EventNotificationRecord] = Json.reads[S3EventNotificationRecord]
 
   implicit val messageReads: Reads[S3EventNotification] =
-    (JsPath \ "Records").read[Seq[S3EventNotificationRecord]].map(S3EventNotification)
+    (JsPath \ "Records").read[Seq[S3EventNotificationRecord]].map(S3EventNotification.apply)
 
   override def parse(message: Message): Future[FileUploadEvent] =
     for {

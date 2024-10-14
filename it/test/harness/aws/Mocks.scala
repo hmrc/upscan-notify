@@ -25,7 +25,8 @@ import com.amazonaws.services.s3.model.ObjectMetadata
 import com.amazonaws.services.sqs.AmazonSQS
 import com.amazonaws.services.sqs.model.{Message, ReceiveMessageRequest, ReceiveMessageResult}
 import org.mockito.ArgumentMatchersSugar._
-import org.mockito.MockitoSugar._
+import org.mockito.Mockito.when
+import org.scalatestplus.mockito.MockitoSugar.mock
 
 object Mocks {
   def setup(mock: AmazonSQS, message: Message): AmazonSQS = {

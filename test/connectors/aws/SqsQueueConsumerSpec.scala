@@ -23,8 +23,10 @@ import java.util.{List => JList}
 import com.amazonaws.services.sqs.AmazonSQS
 import com.amazonaws.services.sqs.model.{Message => SqsMessage, _}
 import model.Message
-import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Assertions, GivenWhenThen}
+import org.scalatest.concurrent.ScalaFutures
+import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito.{verify, when}
 import test.UnitSpec
 
 import scala.concurrent.ExecutionContext.Implicits.global

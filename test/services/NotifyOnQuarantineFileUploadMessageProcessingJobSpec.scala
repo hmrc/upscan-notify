@@ -22,6 +22,7 @@ import com.codahale.metrics.MetricRegistry
 import config.ServiceConfiguration
 import connectors.aws.S3EventParser
 import model._
+import org.mockito.Mockito.when
 import test.UnitSpec
 import uk.gov.hmrc.play.bootstrap.metrics.Metrics
 import uk.gov.hmrc.play.bootstrap.tools.LogCapturing
@@ -82,7 +83,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends UnitSpec with
           testInstance.collectMetricsAfterNotification(notification, checkpoints)
 
           val warnMessages = logs.filter(_.getLevel == Level.WARN).map(_.getFormattedMessage)
-          
+
           warnMessages.size shouldBe 1
           warnMessages.head should include("upscan-file-uploaded")
           warnMessages.head should include("upscan-notify-received")

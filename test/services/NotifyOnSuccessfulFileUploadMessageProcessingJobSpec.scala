@@ -20,6 +20,7 @@ import com.codahale.metrics.MetricRegistry
 import config.ServiceConfiguration
 import connectors.aws.S3EventParser
 import model._
+import org.mockito.Mockito.when
 import test.UnitSpec
 import uk.gov.hmrc.play.bootstrap.metrics.Metrics
 

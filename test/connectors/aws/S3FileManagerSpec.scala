@@ -24,6 +24,7 @@ import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
 import jakarta.mail.internet.MimeUtility
 import model.{FileReference, RequestContext, S3ObjectLocation}
+import org.mockito.Mockito.when
 import org.scalatest.concurrent.ScalaFutures
 import services.SuccessfulFileDetails
 import test.UnitSpec
@@ -35,7 +36,7 @@ class S3FileManagerSpec extends UnitSpec {
   private val initiateDate                  = Instant.parse("2018-04-24T09:30:00Z")
   private val checksum                      = "1a2b3c4d5e"
   private val consumingService              = "consumingService"
-  private val contentLength                 = 42
+  private val contentLength                 = 42L
   private implicit val ec: ExecutionContext = ExecutionContext.Implicits.global
 
   "FileManager" should {

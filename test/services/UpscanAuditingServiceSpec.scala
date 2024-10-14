@@ -20,7 +20,9 @@ import java.net.URL
 import java.time.Instant
 
 import model._
-import org.mockito.captor.ArgCaptor
+import org.mockito.ArgumentCaptor
+import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito.verify
 import org.scalatest.GivenWhenThen
 import test.UnitSpec
 import uk.gov.hmrc.http.{HeaderCarrier, HeaderNames}
@@ -54,10 +56,10 @@ class UpscanAuditingServiceSpec extends UnitSpec with GivenWhenThen {
 
       upscanAuditingService.notifyFileUploadedSuccessfully(event)
 
-      val eventCaptor = ArgCaptor[DataEvent]
-      verify(auditConnector).sendEvent(eventCaptor.capture)(any[HeaderCarrier], any[ExecutionContext])
+      val eventCaptor = ArgumentCaptor.forClass(classOf[DataEvent])
+      verify(auditConnector).sendEvent(eventCaptor.capture())(any[HeaderCarrier], any[ExecutionContext])
 
-      val dataEvent: DataEvent = eventCaptor.value
+      val dataEvent: DataEvent = eventCaptor.getValue
 
       dataEvent.auditSource                 shouldBe "upscan"
       dataEvent.auditType                   shouldBe "cleanFileUploaded"
@@ -87,10 +89,10 @@ class UpscanAuditingServiceSpec extends UnitSpec with GivenWhenThen {
 
       upscanAuditingService.notifyFileIsQuarantined(event)
 
-      val eventCaptor = ArgCaptor[DataEvent]
-      verify(auditConnector).sendEvent(eventCaptor.capture)(any[HeaderCarrier], any[ExecutionContext])
+      val eventCaptor = ArgumentCaptor.forClass(classOf[DataEvent])
+      verify(auditConnector).sendEvent(eventCaptor.capture())(any[HeaderCarrier], any[ExecutionContext])
 
-      val dataEvent: DataEvent = eventCaptor.value
+      val dataEvent: DataEvent = eventCaptor.getValue
 
       dataEvent.auditSource                 shouldBe "upscan"
       dataEvent.auditType                   shouldBe "invalidFileUploaded"

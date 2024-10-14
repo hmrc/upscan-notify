@@ -61,7 +61,7 @@ class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock)(im
 
     for (WithTimeMeasurement(measurement, httpResult) <- timed(
                                                           httpClient.POST[T, HttpResponse](
-                                                            metadata.callbackUrl.toString,
+                                                            metadata.callbackUrl,
                                                             callback))) yield {
       withLoggingDetails(ld) {
         logger.info(

@@ -23,6 +23,8 @@ import java.util.Date
 import com.amazonaws.services.s3.AmazonS3
 import config.ServiceConfiguration
 import model.{FileReference, RequestContext, S3ObjectLocation}
+import org.mockito.ArgumentMatchers.{any, eq => eqTo}
+import org.mockito.Mockito.when
 import services.SuccessfulFileDetails
 import test.UnitSpec
 

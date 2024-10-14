@@ -43,7 +43,7 @@ case class Checkpoints(items: Seq[Checkpoint]) {
 
   def breakdown = {
     def display(checkpoint: Checkpoint): String =
-      s"${checkpoint.name.stripPrefix("x-amz-meta-")} @ ${checkpoint.timestamp}}"
+      s"${checkpoint.name.stripPrefix("x-amz-meta-")} @ ${checkpoint.timestamp}"
 
     sortedCheckpoints.foldLeft((Option.empty[Checkpoint], List.empty[String])) {
       case ((None          , acc), current) => (Some(current), acc :+ display(current))

@@ -23,6 +23,8 @@ import com.amazonaws.AmazonServiceException
 import config.ServiceConfiguration
 import connectors.aws.{FailedFileMetadata, SuccessfulFileMetadata}
 import model._
+import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito.when
 import org.scalatest.GivenWhenThen
 import org.scalatest.concurrent.ScalaFutures
 import test.UnitSpec
