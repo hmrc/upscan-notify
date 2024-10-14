@@ -16,34 +16,34 @@
 
 package harness.model
 
-import connectors.{FailedFileStatus, FileStatus, ReadyCallbackBody, ReadyFileStatus, UploadDetails}
+import connectors.{FileStatus, ReadyCallbackBody, UploadDetails}
 import model._
 import play.api.libs.json._
 
 import java.net.URL
 
 object JsonReads:
-  implicit val urlReads: Reads[URL] =
+  private given Reads[URL] =
     (json: JsValue) =>
       json match
         case JsString(str) => JsSuccess(URL(str))
         case _             => JsError(s"Cannot deserialize URL from json: [${json.toString}].")
 
-  implicit val fileStatusReads: Reads[FileStatus] =
+  private given Reads[FileStatus] =
     (json: JsValue) =>
       json match
-        case JsString("READY")  => JsSuccess(ReadyFileStatus)
-        case JsString("FAILED") => JsSuccess(FailedFileStatus)
+        case JsString("READY")  => JsSuccess(FileStatus.Ready)
+        case JsString("FAILED") => JsSuccess(FileStatus.Failed)
         case _                  => JsError(s"Cannot deserialize FileStatus from json: [${json.toString}].")
 
-  implicit val fileReferenceReads: Reads[FileReference] =
+  private given Reads[FileReference] =
     (json: JsValue) =>
       json match
         case JsString(reference) => JsSuccess(FileReference(reference))
         case _                   => JsError(s"Cannot deserialize FileReference from json: [${json.toString}].")
 
-  private implicit val uploadDetialsReads: Reads[UploadDetails] =
+  private given Reads[UploadDetails] =
     Json.reads[UploadDetails]
 
-  implicit val readyCallbackBodyReads: Reads[ReadyCallbackBody] =
+  given Reads[ReadyCallbackBody] =
     Json.reads[ReadyCallbackBody]

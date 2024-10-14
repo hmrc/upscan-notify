@@ -32,8 +32,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class HttpNotificationService @Inject()(
   httpClient: HttpClient,
   clock     : Clock
-)(implicit
-  ec: ExecutionContext
+)(using
+  ExecutionContext
 ) extends NotificationService with Logging:
 
   override def notifySuccessfulCallback(uploadedFile: SuccessfulProcessingDetails): Future[Seq[Checkpoint]] =
@@ -64,10 +64,10 @@ class HttpNotificationService @Inject()(
     callback: T,
     metadata: M,
     notificationType: String
-  )(implicit
-    writes: Writes[T]
+  )(using
+    Writes[T]
   ): Future[Seq[Checkpoint]] =
-    implicit val ld: HeaderCarrier = LoggingDetails.fromFileReference(metadata.reference)
+    given ld: HeaderCarrier = LoggingDetails.fromFileReference(metadata.reference)
 
     timed(
       httpClient.POST[T, HttpResponse](metadata.callbackUrl, callback)
@@ -95,7 +95,7 @@ class HttpNotificationService @Inject()(
     result         : T
   )
 
-  private def timed[T](f: => Future[T])(implicit ec: ExecutionContext): Future[WithTimeMeasurement[T]] =
+  private def timed[T](f: => Future[T])(using ExecutionContext): Future[WithTimeMeasurement[T]] =
     val startTime = clock.instant()
     f.map: result =>
       val endTime = clock.instant()
@@ -104,7 +104,7 @@ class HttpNotificationService @Inject()(
 case class ReadyCallbackBody(
   reference    : FileReference,
   downloadUrl  : URL,
-  fileStatus   : FileStatus    = ReadyFileStatus,
+  fileStatus   : FileStatus    = FileStatus.Ready,
   uploadDetails: UploadDetails
 )
 
@@ -117,33 +117,29 @@ case class UploadDetails(
 )
 
 object UploadDetails:
-  implicit val writesUploadDetails: Writes[UploadDetails] =
+  given Writes[UploadDetails] =
     Json.writes[UploadDetails]
 
 object ReadyCallbackBody:
-  implicit val urlFormats: Writes[URL] =
-    JsonWriteHelpers.urlFormats
-
-  implicit val writesReadyCallback: Writes[ReadyCallbackBody] =
+  given Writes[ReadyCallbackBody] =
+    given urlFormats: Writes[URL] = JsonWriteHelpers.urlFormats
     Json.writes[ReadyCallbackBody]
 
 case class FailedCallbackBody(
   reference     : FileReference,
-  fileStatus    : FileStatus = FailedFileStatus,
+  fileStatus    : FileStatus = FileStatus.Failed,
   failureDetails: ErrorDetails
 )
 
 object FailedCallbackBody:
-  implicit val writesFailedCallback: Writes[FailedCallbackBody] =
+  given Writes[FailedCallbackBody] =
     Json.writes[FailedCallbackBody]
 
-sealed trait FileStatus:
-  val status: String
-case object ReadyFileStatus extends FileStatus:
-  override val status: String = "READY"
-case object FailedFileStatus extends FileStatus:
-  override val status: String = "FAILED"
+// TODO not needed - can be inferred from ReadyCallbackBody or FailedCallbackBody
+enum FileStatus(val status: String):
+  case Ready  extends FileStatus("READY")
+  case Failed extends FileStatus("FAILED")
 
 object FileStatus:
-  implicit val fileStatusWrites: Writes[FileStatus] =
+  given Writes[FileStatus] =
     (o: FileStatus) => JsString(o.status)

@@ -31,7 +31,7 @@ abstract class SqsQueueConsumer(
   queueUrl           : String,
   processingBatchSize: Int,
   clock              : Clock
-)(implicit
+)(using
   val ec: ExecutionContext
 ) extends QueueConsumer with Logging:
 

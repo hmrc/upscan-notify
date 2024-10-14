@@ -44,7 +44,8 @@ case class ExceptionWithContext(
 trait MessageProcessingJob extends PollingJob:
   private[services] val logger: LoggerLike
 
-  implicit def executionContext: ExecutionContext
+  def executionContext: ExecutionContext
+  private given ExecutionContext = executionContext
 
   def consumer: QueueConsumer
 
@@ -96,7 +97,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
   clock                : Clock,
   upscanAuditingService: UpscanAuditingService,
   serviceConfiguration : ServiceConfiguration
-)(implicit
+)(using
   override val executionContext: ExecutionContext
 ) extends MessageProcessingJob:
 
@@ -121,7 +122,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
 
   private def collectMetricsBeforeNotification(notification: SuccessfulProcessingDetails): Unit =
     val totalProcessingTime = Duration.between(notification.uploadTimestamp, clock.instant())
-    if (totalProcessingTime.isNegative)
+    if totalProcessingTime.isNegative then
       logger.warn(
         "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement"
       )
@@ -144,7 +145,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
 
     val totalProcessingTime = Duration.between(notification.uploadTimestamp, respondedAt)
 
-    if (totalProcessingTime.isNegative)
+    if totalProcessingTime.isNegative then
       logger.warn(
         "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
     else
@@ -174,7 +175,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
   clock                : Clock,
   upscanAuditingService: UpscanAuditingService,
   serviceConfiguration : ServiceConfiguration
-)(implicit
+)(using
   override val executionContext: ExecutionContext
 ) extends MessageProcessingJob:
 
@@ -211,7 +212,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
 
     val totalProcessingTime = Duration.between(notification.uploadTimestamp, respondedAt)
 
-    if (totalProcessingTime.isNegative)
+    if totalProcessingTime.isNegative then
       logger.warn(
         "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
     else
@@ -220,7 +221,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
       val endToEndProcessingThreshold: scala.concurrent.duration.Duration =
         serviceConfiguration.endToEndProcessingThreshold()
 
-      if (totalProcessingTime.toMillis > endToEndProcessingThreshold.toMillis)
+      if totalProcessingTime.toMillis > endToEndProcessingThreshold.toMillis then
         logger.warn:
           s"""Rejected file total processing time: [${totalProcessingTime.getSeconds} seconds] exceeded threshold of [$endToEndProcessingThreshold].
              |Processing checkpoints were:\n${updatedCheckpoints.breakdown}.

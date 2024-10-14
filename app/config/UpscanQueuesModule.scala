@@ -37,8 +37,8 @@ class SuccessfulSqsQueueConsumerProvider @Inject()(
   sqsClient    : AmazonSQS,
   configuration: ServiceConfiguration,
   clock        : Clock
-)(implicit
-  ec: ExecutionContext
+)(using
+  ExecutionContext
 ) extends Provider[SuccessfulQueueConsumer]:
   override def get(): SuccessfulQueueConsumer =
     new SqsQueueConsumer(
@@ -52,8 +52,8 @@ class QuarantineSqsQueueConsumerProvider @Inject()(
   sqsClient    : AmazonSQS,
   configuration: ServiceConfiguration,
   clock        : Clock
-)(implicit
-  ec: ExecutionContext
+)(using
+  ExecutionContext
 )extends Provider[QuarantineQueueConsumer]:
   override def get(): QuarantineQueueConsumer =
     new SqsQueueConsumer(

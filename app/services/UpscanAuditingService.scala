@@ -59,8 +59,8 @@ trait EventBuilder[T]:
 
 class UpscanAuditingService @Inject()(
   auditConnector: AuditConnector
-)(implicit
-  ec: ExecutionContext
+)(using
+  ExecutionContext
 ):
 
   def notifyFileUploadedSuccessfully[T](notification: SuccessfulProcessingDetails): Unit =

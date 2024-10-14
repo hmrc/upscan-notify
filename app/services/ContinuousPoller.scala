@@ -40,7 +40,7 @@ case class PollingJobs(
 class ContinuousPoller @Inject()(
   pollingJobs         : PollingJobs,
   serviceConfiguration: ServiceConfiguration
-)(implicit
+)(using
   actorSystem         : ActorSystem,
   applicationLifecycle: ApplicationLifecycle,
   ec                  : ExecutionContext

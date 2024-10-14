@@ -43,7 +43,7 @@ class HttpNotificationServiceSpec
   private val fixedClock  = Clock.fixed(baseTime, ZoneId.systemDefault())
   private val clock       = IncrementingClock(fixedClock.millis(), Duration.ofSeconds(1))
 
-  private implicit val ec: ExecutionContext = ExecutionContext.Implicits.global
+  import ExecutionContext.Implicits.global
 
   override def beforeAll(): Unit =
     callbackServer.start()

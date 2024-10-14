@@ -28,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ContinuousPollerSpec extends UnitSpec with Eventually:
 
-  implicit def actorSystem: ActorSystem = ActorSystem()
+  given actorSystem: ActorSystem = ActorSystem()
 
   val serviceConfiguration =
     new ServiceConfiguration:
@@ -66,7 +66,7 @@ class ContinuousPollerSpec extends UnitSpec with Eventually:
 
       val serviceLifecycle = DefaultApplicationLifecycle()
 
-      ContinuousPoller(jobs, serviceConfiguration)(
+      ContinuousPoller(jobs, serviceConfiguration)(using
         actorSystem,
         serviceLifecycle,
         ExecutionContext.Implicits.global
@@ -83,7 +83,7 @@ class ContinuousPollerSpec extends UnitSpec with Eventually:
       val orchestrator: PollingJob =
         new PollingJob:
           override def run() =
-            if (callCount.get() == 1)
+            if callCount.get() == 1 then
               Future.failed(RuntimeException("Planned failure"))
             else
               Future.successful(callCount.incrementAndGet())
@@ -91,7 +91,7 @@ class ContinuousPollerSpec extends UnitSpec with Eventually:
       val jobs             = PollingJobs(List(orchestrator))
       val serviceLifecycle = DefaultApplicationLifecycle()
 
-      ContinuousPoller(jobs, serviceConfiguration)(
+      ContinuousPoller(jobs, serviceConfiguration)(using
         actorSystem,
         serviceLifecycle,
         ExecutionContext.Implicits.global

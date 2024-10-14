@@ -26,7 +26,7 @@ case class FileReference(
 )
 
 object FileReference:
-  implicit val fileReferenceWrites: Writes[FileReference] =
+  given Writes[FileReference] =
     (o: FileReference) => JsString(o.reference)
 
 case class Message(
@@ -117,5 +117,5 @@ case class ErrorDetails(
 )
 
 object ErrorDetails:
-  implicit val formatsErrorDetails: Format[ErrorDetails] =
+  given Format[ErrorDetails] =
     Json.format[ErrorDetails]

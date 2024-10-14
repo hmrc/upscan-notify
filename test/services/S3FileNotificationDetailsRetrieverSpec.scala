@@ -52,7 +52,7 @@ class S3FileNotificationDetailsRetrieverSpec extends UnitSpec with GivenWhenThen
     val invalidUploadDetails =
       FailedFileMetadata("test.pdf", Instant.parse("2018-04-24T09:30:00Z"))
 
-    implicit val ec = ExecutionContext.Implicits.global
+    import ExecutionContext.Implicits.global
 
     "return callback URL from S3 metadata for uploaded file with all required metadata" in:
       val objectMetadata =

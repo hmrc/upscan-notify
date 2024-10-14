@@ -36,8 +36,8 @@ import scala.util.{Failure, Success, Try}
 
 class S3FileManager @Inject()(
   s3Client: AmazonS3
-)(implicit
-  ec: ExecutionContext
+)(using
+  ExecutionContext
 ) extends FileManager with Logging:
 
   override def receiveSuccessfulFileDetails(objectLocation: S3ObjectLocation): Future[SuccessfulFileDetails] =
@@ -58,7 +58,7 @@ class S3FileManager @Inject()(
       consumingService <- retrieveConsumingService(userMetadata)
     yield
       withLoggingDetails(LoggingDetails.fromFileReference(fileReference)):
-        if (uploadDetails.fileName.contains("{filename}"))
+        if uploadDetails.fileName.contains("{filename}") then
           // Debug whether filename is ever `${filename}`
           logger.warn(s"Unexpected original filename ${uploadDetails.fileName} for object=[${objectLocation.objectKey}] with upload Key=[${fileReference.reference}].")
         logger.info(s"Fetched SuccessfulFileDetails for object=[${objectLocation.objectKey}] with upload Key=[${fileReference.reference}].")

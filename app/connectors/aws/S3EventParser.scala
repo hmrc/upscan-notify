@@ -27,8 +27,9 @@ import javax.inject.Inject
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class S3EventParser @Inject()()(
-  implicit ec: ExecutionContext
+class S3EventParser @Inject()()
+(using
+  ExecutionContext
 ) extends MessageParser with Logging:
 
   case class S3EventNotification(records: Seq[S3EventNotificationRecord])
@@ -47,15 +48,15 @@ class S3EventParser @Inject()()(
     objectKey: String
   )
 
-  implicit val s3reads: Reads[S3Details] =
-    ( (__ \ "bucket" \ "name").read[String]
-    ~ (__ \ "object" \ "key" ).read[String]
-    )(S3Details.apply _)
+  private given Reads[S3EventNotification] =
+    given Reads[S3Details] =
+      ( (__ \ "bucket" \ "name").read[String]
+      ~ (__ \ "object" \ "key" ).read[String]
+      )(S3Details.apply _)
 
-  implicit val reads: Reads[S3EventNotificationRecord] = Json.reads[S3EventNotificationRecord]
+    given Reads[S3EventNotificationRecord] = Json.reads[S3EventNotificationRecord]
 
-  implicit val messageReads: Reads[S3EventNotification] =
-    (JsPath \ "Records").read[Seq[S3EventNotificationRecord]].map(S3EventNotification.apply)
+    (__ \ "Records").read[Seq[S3EventNotificationRecord]].map(S3EventNotification.apply)
 
   override def parse(message: Message): Future[FileUploadEvent] =
     for

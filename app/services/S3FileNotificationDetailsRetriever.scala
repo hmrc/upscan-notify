@@ -30,17 +30,17 @@ import scala.util.{Failure, Success, Try}
 class S3FileNotificationDetailsRetriever @Inject()(
   fileManager         : FileManager,
   downloadUrlGenerator: DownloadUrlGenerator
-)(implicit
-  ec: ExecutionContext
+)(using
+  ExecutionContext
 ) extends FileNotificationDetailsRetriever with Logging:
 
   override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[WithCheckpoints[SuccessfulProcessingDetails]] =
     for
-      metadata <- fileManager.receiveSuccessfulFileDetails(objectLocation)
-      downloadUrl = downloadUrlGenerator.generate(objectLocation, metadata)
+      metadata    <- fileManager.receiveSuccessfulFileDetails(objectLocation)
+      downloadUrl =  downloadUrlGenerator.generate(objectLocation, metadata)
     yield
       val checkpoints = parseCheckpoints(metadata.userMetadata)
-      val retrieved =
+      val retrieved   =
         SuccessfulProcessingDetails(
           metadata.callbackUrl,
           metadata.fileReference,

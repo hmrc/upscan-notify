@@ -21,5 +21,5 @@ import play.api.libs.json.{JsString, Writes}
 import java.net.URL
 
 object JsonWriteHelpers:
-  implicit val urlFormats: Writes[URL] =
+  val urlFormats: Writes[URL] =
     (o: URL) => JsString(o.toString)

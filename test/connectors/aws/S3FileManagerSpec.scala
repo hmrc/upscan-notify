@@ -39,7 +39,7 @@ class S3FileManagerSpec extends UnitSpec:
   private val consumingService = "consumingService"
   private val contentLength    = 42L
 
-  private implicit val ec: ExecutionContext = ExecutionContext.Implicits.global
+  import ExecutionContext.Implicits.global
 
   "FileManager" should:
     "allow to fetch objects metadata" in:

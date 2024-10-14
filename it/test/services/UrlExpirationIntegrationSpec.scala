@@ -24,7 +24,7 @@ import com.github.tomakehurst.wiremock.verification.LoggedRequest
 import connectors.ReadyCallbackBody
 import harness.application.IntegrationTestsApplication
 import harness.aws.Mocks
-import harness.model.JsonReads._
+import harness.model.JsonReads.given
 import harness.wiremock.WithWireMock
 import org.scalatest.matchers.should
 import org.scalatest.wordspec.AnyWordSpec
@@ -140,7 +140,7 @@ class UrlExpirationIntegrationSpec
       val loggedRequests =
         wireMockServer.findAll(WireMock.postRequestedFor(WireMock.urlMatching(TestData.callbackPath)))
 
-      if (loggedRequests.isEmpty)
+      if loggedRequests.isEmpty then
         fail(s"WireMock did not receive a notification callback for url: [${TestData.callbackUrl}].")
 
       val loggedRequest: LoggedRequest = loggedRequests.get(0)
