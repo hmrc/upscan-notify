@@ -16,27 +16,34 @@
 
 package connectors
 
-import java.net.URL
-import java.time.{Clock, Instant}
 import _root_.util.logging.LoggingDetails
 import _root_.util.logging.WithLoggingDetails.withLoggingDetails
-
-import javax.inject.Inject
 import model._
 import play.api.Logging
 import play.api.libs.json._
+import play.api.libs.ws.writeableOf_JsValue
 import services.NotificationService
-import uk.gov.hmrc.http.{HeaderCarrier, HttpClient, HttpResponse}
+import uk.gov.hmrc.http.{HeaderCarrier, HttpReads, HttpResponse}
+//import uk.gov.hmrc.http.HttpReads.Implicits._
+import uk.gov.hmrc.http.client.HttpClientV2
 
+import java.net.URL
+import java.time.{Clock, Instant}
+import javax.inject.Inject
 import scala.concurrent.{ExecutionContext, Future}
 
-class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock)(implicit ec: ExecutionContext) extends NotificationService with Logging {
+class HttpNotificationService @Inject()(
+  httpClientV2: HttpClientV2,
+  clock       : Clock
+)(using
+  ExecutionContext
+) extends NotificationService with Logging:
 
   override def notifySuccessfulCallback(uploadedFile: SuccessfulProcessingDetails): Future[Seq[Checkpoint]] =
     makeCallback(
       ReadyCallbackBody(
-        reference   = uploadedFile.reference,
-        downloadUrl = uploadedFile.downloadUrl,
+        reference     = uploadedFile.reference,
+        downloadUrl   = uploadedFile.downloadUrl,
         uploadDetails = UploadDetails(
           fileName        = uploadedFile.fileName,
           fileMimeType    = uploadedFile.fileMimeType,
@@ -53,25 +60,31 @@ class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock)(im
     makeCallback(
       FailedCallbackBody(reference = quarantinedFile.reference, failureDetails = quarantinedFile.error),
       quarantinedFile,
-      "File failed")
+      "File failed"
+    )
 
-  private def makeCallback[T, M <: ProcessingDetails](callback: T, metadata: M, notificationType: String)(
-    implicit writes: Writes[T]): Future[Seq[Checkpoint]] = {
-    implicit val ld: HeaderCarrier = LoggingDetails.fromFileReference(metadata.reference)
+  private def makeCallback[T, M <: ProcessingDetails](
+    callback: T,
+    metadata: M,
+    notificationType: String
+  )(using
+    Writes[T]
+  ): Future[Seq[Checkpoint]] =
+    given ld: HeaderCarrier = LoggingDetails.fromFileReference(metadata.reference)
 
-    for (WithTimeMeasurement(measurement, httpResult) <- timed(
-                                                          httpClient.POST[T, HttpResponse](
-                                                            metadata.callbackUrl.toString,
-                                                            callback))) yield {
-      withLoggingDetails(ld) {
-        logger.info(
-          s"""$notificationType notification for Key=[${metadata.reference.reference}] sent to service with callbackUrl: [${metadata.callbackUrl}].
-             | Response status was: [${httpResult.status}].""".stripMargin
-        )
-      }
-      collectExecutionTimeMetadata(measurement)
-    }
-  }
+    given HttpReads[HttpResponse] =
+      HttpReads.Implicits.throwOnFailure(HttpReads.Implicits.readEitherOf(HttpReads.Implicits.readRaw))
+    timed(
+      httpClientV2.post(metadata.callbackUrl)
+        .withBody(Json.toJson(callback))
+        .execute[HttpResponse]
+    ).map:
+      case WithTimeMeasurement(measurement, httpResult) =>
+        withLoggingDetails(ld):
+          logger.info:
+            s"""$notificationType notification for Key=[${metadata.reference.reference}] sent to service with callbackUrl: [${metadata.callbackUrl}].
+              | Response status was: [${httpResult.status}].""".stripMargin
+        collectExecutionTimeMetadata(measurement)
 
   private def collectExecutionTimeMetadata(timeMeasurement: TimeMeasurement): Seq[Checkpoint] =
     Seq(
@@ -79,66 +92,61 @@ class HttpNotificationService @Inject()(httpClient: HttpClient, clock: Clock)(im
       Checkpoint("x-amz-meta-upscan-notify-callback-ended", timeMeasurement.end)
     )
 
-  case class TimeMeasurement(start: Instant, end: Instant)
-  case class WithTimeMeasurement[T](timeMeasurement: TimeMeasurement, result: T)
+  case class TimeMeasurement(
+    start: Instant,
+    end  : Instant
+  )
 
-  private def timed[T](f: => Future[T])(implicit ec: ExecutionContext): Future[WithTimeMeasurement[T]] = {
+  case class WithTimeMeasurement[T](
+    timeMeasurement: TimeMeasurement,
+    result         : T
+  )
 
+  private def timed[T](f: => Future[T])(using ExecutionContext): Future[WithTimeMeasurement[T]] =
     val startTime = clock.instant()
-    f.map { result =>
+    f.map: result =>
       val endTime = clock.instant()
       WithTimeMeasurement(TimeMeasurement(startTime, endTime), result)
-    }
-  }
-
-}
 
 case class ReadyCallbackBody(
-  reference: FileReference,
-  downloadUrl: URL,
-  fileStatus: FileStatus = ReadyFileStatus,
+  reference    : FileReference,
+  downloadUrl  : URL,
+  fileStatus   : FileStatus    = FileStatus.Ready,
   uploadDetails: UploadDetails
 )
 
 case class UploadDetails(
-  fileName: String,
-  fileMimeType: String,
+  fileName       : String,
+  fileMimeType   : String,
   uploadTimestamp: Instant,
-  checksum: String,
-  size: Long  // bytes
+  checksum       : String,
+  size           : Long  // bytes
 )
 
-object UploadDetails {
-  implicit val writesUploadDetails: Writes[UploadDetails] = Json.writes[UploadDetails]
-}
+object UploadDetails:
+  given Writes[UploadDetails] =
+    Json.writes[UploadDetails]
 
-object ReadyCallbackBody {
-  implicit val urlFormats: Writes[URL] = JsonWriteHelpers.urlFormats
-  implicit val writesReadyCallback: Writes[ReadyCallbackBody] = Json.writes[ReadyCallbackBody]
-}
+object ReadyCallbackBody:
+  given Writes[ReadyCallbackBody] =
+    given urlFormats: Writes[URL] = JsonWriteHelpers.urlFormats
+    Json.writes[ReadyCallbackBody]
 
 case class FailedCallbackBody(
-  reference: FileReference,
-  fileStatus: FileStatus = FailedFileStatus,
+  reference     : FileReference,
+  fileStatus    : FileStatus = FileStatus.Failed,
   failureDetails: ErrorDetails
 )
 
-object FailedCallbackBody {
-  implicit val writesFailedCallback: Writes[FailedCallbackBody] = Json.writes[FailedCallbackBody]
-}
+object FailedCallbackBody:
+  given Writes[FailedCallbackBody] =
+    Json.writes[FailedCallbackBody]
 
-sealed trait FileStatus {
-  val status: String
-}
-case object ReadyFileStatus extends FileStatus {
-  override val status: String = "READY"
-}
-case object FailedFileStatus extends FileStatus {
-  override val status: String = "FAILED"
-}
+// TODO not needed - can be inferred from ReadyCallbackBody or FailedCallbackBody
+enum FileStatus(val status: String):
+  case Ready  extends FileStatus("READY")
+  case Failed extends FileStatus("FAILED")
 
-object FileStatus {
-  implicit val fileStatusWrites: Writes[FileStatus] = new Writes[FileStatus] {
-    override def writes(o: FileStatus): JsValue = JsString(o.status)
-  }
-}
+object FileStatus:
+  given Writes[FileStatus] =
+    (o: FileStatus) => JsString(o.status)

@@ -16,12 +16,10 @@
 
 package model
 
+import play.api.libs.json.{JsString, Writes}
+
 import java.net.URL
 
-import play.api.libs.json.{JsString, JsValue, Writes}
-
-object JsonWriteHelpers {
-  implicit val urlFormats: Writes[URL] = new Writes[URL] {
-    override def writes(o: URL): JsValue = JsString(o.toString)
-  }
-}
+object JsonWriteHelpers:
+  val urlFormats: Writes[URL] =
+    (o: URL) => JsString(o.toString)

@@ -16,24 +16,25 @@
 
 package services
 
+import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import config.ServiceConfiguration
 import connectors.aws.S3EventParser
 import model._
+import org.mockito.Mockito.when
 import test.UnitSpec
 import uk.gov.hmrc.play.bootstrap.metrics.Metrics
+import uk.gov.hmrc.play.bootstrap.tools.LogCapturing
 
 import java.net.URL
 import java.time.{Clock, Instant}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import uk.gov.hmrc.play.bootstrap.tools.LogCapturing
-import ch.qos.logback.classic.Level
 
-class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends UnitSpec with LogCapturing {
+class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends UnitSpec with LogCapturing:
 
   val consumer             = mock[SuccessfulQueueConsumer]
-  val parser               = new S3EventParser()
+  val parser               = S3EventParser()
   val fileRetriever        = mock[FileNotificationDetailsRetriever]
   val notificationService  = mock[NotificationService]
   val metrics              = mock[Metrics]
@@ -42,15 +43,19 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends UnitSpec with
   val serviceConfiguration = mock[ServiceConfiguration]
 
   val defaultMetricsRegistry = mock[MetricRegistry]
-  when(metrics.defaultRegistry).thenReturn(defaultMetricsRegistry)
-  when(defaultMetricsRegistry.timer("totalFileProcessingTime")).thenReturn(mock[com.codahale.metrics.Timer])
-  when(defaultMetricsRegistry.histogram("fileSize")).thenReturn(mock[com.codahale.metrics.Histogram])
+  when(metrics.defaultRegistry)
+    .thenReturn(defaultMetricsRegistry)
+  when(defaultMetricsRegistry.timer("totalFileProcessingTime"))
+    .thenReturn(mock[com.codahale.metrics.Timer])
+  when(defaultMetricsRegistry.histogram("fileSize"))
+    .thenReturn(mock[com.codahale.metrics.Histogram])
   when(defaultMetricsRegistry.counter("successfulUploadNotificationSent"))
     .thenReturn(mock[com.codahale.metrics.Counter])
 
-  when(serviceConfiguration.endToEndProcessingThreshold()).thenReturn(0.seconds)
+  when(serviceConfiguration.endToEndProcessingThreshold())
+    .thenReturn(0.seconds)
 
-  val testInstance = new NotifyOnSuccessfulFileUploadMessageProcessingJob(
+  val testInstance = NotifyOnSuccessfulFileUploadMessageProcessingJob(
     consumer,
     parser,
     fileRetriever,
@@ -61,13 +66,13 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends UnitSpec with
     serviceConfiguration
   )
 
-  "NotifyOnSuccessfulFileUploadMessageProcessingJobSpec" when {
-    "collectMetricsAfterNotification" should {
-      "log all metrics" in {
+  "NotifyOnSuccessfulFileUploadMessageProcessingJobSpec" when:
+    "collectMetricsAfterNotification" should:
+      "log all metrics" in:
         val notification = model.SuccessfulProcessingDetails(
-          callbackUrl     = new URL("http://my.callback.url"),
+          callbackUrl     = URL("http://my.callback.url"),
           reference       = FileReference("upload-file-reference"),
-          downloadUrl     = new URL("http://my.download.url/bucket/123"),
+          downloadUrl     = URL("http://my.download.url/bucket/123"),
           size            = 0L,
           fileName        = "test.pdf",
           fileMimeType    = "application/pdf",
@@ -84,7 +89,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends UnitSpec with
           )
         )
 
-        withCaptureOfLoggingFrom(testInstance.logger) { logs =>
+        withCaptureOfLoggingFrom(testInstance.logger): logs =>
           testInstance.collectMetricsAfterNotification(notification, checkpoints)
 
           val warnMessages = logs.filter(_.getLevel == Level.WARN).map(_.getFormattedMessage)
@@ -95,8 +100,3 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends UnitSpec with
           warnMessages.head should include("upscan-notify-callback-started")
           warnMessages.head should include("upscan-notify-callback-end")
           warnMessages.head should include("upscan-notify-responded")
-        }
-      }
-    }
-  }
-}

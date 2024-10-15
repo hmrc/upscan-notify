@@ -16,29 +16,34 @@
 
 package connectors
 
-import java.net.URL
-import java.time.{Clock, Duration, Instant, ZoneId}
-
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import model._
 import org.scalatest.{BeforeAndAfterAll, GivenWhenThen}
 import test.{IncrementingClock, UnitSpec}
-import uk.gov.hmrc.http.test.HttpClientSupport
+import uk.gov.hmrc.http.test.HttpClientV2Support
 
+import java.net.URL
+import java.time.{Clock, Duration, Instant, ZoneId}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
 
-class HttpNotificationServiceSpec extends UnitSpec with GivenWhenThen with BeforeAndAfterAll with HttpClientSupport {
-  private val callbackServer = new WireMockServer(wireMockConfig().port(11111))
+class HttpNotificationServiceSpec
+  extends UnitSpec
+     with GivenWhenThen
+     with BeforeAndAfterAll
+     with HttpClientV2Support:
+
+  private val callbackServer = WireMockServer(wireMockConfig().port(11111))
 
   private val baseTime = Instant.parse("2018-12-01T14:36:30Z")
 
-  private val fixedClock                    = Clock.fixed(baseTime, ZoneId.systemDefault())
-  private val clock                         = new IncrementingClock(fixedClock.millis(), Duration.ofSeconds(1))
-  private implicit val ec: ExecutionContext = ExecutionContext.Implicits.global
+  private val fixedClock  = Clock.fixed(baseTime, ZoneId.systemDefault())
+  private val clock       = IncrementingClock(fixedClock.millis(), Duration.ofSeconds(1))
+
+  import ExecutionContext.Implicits.global
 
   override def beforeAll(): Unit =
     callbackServer.start()
@@ -47,27 +52,25 @@ class HttpNotificationServiceSpec extends UnitSpec with GivenWhenThen with Befor
     callbackServer.stop()
 
   private def stubCallbackReceiverToReturnValidResponse(): Unit =
-    callbackServer.stubFor(
+    callbackServer.stubFor:
       post(urlEqualTo("/myservice/123"))
-        .willReturn(
+        .willReturn:
           aResponse()
             .withStatus(204)
-        ))
 
   private def stubCallbackReceiverToReturnInvalidResponse(): Unit =
-    callbackServer.stubFor(
+    callbackServer.stubFor:
       post(urlEqualTo("/myservice/123"))
-        .willReturn(
+        .willReturn:
           aResponse()
             .withStatus(503)
-        ))
 
-  "HttpNotificationService" should {
-    "post JSON to the passed in callback URL for upload success callback" in {
+  "HttpNotificationService" should:
+    "post JSON to the passed in callback URL for upload success callback" in:
 
       Given("there is working host that can receive callback")
-      val callbackUrl = new URL("http://localhost:11111/myservice/123")
-      val downloadUrl = new URL("http://remotehost/bucket/123")
+      val callbackUrl = URL("http://localhost:11111/myservice/123")
+      val downloadUrl = URL("http://remotehost/bucket/123")
       stubCallbackReceiverToReturnValidResponse()
       val initiateDate = Instant.parse("2018-04-24T09:30:00Z")
 
@@ -83,7 +86,7 @@ class HttpNotificationServiceSpec extends UnitSpec with GivenWhenThen with Befor
         checksum        = "1a2b3c4d5e",
         requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
       )
-      val service = new HttpNotificationService(httpClient, clock)
+      val service = HttpNotificationService(httpClientV2, clock)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return success")
@@ -95,28 +98,25 @@ class HttpNotificationServiceSpec extends UnitSpec with GivenWhenThen with Befor
       )
 
       And("callback URL is called with expected JSON body")
-      callbackServer.verify(
+      callbackServer.verify:
         postRequestedFor(urlEqualTo("/myservice/123"))
           .withRequestBody(equalToJson("""
-          |{ "reference" : "upload-file-reference",
-          |  "downloadUrl" : "http://remotehost/bucket/123",
-          |  "fileStatus": "READY",
-          |  "uploadDetails": {
-          |	    "uploadTimestamp": "2018-04-24T09:30:00Z",
-          |	    "checksum": "1a2b3c4d5e",
-          |     "fileMimeType": "application/pdf",
-          |     "fileName": "test.pdf",
-          |     "size": 123
-          |  }
-          |}
-        """.stripMargin)))
+            |{ "reference" : "upload-file-reference",
+            |  "downloadUrl" : "http://remotehost/bucket/123",
+            |  "fileStatus": "READY",
+            |  "uploadDetails": {
+            |	    "uploadTimestamp": "2018-04-24T09:30:00Z",
+            |	    "checksum": "1a2b3c4d5e",
+            |     "fileMimeType": "application/pdf",
+            |     "fileName": "test.pdf",
+            |     "size": 123
+            |  }
+            |}
+            """.stripMargin))
 
-    }
-
-    "post JSON to the passed in callback URL for upload failure callback when file is quarantined" in {
-
+    "post JSON to the passed in callback URL for upload failure callback when file is quarantined" in:
       Given("there is working host that can receive callback")
-      val callbackUrl = new URL("http://localhost:11111/myservice/123")
+      val callbackUrl = URL("http://localhost:11111/myservice/123")
       stubCallbackReceiverToReturnValidResponse()
 
       When("the service is called")
@@ -129,7 +129,7 @@ class HttpNotificationServiceSpec extends UnitSpec with GivenWhenThen with Befor
           error           = ErrorDetails("QUARANTINE", "This file has a virus"),
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = new HttpNotificationService(httpClient, clock)
+      val service = HttpNotificationService(httpClientV2, clock)
       val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
 
       Then("service should return success")
@@ -137,25 +137,22 @@ class HttpNotificationServiceSpec extends UnitSpec with GivenWhenThen with Befor
 
       And("callback URL is called with expected JSON body")
 
-      callbackServer.verify(
+      callbackServer.verify:
         postRequestedFor(urlEqualTo("/myservice/123"))
           .withRequestBody(equalToJson("""
-         | {
-         |   "reference" : "quarantine-file-reference",
-         |   "fileStatus" : "FAILED",
-         |   "failureDetails" : {
-         |     "failureReason" : "QUARANTINE",
-         |     "message" : "This file has a virus"
-         |   }
-         | }
-       """.stripMargin)))
+            | {
+            |   "reference" : "quarantine-file-reference",
+            |   "fileStatus" : "FAILED",
+            |   "failureDetails" : {
+            |     "failureReason" : "QUARANTINE",
+            |     "message" : "This file has a virus"
+            |   }
+            | }
+          """.stripMargin))
 
-    }
-
-    "post JSON to the passed in callback URL for upload failure callback when file is rejected" in {
-
+    "post JSON to the passed in callback URL for upload failure callback when file is rejected" in:
       Given("there is working host that can receive callback")
-      val callbackUrl = new URL("http://localhost:11111/myservice/123")
+      val callbackUrl = URL("http://localhost:11111/myservice/123")
       stubCallbackReceiverToReturnValidResponse()
 
       When("the service is called")
@@ -168,32 +165,30 @@ class HttpNotificationServiceSpec extends UnitSpec with GivenWhenThen with Befor
           error           = ErrorDetails("REJECTED", "MIME type [some-type] not allowed for service [some-service]"),
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = new HttpNotificationService(httpClient, clock)
+      val service = HttpNotificationService(httpClientV2, clock)
       val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
 
       Then("service should return success")
       result.isSuccess shouldBe true
 
       And("callback URL is called with expected JSON body")
-      callbackServer.verify(
+      callbackServer.verify:
         postRequestedFor(urlEqualTo("/myservice/123"))
           .withRequestBody(equalToJson("""
-           | {
-           |   "reference" : "rejected-file-reference",
-           |   "fileStatus" : "FAILED",
-           |   "failureDetails" : {
-           |     "failureReason" : "REJECTED",
-           |     "message" : "MIME type [some-type] not allowed for service [some-service]"
-           |   }
-           | }
-           """.stripMargin)))
-    }
+            | {
+            |   "reference" : "rejected-file-reference",
+            |   "fileStatus" : "FAILED",
+            |   "failureDetails" : {
+            |     "failureReason" : "REJECTED",
+            |     "message" : "MIME type [some-type] not allowed for service [some-service]"
+            |   }
+            | }
+            """.stripMargin))
 
-    "return error when called host returns HTTP error response" in {
-
+    "return error when called host returns HTTP error response" in:
       Given("host that would receive callback returns errors")
-      val callbackUrl = new URL("http://localhost:11111/myservice/123")
-      val downloadUrl = new URL("http://remotehost/bucket/123")
+      val callbackUrl = URL("http://localhost:11111/myservice/123")
+      val downloadUrl = URL("http://remotehost/bucket/123")
       stubCallbackReceiverToReturnInvalidResponse()
       val initiateDate = Instant.parse("2018-04-24T09:30:00Z")
 
@@ -210,18 +205,16 @@ class HttpNotificationServiceSpec extends UnitSpec with GivenWhenThen with Befor
           checksum        = "1a2b3c4d5e",
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = new HttpNotificationService(httpClient, clock)
+      val service = HttpNotificationService(httpClientV2, clock)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return an error")
       result.isSuccess shouldBe false
 
-    }
-
-    "return error when remote call fails" in {
+    "return error when remote call fails" in:
       Given("host that would receive callback is not reachable")
-      val callbackUrl = new URL("http://invalid-host-name:11111/myservice/123")
-      val downloadUrl = new URL("http://remotehost/bucket/123")
+      val callbackUrl = URL("http://invalid-host-name:11111/myservice/123")
+      val downloadUrl = URL("http://remotehost/bucket/123")
       stubCallbackReceiverToReturnInvalidResponse()
       val initiateDate = Instant.parse("2018-04-24T09:30:00Z")
 
@@ -238,12 +231,8 @@ class HttpNotificationServiceSpec extends UnitSpec with GivenWhenThen with Befor
           checksum        = "1a2b3c4d5e",
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = new HttpNotificationService(httpClient, clock)
+      val service = HttpNotificationService(httpClientV2, clock)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return an error")
       result.isSuccess shouldBe false
-    }
-  }
-
-}

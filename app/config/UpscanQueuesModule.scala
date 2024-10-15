@@ -16,42 +16,49 @@
 
 package config
 
-import java.time.Clock
-
 import com.amazonaws.services.sqs.AmazonSQS
 import connectors.aws.SqsQueueConsumer
-import javax.inject.{Inject, Provider}
 import play.api.inject.{Binding, Module}
 import play.api.{Configuration, Environment}
 import services._
 
+import java.time.Clock
+import javax.inject.{Inject, Provider}
 import scala.concurrent.ExecutionContext
 
-class UpscanQueuesModule extends Module {
-  override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] = Seq(
-    bind[SuccessfulQueueConsumer].toProvider[SuccessfulSqsQueueConsumerProvider],
-    bind[QuarantineQueueConsumer].toProvider[QuarantineSqsQueueConsumerProvider]
-  )
-}
+class UpscanQueuesModule extends Module:
+  override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] =
+    Seq(
+      bind[SuccessfulQueueConsumer].toProvider[SuccessfulSqsQueueConsumerProvider],
+      bind[QuarantineQueueConsumer].toProvider[QuarantineSqsQueueConsumerProvider]
+    )
 
-class SuccessfulSqsQueueConsumerProvider @Inject()(sqsClient: AmazonSQS, configuration: ServiceConfiguration, clock: Clock)(
-  implicit ec: ExecutionContext)
-    extends Provider[SuccessfulQueueConsumer] {
+class SuccessfulSqsQueueConsumerProvider @Inject()(
+  sqsClient    : AmazonSQS,
+  configuration: ServiceConfiguration,
+  clock        : Clock
+)(using
+  ExecutionContext
+) extends Provider[SuccessfulQueueConsumer]:
   override def get(): SuccessfulQueueConsumer =
     new SqsQueueConsumer(
       sqsClient,
       configuration.outboundSuccessfulQueueUrl,
       configuration.successfulProcessingBatchSize,
-      clock) with SuccessfulQueueConsumer
-}
+      clock
+    ) with SuccessfulQueueConsumer
 
-class QuarantineSqsQueueConsumerProvider @Inject()(sqsClient: AmazonSQS, configuration: ServiceConfiguration, clock: Clock)(
-  implicit ec: ExecutionContext)
-    extends Provider[QuarantineQueueConsumer] {
+class QuarantineSqsQueueConsumerProvider @Inject()(
+  sqsClient    : AmazonSQS,
+  configuration: ServiceConfiguration,
+  clock        : Clock
+)(using
+  ExecutionContext
+)extends Provider[QuarantineQueueConsumer]:
   override def get(): QuarantineQueueConsumer =
     new SqsQueueConsumer(
       sqsClient,
       configuration.outboundQuarantineQueueUrl,
       configuration.quarantineProcessingBatchSize,
-      clock) with QuarantineQueueConsumer
-}
+      clock
+    ) with QuarantineQueueConsumer

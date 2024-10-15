@@ -20,7 +20,9 @@ import java.net.URL
 import java.time.Instant
 
 import model._
-import org.mockito.captor.ArgCaptor
+import org.mockito.ArgumentCaptor
+import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito.verify
 import org.scalatest.GivenWhenThen
 import test.UnitSpec
 import uk.gov.hmrc.http.{HeaderCarrier, HeaderNames}
@@ -30,20 +32,18 @@ import uk.gov.hmrc.play.audit.model.DataEvent
 import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class UpscanAuditingServiceSpec extends UnitSpec with GivenWhenThen {
+class UpscanAuditingServiceSpec extends UnitSpec with GivenWhenThen:
 
-  "UpscanAuditingService" should {
-
-    "properly handle FileUploadedSuccessfully events" in {
-
+  "UpscanAuditingService" should:
+    "properly handle FileUploadedSuccessfully events" in:
       val auditConnector = mock[AuditConnector]
 
-      val upscanAuditingService = new UpscanAuditingService(auditConnector)
+      val upscanAuditingService = UpscanAuditingService(auditConnector)
 
       val event = SuccessfulProcessingDetails(
-        callbackUrl     = new URL("http://www.test.com"),
+        callbackUrl     = URL("http://www.test.com"),
         reference       = FileReference("REF"),
-        downloadUrl     = new URL("http://www.test.com"),
+        downloadUrl     = URL("http://www.test.com"),
         size            = 10L,
         fileName        = "test.pdf",
         fileMimeType    = "application/pdf",
@@ -54,10 +54,10 @@ class UpscanAuditingServiceSpec extends UnitSpec with GivenWhenThen {
 
       upscanAuditingService.notifyFileUploadedSuccessfully(event)
 
-      val eventCaptor = ArgCaptor[DataEvent]
-      verify(auditConnector).sendEvent(eventCaptor.capture)(any[HeaderCarrier], any[ExecutionContext])
+      val eventCaptor = ArgumentCaptor.forClass(classOf[DataEvent])
+      verify(auditConnector).sendEvent(eventCaptor.capture())(any[HeaderCarrier], any[ExecutionContext])
 
-      val dataEvent: DataEvent = eventCaptor.value
+      val dataEvent: DataEvent = eventCaptor.getValue
 
       dataEvent.auditSource                 shouldBe "upscan"
       dataEvent.auditType                   shouldBe "cleanFileUploaded"
@@ -69,15 +69,13 @@ class UpscanAuditingServiceSpec extends UnitSpec with GivenWhenThen {
       dataEvent.tags.get(HeaderNames.xRequestId) shouldBe Some("RequestId")
       dataEvent.tags.get("clientIp")             shouldBe Some("127.0.0.1")
 
-    }
-
-    "properly handle FileIsQuarantined events" in {
+    "properly handle FileIsQuarantined events" in:
       val auditConnector = mock[AuditConnector]
 
-      val upscanAuditingService = new UpscanAuditingService(auditConnector)
+      val upscanAuditingService = UpscanAuditingService(auditConnector)
 
       val event = FailedProcessingDetails(
-        callbackUrl     = new URL("http://www.test.com"),
+        callbackUrl     = URL("http://www.test.com"),
         reference       = FileReference("REF"),
         fileName        = "test.pdf",
         uploadTimestamp = Instant.now(),
@@ -87,10 +85,10 @@ class UpscanAuditingServiceSpec extends UnitSpec with GivenWhenThen {
 
       upscanAuditingService.notifyFileIsQuarantined(event)
 
-      val eventCaptor = ArgCaptor[DataEvent]
-      verify(auditConnector).sendEvent(eventCaptor.capture)(any[HeaderCarrier], any[ExecutionContext])
+      val eventCaptor = ArgumentCaptor.forClass(classOf[DataEvent])
+      verify(auditConnector).sendEvent(eventCaptor.capture())(any[HeaderCarrier], any[ExecutionContext])
 
-      val dataEvent: DataEvent = eventCaptor.value
+      val dataEvent: DataEvent = eventCaptor.getValue
 
       dataEvent.auditSource                 shouldBe "upscan"
       dataEvent.auditType                   shouldBe "invalidFileUploaded"
@@ -101,6 +99,3 @@ class UpscanAuditingServiceSpec extends UnitSpec with GivenWhenThen {
       dataEvent.tags.get(HeaderNames.xSessionId) shouldBe Some("SessionId")
       dataEvent.tags.get(HeaderNames.xRequestId) shouldBe Some("RequestId")
       dataEvent.tags.get("clientIp")             shouldBe Some("127.0.0.1")
-    }
-  }
-}
