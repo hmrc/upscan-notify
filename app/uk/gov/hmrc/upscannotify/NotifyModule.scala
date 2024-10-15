@@ -29,13 +29,12 @@ import java.time.Clock
 class NotifyModule extends Module:
   override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] =
     Seq(
-      bind[ServiceConfiguration            ].to[PlayBasedServiceConfiguration],
-      bind[FileNotificationDetailsRetriever].to[S3FileNotificationDetailsRetriever],
-      bind[NotificationService             ].to[HttpNotificationService],
-      bind[MessageParser                   ].to[S3EventParser],
-      bind[PollingJobs                     ].toProvider[SqsPollingJobsProvider],
-      bind[ContinuousPoller                ].toSelf.eagerly(),
-      bind[Clock                           ].toInstance(Clock.systemDefaultZone())
+      bind[ServiceConfiguration].to[PlayBasedServiceConfiguration],
+      bind[NotificationService ].to[HttpNotificationService],
+      bind[MessageParser       ].to[S3EventParser],
+      bind[PollingJobs         ].toProvider[SqsPollingJobsProvider],
+      bind[ContinuousPoller    ].toSelf.eagerly(),
+      bind[Clock               ].toInstance(Clock.systemDefaultZone())
     )
 
 class SqsPollingJobsProvider @Inject()(

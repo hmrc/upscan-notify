@@ -23,8 +23,6 @@ import org.apache.commons.io.IOUtils
 import play.api.Logging
 import uk.gov.hmrc.upscannotify.model.{FileReference, RequestContext, S3ObjectLocation}
 import uk.gov.hmrc.upscannotify.service._
-import uk.gov.hmrc.upscannotify.util.logging.LoggingDetails
-import uk.gov.hmrc.upscannotify.util.logging.WithLoggingDetails.withLoggingDetails
 
 import java.net.URL
 import java.nio.charset.StandardCharsets.UTF_8
@@ -57,12 +55,6 @@ class S3FileManager @Inject()(
       requestContext   <- retrieveUserContext(userMetadata)
       consumingService <- retrieveConsumingService(userMetadata)
     yield
-      withLoggingDetails(LoggingDetails.fromFileReference(fileReference)):
-        if uploadDetails.fileName.contains("{filename}") then
-          // Debug whether filename is ever `${filename}`
-          logger.warn(s"Unexpected original filename ${uploadDetails.fileName} for object=[${objectLocation.objectKey}] with upload Key=[${fileReference.reference}].")
-        logger.info(s"Fetched SuccessfulFileDetails for object=[${objectLocation.objectKey}] with upload Key=[${fileReference.reference}].")
-
       SuccessfulFileDetails(
         fileReference    = fileReference,
         callbackUrl      = callbackUrl,
@@ -86,8 +78,6 @@ class S3FileManager @Inject()(
       uploadDetails  <- Future.fromTry(parseFailedFileMetadata(metadata))
       requestContext <- Future.fromTry(retrieveUserContext(metadata))
     yield
-      withLoggingDetails(LoggingDetails.fromFileReference(fileReference)):
-        logger.info(s"Fetched FailedFileDetails for object=[${objectLocation.objectKey}] with upload Key=[${fileReference.reference}].")
       FailedFileDetails(
         fileReference   = fileReference,
         callbackUrl     = callbackUrl,

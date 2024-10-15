@@ -49,7 +49,7 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec:
 
           override def outboundQuarantineQueueUrl: String = ???
 
-          override def endToEndProcessingThreshold(): Duration = ???
+          override def endToEndProcessingThreshold: Duration = ???
 
       val credentials: AWSCredentialsProvider = ProviderOfAWSCredentials(configuration).get()
 
@@ -82,7 +82,7 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec:
 
           override def outboundQuarantineQueueUrl: String = ???
 
-          override def endToEndProcessingThreshold(): Duration = ???
+          override def endToEndProcessingThreshold: Duration = ???
 
       val credentials: AWSCredentialsProvider = ProviderOfAWSCredentials(configuration).get()
 

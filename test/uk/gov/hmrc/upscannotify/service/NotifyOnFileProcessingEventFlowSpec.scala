@@ -26,11 +26,14 @@ import uk.gov.hmrc.upscannotify.test.UnitSpec
 
 import java.net.URL
 import java.time._
+import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
+class NotifyOnFileProcessingEventFlowSpec
+  extends UnitSpec
+     with GivenWhenThen:
 
   val messageParser =
     new MessageParser:
@@ -39,41 +42,47 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
           case "VALID-BODY" => Future.successful(FileUploadEvent(S3ObjectLocation("bucket", message.id)))
           case _            => Future.failed(Exception("Invalid body"))
 
-  val startTime   = Instant.parse("2018-04-24T09:45:10Z")
   val currentTime = Instant.parse("2018-04-24T09:45:15Z")
-
   val clock = Clock.fixed(currentTime, ZoneOffset.UTC)
 
-  val callbackUrl = URL("http://localhost:8080")
-  val downloadUrl = URL("http://remotehost/bucket/123")
+  val fileName         = "test.pdf"
+  val callbackUrl      = URL("http://localhost:8080")
+  val fileMimeType     = "application/pdf"
+  val uploadTimestamp  = Instant.parse("2018-04-24T09:45:10Z")
+  val checksum         = "1a2b3c4d5e"
+  val fileReference    = FileReference("my-reference")
+  val location         = S3ObjectLocation("my-bucket", "my-key")
+  val fileSize         = 10L
+  val consumingService = "consuming-service"
 
-  val sampleRequestContext = RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1")
-
-  def sampleUploadedFile(objectLocation: S3ObjectLocation) =
-    SuccessfulProcessingDetails(
-      callbackUrl     = callbackUrl,
-      reference       = FileReference(objectLocation.objectKey),
-      downloadUrl     = downloadUrl,
-      size            = 10L,
-      fileName        = "test.pdf",
-      fileMimeType    = "application/pdf",
-      uploadTimestamp = startTime,
-      checksum        = "1a2b3c4d5e",
-      requestContext  = sampleRequestContext
+  val fileManager = mock[FileManager]
+  val sampleRequestContext =
+    RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1")
+  val objectMetadata =
+    SuccessfulFileDetails(
+      fileReference,
+      callbackUrl,
+      fileName,
+      fileMimeType,
+      uploadTimestamp,
+      checksum,
+      fileSize,
+      sampleRequestContext,
+      consumingService,
+      Map(
+        "x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z",
+      )
     )
+  when(fileManager.receiveSuccessfulFileDetails(any[S3ObjectLocation]))
+    .thenReturn(Future.successful(objectMetadata))
 
-  val fileDetailsRetriever =
-    new FileNotificationDetailsRetriever:
-      override def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation) =
-        Future.successful(
-          WithCheckpoints(
-            sampleUploadedFile(objectLocation),
-            Checkpoints(Seq(Checkpoint("x-amz-meta-upscan-notify-received", Instant.parse("2018-04-24T09:45:15Z"))))))
-
-      override def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation) = ???
+  val downloadUrlGenerator = mock[DownloadUrlGenerator]
+  val downloadUrl = URL("http://remotehost/bucket/123")
+  when(downloadUrlGenerator.generate(any, any))
+    .thenReturn(downloadUrl)
 
   val serviceConfiguration = mock[ServiceConfiguration]
-  when(serviceConfiguration.endToEndProcessingThreshold())
+  when(serviceConfiguration.endToEndProcessingThreshold)
     .thenReturn(1.minute)
 
   "SuccessfulUploadNotificationProcessingFlow" should:
@@ -98,13 +107,12 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
       val queueOrchestrator = NotifyOnSuccessfulFileUploadMessageProcessingJob(
         queueConsumer,
         messageParser,
-        fileDetailsRetriever,
+        fileManager,
         notificationService,
-        metricRegistry,
-        clock,
+        downloadUrlGenerator,
         auditingService,
         serviceConfiguration
-      )
+      )(using summon[ExecutionContext], metricRegistry, clock)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30.seconds)
@@ -120,11 +128,8 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
 
       And("counter of successful processed messages is incremented")
       metricRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 1
-      metricRegistry.histogram("fileSize").getSnapshot.getValues          shouldBe Array(10L)
-      metricRegistry
-        .timer("totalFileProcessingTime")
-        .getSnapshot
-        .getValues shouldBe Array((5.seconds).toNanos)
+      metricRegistry.histogram("fileSize").getSnapshot.getValues shouldBe Array(fileSize)
+      metricRegistry.timer("totalFileProcessingTime").getSnapshot.getValues shouldBe Array((5.seconds).toNanos)
 
       metricRegistry
         .timer("fileProcessingTimeExcludingNotification")
@@ -134,13 +139,24 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
       And("audit events are emitted for all the events")
 
       verify(auditingService)
-        .notifyFileUploadedSuccessfully(sampleUploadedFile(S3ObjectLocation("bucket", "ID")))
+        .notifyFileUploadedSuccessfully:
+          SuccessfulProcessingDetails(
+            callbackUrl     = callbackUrl,
+            reference       = fileReference,
+            downloadUrl     = downloadUrl,
+            size            = 10L,
+            fileName        = fileName,
+            fileMimeType    = fileMimeType,
+            uploadTimestamp = uploadTimestamp,
+            checksum        = checksum,
+            requestContext  = sampleRequestContext
+          )
 
     "get messages from the queue consumer, and call notification service for valid messages and ignore invalid messages" in:
       Given("a mix of valid & invalid messages in a message queue")
-      val validMessage1  = Message("ID1", "VALID-BODY", "RECEIPT-1", clock.instant())
+      val validMessage1  = Message("ID1", "VALID-BODY"  , "RECEIPT-1", clock.instant())
       val invalidMessage = Message("ID2", "INVALID-BODY", "RECEIPT-2", clock.instant())
-      val validMessage2  = Message("ID3", "VALID-BODY", "RECEIPT-3", clock.instant())
+      val validMessage2  = Message("ID3", "VALID-BODY"  , "RECEIPT-3", clock.instant())
 
       val queueConsumer = mock[SuccessfulQueueConsumer]
       when(queueConsumer.poll())
@@ -160,13 +176,12 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
       val queueOrchestrator = NotifyOnSuccessfulFileUploadMessageProcessingJob(
         queueConsumer,
         messageParser,
-        fileDetailsRetriever,
+        fileManager,
         notificationService,
-        metricRegistry,
-        clock,
+        downloadUrlGenerator,
         auditingService,
         serviceConfiguration
-      )
+      )(using summon[ExecutionContext], metricRegistry, clock)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30.seconds)
@@ -203,16 +218,22 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
       when(queueConsumer.confirm(any[Message]))
         .thenReturn(Future.unit)
 
+      when(fileManager.receiveSuccessfulFileDetails(any[S3ObjectLocation]))
+        .thenAnswer: i =>
+          val objectLocation = i.getArgument[S3ObjectLocation](0)
+          val fileReference = FileReference("R" + objectLocation.objectKey) // These are unrelated, we're just correlating for the test
+          Future.successful(objectMetadata.copy(fileReference = fileReference))
+
       val notificationService = mock[NotificationService]
       when(
         notificationService.notifySuccessfulCallback(SuccessfulProcessingDetails(
           callbackUrl     = callbackUrl,
-          reference       = FileReference("ID1"),
+          reference       = FileReference("RID1"),
           downloadUrl     = downloadUrl,
           size            = 10L,
           fileName        = "test.pdf",
           fileMimeType    = "application/pdf",
-          uploadTimestamp = startTime,
+          uploadTimestamp = uploadTimestamp,
           checksum        = "1a2b3c4d5e",
           requestContext  = sampleRequestContext
         ))
@@ -222,12 +243,12 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
       when(
         notificationService.notifySuccessfulCallback(SuccessfulProcessingDetails(
           callbackUrl     = callbackUrl,
-          reference       = FileReference("ID2"),
+          reference       = FileReference("RID2"),
           downloadUrl     = downloadUrl,
           size            = 10L,
           fileName        = "test.pdf",
           fileMimeType    = "application/pdf",
-          uploadTimestamp = startTime,
+          uploadTimestamp = uploadTimestamp,
           checksum        = "1a2b3c4d5e",
           requestContext  = sampleRequestContext
         ))
@@ -237,12 +258,12 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
       when(
         notificationService.notifySuccessfulCallback(SuccessfulProcessingDetails(
           callbackUrl     = callbackUrl,
-          reference       = FileReference("ID3"),
+          reference       = FileReference("RID3"),
           downloadUrl     = downloadUrl,
           size            = 10L,
           fileName        = "test.pdf",
           fileMimeType    = "application/pdf",
-          uploadTimestamp = startTime,
+          uploadTimestamp = uploadTimestamp,
           checksum        = "1a2b3c4d5e",
           requestContext  = sampleRequestContext
         ))
@@ -256,13 +277,12 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
       val queueOrchestrator = NotifyOnSuccessfulFileUploadMessageProcessingJob(
         queueConsumer,
         messageParser,
-        fileDetailsRetriever,
+        fileManager,
         notificationService,
-        metricRegistry,
-        clock,
+        downloadUrlGenerator,
         auditingService,
         serviceConfiguration
-      )
+      )(using summon[ExecutionContext], metricRegistry, clock)
 
       When("the orchestrator is called")
       Await.result(queueOrchestrator.run(), 30.seconds)

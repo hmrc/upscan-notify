@@ -42,7 +42,7 @@ trait ServiceConfiguration:
 
   def s3UrlExpirationPeriod(serviceName: String): FiniteDuration
 
-  def endToEndProcessingThreshold(): Duration
+  def endToEndProcessingThreshold: Duration
 
 class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) extends ServiceConfiguration with Logging:
   import PlayBasedServiceConfiguration._
@@ -83,7 +83,7 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
   override def quarantineProcessingBatchSize: Int =
     configuration.get[Int]("quarantine.processingBatchSize")
 
-  override def endToEndProcessingThreshold(): Duration =
+  override def endToEndProcessingThreshold: Duration =
     configuration.get[Duration]("upscan.endToEndProcessing.threshold")
 
   private def replaceInvalidChars(serviceName: String): String =

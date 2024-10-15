@@ -23,8 +23,6 @@ import uk.gov.hmrc.http.{HeaderCarrier, HttpReads, HttpResponse}
 import uk.gov.hmrc.http.client.HttpClientV2
 import uk.gov.hmrc.upscannotify.model._
 import uk.gov.hmrc.upscannotify.service.NotificationService
-import uk.gov.hmrc.upscannotify.util.logging.LoggingDetails
-import uk.gov.hmrc.upscannotify.util.logging.WithLoggingDetails.withLoggingDetails
 
 import java.net.URL
 import java.time.{Clock, Instant}
@@ -37,6 +35,8 @@ class HttpNotificationService @Inject()(
 )(using
   ExecutionContext
 ) extends NotificationService with Logging:
+
+  private given HeaderCarrier = HeaderCarrier()
 
   override def notifySuccessfulCallback(uploadedFile: SuccessfulProcessingDetails): Future[Seq[Checkpoint]] =
     makeCallback(
@@ -69,8 +69,6 @@ class HttpNotificationService @Inject()(
   )(using
     Writes[T]
   ): Future[Seq[Checkpoint]] =
-    given ld: HeaderCarrier = LoggingDetails.fromFileReference(metadata.reference)
-
     given HttpReads[HttpResponse] =
       HttpReads.Implicits.throwOnFailure(HttpReads.Implicits.readEitherOf(HttpReads.Implicits.readRaw))
     timed(
@@ -79,10 +77,9 @@ class HttpNotificationService @Inject()(
         .execute[HttpResponse]
     ).map:
       case WithTimeMeasurement(measurement, httpResult) =>
-        withLoggingDetails(ld):
-          logger.info:
-            s"""$notificationType notification for Key=[${metadata.reference.reference}] sent to service with callbackUrl: [${metadata.callbackUrl}].
-              | Response status was: [${httpResult.status}].""".stripMargin
+        logger.info:
+          s"""$notificationType notification for Key=[${metadata.reference.reference}] sent to service with callbackUrl: [${metadata.callbackUrl}].
+            | Response status was: [${httpResult.status}].""".stripMargin
         collectExecutionTimeMetadata(measurement)
 
   private def collectExecutionTimeMetadata(timeMeasurement: TimeMeasurement): Seq[Checkpoint] =

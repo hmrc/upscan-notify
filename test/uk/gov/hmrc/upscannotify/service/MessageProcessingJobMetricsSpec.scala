@@ -21,44 +21,54 @@ import java.time.{Clock, Instant}
 import com.codahale.metrics.MetricRegistry
 import org.mockito.Mockito.when
 import uk.gov.hmrc.play.bootstrap.tools.LogCapturing
-import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
-import uk.gov.hmrc.upscannotify.connector.aws.S3EventParser
 import uk.gov.hmrc.upscannotify.model._
 import uk.gov.hmrc.upscannotify.test.UnitSpec
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import ch.qos.logback.classic.Level
 
-class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends UnitSpec with LogCapturing:
+class MessageProcessingJobMetricsSpec extends UnitSpec with LogCapturing:
 
-  val consumer             = mock[QuarantineQueueConsumer]
-  val parser               = S3EventParser()
-  val fileRetriever        = mock[FileNotificationDetailsRetriever]
-  val notificationService  = mock[NotificationService]
-  val clock                = Clock.systemDefaultZone()
-  val auditingService      = mock[UpscanAuditingService]
-  val serviceConfiguration = mock[ServiceConfiguration]
+  val metricsRegistry = MetricRegistry()
+  val clock           = Clock.systemDefaultZone()
 
-  val metricsRegistry = mock[MetricRegistry]
-  when(metricsRegistry.counter("quarantinedUploadNotificationSent"))
-    .thenReturn(mock[com.codahale.metrics.Counter])
+  "MessageProcessingJob" when:
+    "collectMetricsAfterNotificationSuccess" should:
+      "log all metrics" in:
+        val notification = SuccessfulProcessingDetails(
+          callbackUrl     = URL("http://my.callback.url"),
+          reference       = FileReference("upload-file-reference"),
+          downloadUrl     = URL("http://my.download.url/bucket/123"),
+          size            = 0L,
+          fileName        = "test.pdf",
+          fileMimeType    = "application/pdf",
+          uploadTimestamp = Instant.parse("2018-12-01T14:30:00Z"),
+          checksum        = "1a2b3c4d5e",
+          requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
+        )
 
-  when(serviceConfiguration.endToEndProcessingThreshold()).thenReturn(0.seconds)
+        val checkpoints = Checkpoints(
+          Seq(
+            Checkpoint("x-amz-meta-upscan-notify-received"        , Instant.parse("2018-12-01T14:36:20Z")),
+            Checkpoint("x-amz-meta-upscan-notify-callback-started", Instant.parse("2018-12-01T14:36:30Z")),
+            Checkpoint("x-amz-meta-upscan-notify-callback-ended"  , Instant.parse("2018-12-01T14:36:31Z"))
+          )
+        )
 
-  val testInstance = NotifyOnQuarantineFileUploadMessageProcessingJob(
-    consumer,
-    parser,
-    fileRetriever,
-    notificationService,
-    metricsRegistry,
-    clock,
-    auditingService,
-    serviceConfiguration
-  )
+        withCaptureOfLoggingFrom(MessageProcessingJob.logger): logs =>
+          MessageProcessingJob.collectMetricsAfterNotificationSuccess(notification, checkpoints, endToEndProcessingThreshold = 0.seconds)(using metricsRegistry, clock)
 
-  "NotifyOnQuarantineFileUploadMessageProcessingJobSpec" when:
-    "collectMetricsAfterNotification" should:
+          val warnMessages = logs.filter(_.getLevel == Level.WARN).map(_.getFormattedMessage)
+
+          warnMessages.size shouldBe 1
+          warnMessages.head should include("upscan-file-uploaded")
+          warnMessages.head should include("upscan-notify-received")
+          warnMessages.head should include("upscan-notify-callback-started")
+          warnMessages.head should include("upscan-notify-callback-end")
+          warnMessages.head should include("upscan-notify-responded")
+
+
+    "collectMetricsAfterNotificationFailed" should:
       "log all metrics" in:
         val notification = FailedProcessingDetails(
           callbackUrl     = URL("http://my.callback.url"),
@@ -76,8 +86,8 @@ class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends UnitSpec with
             Checkpoint("x-amz-meta-upscan-notify-callback-ended"  , Instant.parse("2018-12-01T14:36:31Z"))
           ))
 
-        withCaptureOfLoggingFrom(testInstance.logger): logs =>
-          testInstance.collectMetricsAfterNotification(notification, checkpoints)
+        withCaptureOfLoggingFrom(MessageProcessingJob.logger): logs =>
+          MessageProcessingJob.collectMetricsAfterNotificationFailed(notification, checkpoints, endToEndProcessingThreshold = 0.seconds)(using metricsRegistry, clock)
 
           val warnMessages = logs.filter(_.getLevel == Level.WARN).map(_.getFormattedMessage)
 

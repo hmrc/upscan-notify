@@ -52,7 +52,7 @@ class ContinuousPollerSpec extends UnitSpec with Eventually:
 
       override def outboundQuarantineQueueUrl: String = ???
 
-      override def endToEndProcessingThreshold(): Duration = ???
+      override def endToEndProcessingThreshold: Duration = ???
 
   "QueuePollingJob" should:
     "continuously poll the queue" in:

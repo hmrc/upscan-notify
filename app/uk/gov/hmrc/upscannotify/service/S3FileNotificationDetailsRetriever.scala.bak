@@ -19,8 +19,6 @@ package uk.gov.hmrc.upscannotify.service
 import play.api.Logging
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import uk.gov.hmrc.upscannotify.model._
-import uk.gov.hmrc.upscannotify.util.logging.WithLoggingDetails.withLoggingDetails
-import uk.gov.hmrc.upscannotify.util.logging.LoggingDetails
 
 import java.time.Instant
 import javax.inject.Inject
@@ -53,6 +51,9 @@ class S3FileNotificationDetailsRetriever @Inject()(
           metadata.requestContext
         )
       withLoggingDetails(LoggingDetails.fromFileReference(retrieved.reference)):
+        if metadata.fileName.contains("{filename}") then
+          // Debug whether filename is ever `${filename}`
+          logger.warn(s"Unexpected original filename ${retrieved.fileName} for object=[${objectLocation.objectKey}] with upload Key=[${retrieved.fileReference.reference}].")
         logger.debug:
           s"Retrieved file with Key=[${retrieved.reference.reference}] and callbackUrl=[${retrieved.callbackUrl}] for object=[${objectLocation.objectKey}]."
       WithCheckpoints(retrieved, Checkpoints(checkpoints))
