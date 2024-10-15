@@ -22,7 +22,7 @@ import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import model._
 import org.scalatest.{BeforeAndAfterAll, GivenWhenThen}
 import test.{IncrementingClock, UnitSpec}
-import uk.gov.hmrc.http.test.HttpClientSupport
+import uk.gov.hmrc.http.test.HttpClientV2Support
 
 import java.net.URL
 import java.time.{Clock, Duration, Instant, ZoneId}
@@ -34,7 +34,7 @@ class HttpNotificationServiceSpec
   extends UnitSpec
      with GivenWhenThen
      with BeforeAndAfterAll
-     with HttpClientSupport:
+     with HttpClientV2Support:
 
   private val callbackServer = WireMockServer(wireMockConfig().port(11111))
 
@@ -86,7 +86,7 @@ class HttpNotificationServiceSpec
         checksum        = "1a2b3c4d5e",
         requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
       )
-      val service = HttpNotificationService(httpClient, clock)
+      val service = HttpNotificationService(httpClientV2, clock)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return success")
@@ -129,7 +129,7 @@ class HttpNotificationServiceSpec
           error           = ErrorDetails("QUARANTINE", "This file has a virus"),
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = HttpNotificationService(httpClient, clock)
+      val service = HttpNotificationService(httpClientV2, clock)
       val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
 
       Then("service should return success")
@@ -165,7 +165,7 @@ class HttpNotificationServiceSpec
           error           = ErrorDetails("REJECTED", "MIME type [some-type] not allowed for service [some-service]"),
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = HttpNotificationService(httpClient, clock)
+      val service = HttpNotificationService(httpClientV2, clock)
       val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
 
       Then("service should return success")
@@ -205,7 +205,7 @@ class HttpNotificationServiceSpec
           checksum        = "1a2b3c4d5e",
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = HttpNotificationService(httpClient, clock)
+      val service = HttpNotificationService(httpClientV2, clock)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return an error")
@@ -231,7 +231,7 @@ class HttpNotificationServiceSpec
           checksum        = "1a2b3c4d5e",
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = HttpNotificationService(httpClient, clock)
+      val service = HttpNotificationService(httpClientV2, clock)
       val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
 
       Then("service should return an error")

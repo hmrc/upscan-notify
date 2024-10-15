@@ -21,8 +21,11 @@ import _root_.util.logging.WithLoggingDetails.withLoggingDetails
 import model._
 import play.api.Logging
 import play.api.libs.json._
+import play.api.libs.ws.writeableOf_JsValue
 import services.NotificationService
-import uk.gov.hmrc.http.{HeaderCarrier, HttpClient, HttpResponse}
+import uk.gov.hmrc.http.{HeaderCarrier, HttpReads, HttpResponse}
+//import uk.gov.hmrc.http.HttpReads.Implicits._
+import uk.gov.hmrc.http.client.HttpClientV2
 
 import java.net.URL
 import java.time.{Clock, Instant}
@@ -30,8 +33,8 @@ import javax.inject.Inject
 import scala.concurrent.{ExecutionContext, Future}
 
 class HttpNotificationService @Inject()(
-  httpClient: HttpClient,
-  clock     : Clock
+  httpClientV2: HttpClientV2,
+  clock       : Clock
 )(using
   ExecutionContext
 ) extends NotificationService with Logging:
@@ -69,8 +72,12 @@ class HttpNotificationService @Inject()(
   ): Future[Seq[Checkpoint]] =
     given ld: HeaderCarrier = LoggingDetails.fromFileReference(metadata.reference)
 
+    given HttpReads[HttpResponse] =
+      HttpReads.Implicits.throwOnFailure(HttpReads.Implicits.readEitherOf(HttpReads.Implicits.readRaw))
     timed(
-      httpClient.POST[T, HttpResponse](metadata.callbackUrl, callback)
+      httpClientV2.post(metadata.callbackUrl)
+        .withBody(Json.toJson(callback))
+        .execute[HttpResponse]
     ).map:
       case WithTimeMeasurement(measurement, httpResult) =>
         withLoggingDetails(ld):
