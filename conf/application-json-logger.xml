@@ -10,7 +10,7 @@
     <logger name="uk.gov" level="WARN"/>
 
     <!--Used to log warnings about slowly processed requests. -->
-    <logger name="services.NotifyOnQuarantineFileUploadMessageProcessingJob" level="INFO"/>
+    <logger name="uk.gov.hmrc.upscannotify.service.NotifyOnQuarantineFileUploadMessageProcessingJob" level="INFO"/>
 
     <root level="INFO">
         <appender-ref ref="STDOUT"/>
