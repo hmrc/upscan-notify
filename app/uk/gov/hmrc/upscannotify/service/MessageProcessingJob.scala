@@ -18,10 +18,10 @@ package uk.gov.hmrc.upscannotify.service
 
 import cats.data.EitherT
 import cats.implicits._
+import com.codahale.metrics.MetricRegistry
 import play.api.LoggerLike
 import play.api.Logger
 import uk.gov.hmrc.http.logging.LoggingDetails
-import uk.gov.hmrc.play.bootstrap.metrics.Metrics
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.model._
 import uk.gov.hmrc.upscannotify.util.logging.LoggingDetails
@@ -93,7 +93,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
   parser               : MessageParser,
   fileRetriever        : FileNotificationDetailsRetriever,
   notificationService  : NotificationService,
-  metrics              : Metrics,
+  metricRegistry       : MetricRegistry,
   clock                : Clock,
   upscanAuditingService: UpscanAuditingService,
   serviceConfiguration : ServiceConfiguration
@@ -127,7 +127,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
         "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement"
       )
     else
-      metrics.defaultRegistry
+      metricRegistry
         .timer("fileProcessingTimeExcludingNotification")
         .update(totalProcessingTime.toNanos, TimeUnit.NANOSECONDS)
 
@@ -149,7 +149,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
       logger.warn(
         "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
     else
-      metrics.defaultRegistry
+      metricRegistry
         .timer("totalFileProcessingTime")
         .update(totalProcessingTime.toNanos, TimeUnit.NANOSECONDS)
 
@@ -162,16 +162,16 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
              |Processing checkpoints were:\n${updatedCheckpoints.breakdown}.
            """.stripMargin
 
-    metrics.defaultRegistry.histogram("fileSize").update(notification.size)
+    metricRegistry.histogram("fileSize").update(notification.size)
 
-    metrics.defaultRegistry.counter("successfulUploadNotificationSent").inc()
+    metricRegistry.counter("successfulUploadNotificationSent").inc()
 
 class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
   override val consumer: QuarantineQueueConsumer,
   parser               : MessageParser,
   fileRetriever        : FileNotificationDetailsRetriever,
   notificationService  : NotificationService,
-  metrics              : Metrics,
+  metricRegistry       : MetricRegistry,
   clock                : Clock,
   upscanAuditingService: UpscanAuditingService,
   serviceConfiguration : ServiceConfiguration
@@ -216,7 +216,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
       logger.warn(
         "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
     else
-      metrics.defaultRegistry.counter("quarantinedUploadNotificationSent").inc()
+      metricRegistry.counter("quarantinedUploadNotificationSent").inc()
 
       val endToEndProcessingThreshold: scala.concurrent.duration.Duration =
         serviceConfiguration.endToEndProcessingThreshold()

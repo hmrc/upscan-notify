@@ -19,7 +19,6 @@ package uk.gov.hmrc.upscannotify.service
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import org.mockito.Mockito.when
-import uk.gov.hmrc.play.bootstrap.metrics.Metrics
 import uk.gov.hmrc.play.bootstrap.tools.LogCapturing
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.connector.aws.S3EventParser
@@ -37,19 +36,16 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends UnitSpec with
   val parser               = S3EventParser()
   val fileRetriever        = mock[FileNotificationDetailsRetriever]
   val notificationService  = mock[NotificationService]
-  val metrics              = mock[Metrics]
   val clock                = Clock.systemDefaultZone()
   val auditingService      = mock[UpscanAuditingService]
   val serviceConfiguration = mock[ServiceConfiguration]
 
-  val defaultMetricsRegistry = mock[MetricRegistry]
-  when(metrics.defaultRegistry)
-    .thenReturn(defaultMetricsRegistry)
-  when(defaultMetricsRegistry.timer("totalFileProcessingTime"))
+  val metricsRegistry = mock[MetricRegistry]
+  when(metricsRegistry.timer("totalFileProcessingTime"))
     .thenReturn(mock[com.codahale.metrics.Timer])
-  when(defaultMetricsRegistry.histogram("fileSize"))
+  when(metricsRegistry.histogram("fileSize"))
     .thenReturn(mock[com.codahale.metrics.Histogram])
-  when(defaultMetricsRegistry.counter("successfulUploadNotificationSent"))
+  when(metricsRegistry.counter("successfulUploadNotificationSent"))
     .thenReturn(mock[com.codahale.metrics.Counter])
 
   when(serviceConfiguration.endToEndProcessingThreshold())
@@ -60,7 +56,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJobSpec extends UnitSpec with
     parser,
     fileRetriever,
     notificationService,
-    metrics,
+    metricsRegistry,
     clock,
     auditingService,
     serviceConfiguration

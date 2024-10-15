@@ -20,7 +20,6 @@ import java.net.URL
 import java.time.{Clock, Instant}
 import com.codahale.metrics.MetricRegistry
 import org.mockito.Mockito.when
-import uk.gov.hmrc.play.bootstrap.metrics.Metrics
 import uk.gov.hmrc.play.bootstrap.tools.LogCapturing
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.connector.aws.S3EventParser
@@ -37,15 +36,12 @@ class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends UnitSpec with
   val parser               = S3EventParser()
   val fileRetriever        = mock[FileNotificationDetailsRetriever]
   val notificationService  = mock[NotificationService]
-  val metrics              = mock[Metrics]
   val clock                = Clock.systemDefaultZone()
   val auditingService      = mock[UpscanAuditingService]
   val serviceConfiguration = mock[ServiceConfiguration]
 
-  val defaultMetricsRegistry = mock[MetricRegistry]
-  when(metrics.defaultRegistry)
-    .thenReturn(defaultMetricsRegistry)
-  when(defaultMetricsRegistry.counter("quarantinedUploadNotificationSent"))
+  val metricsRegistry = mock[MetricRegistry]
+  when(metricsRegistry.counter("quarantinedUploadNotificationSent"))
     .thenReturn(mock[com.codahale.metrics.Counter])
 
   when(serviceConfiguration.endToEndProcessingThreshold()).thenReturn(0.seconds)
@@ -55,7 +51,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJobSpec extends UnitSpec with
     parser,
     fileRetriever,
     notificationService,
-    metrics,
+    metricsRegistry,
     clock,
     auditingService,
     serviceConfiguration

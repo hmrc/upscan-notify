@@ -20,7 +20,6 @@ import com.codahale.metrics.MetricRegistry
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{times, verify, verifyNoMoreInteractions, when}
 import org.scalatest.GivenWhenThen
-import uk.gov.hmrc.play.bootstrap.metrics.Metrics
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.model._
 import uk.gov.hmrc.upscannotify.test.UnitSpec
@@ -47,9 +46,6 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
 
   val callbackUrl = URL("http://localhost:8080")
   val downloadUrl = URL("http://remotehost/bucket/123")
-
-  def metricsStub() = new Metrics:
-    override val defaultRegistry: MetricRegistry = MetricRegistry()
 
   val sampleRequestContext = RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1")
 
@@ -95,7 +91,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
       when(notificationService.notifySuccessfulCallback(any[SuccessfulProcessingDetails]))
         .thenReturn(Future.successful(Nil))
 
-      val metrics = metricsStub()
+      val metricRegistry = MetricRegistry()
 
       val auditingService = mock[UpscanAuditingService]
 
@@ -104,7 +100,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
         messageParser,
         fileDetailsRetriever,
         notificationService,
-        metrics,
+        metricRegistry,
         clock,
         auditingService,
         serviceConfiguration
@@ -123,14 +119,14 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
       verify(queueConsumer).confirm(validMessage)
 
       And("counter of successful processed messages is incremented")
-      metrics.defaultRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 1
-      metrics.defaultRegistry.histogram("fileSize").getSnapshot.getValues          shouldBe Array(10L)
-      metrics.defaultRegistry
+      metricRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 1
+      metricRegistry.histogram("fileSize").getSnapshot.getValues          shouldBe Array(10L)
+      metricRegistry
         .timer("totalFileProcessingTime")
         .getSnapshot
         .getValues shouldBe Array((5.seconds).toNanos)
 
-      metrics.defaultRegistry
+      metricRegistry
         .timer("fileProcessingTimeExcludingNotification")
         .getSnapshot
         .getValues shouldBe Array((5.seconds).toNanos)
@@ -157,7 +153,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
       when(notificationService.notifySuccessfulCallback(any[SuccessfulProcessingDetails]))
         .thenReturn(Future.successful(Nil))
 
-      val metrics = metricsStub()
+      val metricRegistry = MetricRegistry()
 
       val auditingService = mock[UpscanAuditingService]
 
@@ -166,7 +162,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
         messageParser,
         fileDetailsRetriever,
         notificationService,
-        metrics,
+        metricRegistry,
         clock,
         auditingService,
         serviceConfiguration
@@ -192,8 +188,8 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
       verifyNoMoreInteractions(queueConsumer)
 
       And("counter of successful processed messages is incremented by count of successfully processed messages")
-      metrics.defaultRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 2
-      metrics.defaultRegistry.histogram("fileSize").getSnapshot.getValues          shouldBe Array(10L, 10L)
+      metricRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 2
+      metricRegistry.histogram("fileSize").getSnapshot.getValues          shouldBe Array(10L, 10L)
 
     "do not confirm valid messages for which notification has failed" in:
       Given("there are only valid messages in a message queue")
@@ -253,7 +249,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
       )
         .thenReturn(Future.successful(Nil))
 
-      val metrics = metricsStub()
+      val metricRegistry = MetricRegistry()
 
       val auditingService = mock[UpscanAuditingService]
 
@@ -262,7 +258,7 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
         messageParser,
         fileDetailsRetriever,
         notificationService,
-        metrics,
+        metricRegistry,
         clock,
         auditingService,
         serviceConfiguration
@@ -288,5 +284,5 @@ class NotifyOnFileProcessingEventFlowSpec extends UnitSpec with GivenWhenThen:
       verifyNoMoreInteractions(queueConsumer)
 
       And("counter of successful processed messages is incremented by count of successfully processed messages")
-      metrics.defaultRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 2
-      metrics.defaultRegistry.histogram("fileSize").getSnapshot.getValues          shouldBe Array(10L, 10L)
+      metricRegistry.counter("successfulUploadNotificationSent").getCount shouldBe 2
+      metricRegistry.histogram("fileSize").getSnapshot.getValues          shouldBe Array(10L, 10L)
