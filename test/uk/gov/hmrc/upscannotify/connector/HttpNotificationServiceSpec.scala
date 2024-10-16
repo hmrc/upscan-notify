@@ -20,19 +20,20 @@ import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import org.scalatest.{BeforeAndAfterAll, GivenWhenThen}
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import uk.gov.hmrc.http.test.HttpClientV2Support
 import uk.gov.hmrc.upscannotify.model._
 import uk.gov.hmrc.upscannotify.test.{IncrementingClock, UnitSpec}
 
 import java.net.URL
 import java.time.{Clock, Duration, Instant, ZoneId}
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext}
-import scala.util.Try
+import scala.concurrent.ExecutionContext
 
 class HttpNotificationServiceSpec
   extends UnitSpec
      with GivenWhenThen
+     with ScalaFutures
+     with IntegrationPatience
      with BeforeAndAfterAll
      with HttpClientV2Support:
 
@@ -87,12 +88,10 @@ class HttpNotificationServiceSpec
         requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
       )
       val service = HttpNotificationService(httpClientV2, clock)
-      val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
+      val result  = service.notifySuccessfulCallback(notification).futureValue
 
       Then("service should return success")
-      result.isSuccess shouldBe true
-
-      result.get should contain.allOf (
+      result should contain.allOf (
         Checkpoint("x-amz-meta-upscan-notify-callback-started", baseTime),
         Checkpoint("x-amz-meta-upscan-notify-callback-ended", baseTime.plusSeconds(1))
       )
@@ -130,13 +129,9 @@ class HttpNotificationServiceSpec
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
       val service = HttpNotificationService(httpClientV2, clock)
-      val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
-
-      Then("service should return success")
-      result.isSuccess shouldBe true
+      service.notifyFailedCallback(notification).futureValue
 
       And("callback URL is called with expected JSON body")
-
       callbackServer.verify:
         postRequestedFor(urlEqualTo("/myservice/123"))
           .withRequestBody(equalToJson("""
@@ -166,10 +161,7 @@ class HttpNotificationServiceSpec
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
       val service = HttpNotificationService(httpClientV2, clock)
-      val result  = Try(Await.result(service.notifyFailedCallback(notification), 30.seconds))
-
-      Then("service should return success")
-      result.isSuccess shouldBe true
+      service.notifyFailedCallback(notification).futureValue
 
       And("callback URL is called with expected JSON body")
       callbackServer.verify:
@@ -206,10 +198,10 @@ class HttpNotificationServiceSpec
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
       val service = HttpNotificationService(httpClientV2, clock)
-      val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
+      val result = service.notifySuccessfulCallback(notification)
 
       Then("service should return an error")
-      result.isSuccess shouldBe false
+      result.failed.futureValue
 
     "return error when remote call fails" in:
       Given("host that would receive callback is not reachable")
@@ -232,7 +224,7 @@ class HttpNotificationServiceSpec
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
       val service = HttpNotificationService(httpClientV2, clock)
-      val result  = Try(Await.result(service.notifySuccessfulCallback(notification), 30.seconds))
+      val result  = service.notifySuccessfulCallback(notification)
 
       Then("service should return an error")
-      result.isSuccess shouldBe false
+      result.failed.futureValue

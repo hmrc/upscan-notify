@@ -26,25 +26,24 @@ import uk.gov.hmrc.upscannotify.model.Message
 import uk.gov.hmrc.upscannotify.test.UnitSpec
 
 import java.time.{Clock, Instant, ZoneId}
-import java.util
-import java.util.{List => JList}
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.jdk.CollectionConverters._
 
-class SqsQueueConsumerSpec extends UnitSpec with Assertions with GivenWhenThen:
+class SqsQueueConsumerSpec
+  extends UnitSpec
+     with Assertions
+     with ScalaFutures
+     with GivenWhenThen:
 
-  private def sqsMessages(messageCount: Int): JList[SqsMessage] =
-    val messages: JList[SqsMessage] = util.ArrayList[SqsMessage]()
-
-    (1 to messageCount).foreach: index =>
-      val message = SqsMessage()
-      message.setBody(s"SQS message body: $index")
-      message.setReceiptHandle(s"SQS receipt handle: $index")
-      message.setMessageId(s"ID$index")
-      messages.add(message)
-
-    messages
+  private def sqsMessages(messageCount: Int): java.util.List[SqsMessage] =
+    (1 to messageCount)
+      .map: index =>
+        val message = SqsMessage()
+        message.setBody(s"SQS message body: $index")
+        message.setReceiptHandle(s"SQS receipt handle: $index")
+        message.setMessageId(s"ID$index")
+        message
+      .asJava
 
   private val receivedAt = Instant.parse("2018-11-30T16:29:15Z")
   private val batchSize  = 10
@@ -62,7 +61,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Assertions with GivenWhenThen:
       val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, clock) {}
 
       When("the consumer poll method is called")
-      val messages: Seq[Message] = Await.result(consumer.poll(), 2.seconds)
+      val messages: Seq[Message] = consumer.poll().futureValue
 
       Then("the SQS endpoint should be called")
       verify(sqsClient).receiveMessage(any[ReceiveMessageRequest])
@@ -85,7 +84,7 @@ class SqsQueueConsumerSpec extends UnitSpec with Assertions with GivenWhenThen:
       val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, clock) {}
 
       When("the consumer poll method is called")
-      val messages: Seq[Message] = Await.result(consumer.poll(), 2.seconds)
+      val messages: Seq[Message] = consumer.poll().futureValue
 
       Then("the SQS endpoint should be called")
       verify(sqsClient).receiveMessage(any[ReceiveMessageRequest])
@@ -102,15 +101,13 @@ class SqsQueueConsumerSpec extends UnitSpec with Assertions with GivenWhenThen:
       val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, clock) {}
 
       When("the consumer confirm method is called")
-      val result = consumer.poll()
-      Await.ready(result, 2.seconds)
+      val error = consumer.poll().failed.futureValue
 
-      Then("the SQS endpoint should be called")
+      Then("SQS error should be wrapped in a future")
+      error shouldBe a[OverLimitException]
+
+      And("the SQS endpoint should be called")
       verify(sqsClient).receiveMessage(any[ReceiveMessageRequest])
-
-      And("SQS error should be wrapped in a future")
-      ScalaFutures.whenReady(result.failed): error =>
-        error shouldBe a[OverLimitException]
 
     "call an SQS endpoint to delete a message" in:
       Given("a message containing a receipt handle")
@@ -123,10 +120,10 @@ class SqsQueueConsumerSpec extends UnitSpec with Assertions with GivenWhenThen:
         .thenReturn(messageResult)
       val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, clock) {}
 
-      val message: Message = Await.result(consumer.poll(), 2.seconds).head
+      val message: Message = consumer.poll().futureValue.head
 
       When("the consumer confirm method is called")
-      val result = Await.result(consumer.confirm(message), 2.seconds)
+      val result = consumer.confirm(message).futureValue
 
       Then("the SQS endpoint should be called")
       verify(sqsClient).deleteMessage(any[DeleteMessageRequest])
@@ -149,14 +146,13 @@ class SqsQueueConsumerSpec extends UnitSpec with Assertions with GivenWhenThen:
       when(sqsClient.deleteMessage(any[DeleteMessageRequest]))
         .thenThrow(ReceiptHandleIsInvalidException(""))
 
-      val message: Message = Await.result(consumer.poll(), 2.seconds).head
+      val message: Message = consumer.poll().futureValue.head
 
       When("the consumer confirm method is called")
-      val result: Future[Unit] = consumer.confirm(message)
+      val error = consumer.confirm(message).failed.futureValue
 
-      ScalaFutures.whenReady(result.failed): error =>
-        Then("the SQS endpoint should be called")
-        verify(sqsClient).deleteMessage(any[DeleteMessageRequest])
+      Then("SQS error should be wrapped in a future")
+      error shouldBe a[ReceiptHandleIsInvalidException]
 
-        And("SQS error should be wrapped in a future")
-        error shouldBe a[ReceiptHandleIsInvalidException]
+      And("the SQS endpoint should be called")
+      verify(sqsClient).deleteMessage(any[DeleteMessageRequest])

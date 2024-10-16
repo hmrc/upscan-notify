@@ -28,10 +28,12 @@ import uk.gov.hmrc.upscannotify.test.UnitSpec
 import java.net.URL
 import java.time.Instant
 import java.time.format.DateTimeFormatter
-import java.util
+import java.util.TreeMap
 import scala.concurrent.ExecutionContext
 
-class S3FileManagerSpec extends UnitSpec:
+class S3FileManagerSpec
+  extends UnitSpec
+     with ScalaFutures:
 
   private val callbackUrl      = URL("http://my.callback.url")
   private val initiateDate     = Instant.parse("2018-04-24T09:30:00Z")
@@ -48,7 +50,7 @@ class S3FileManagerSpec extends UnitSpec:
       val s3client    = mock[AmazonS3]
       val fileManager = S3FileManager(s3client)
 
-      val userMetadata = util.TreeMap[String, String]()
+      val userMetadata = TreeMap[String, String]()
       userMetadata.put("callback-url"     , callbackUrl.toString)
       userMetadata.put("initiate-date"    , DateTimeFormatter.ISO_INSTANT.format(initiateDate))
       userMetadata.put("checksum"         , checksum)
@@ -69,32 +71,31 @@ class S3FileManagerSpec extends UnitSpec:
       when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
+      val result = fileManager.receiveSuccessfulFileDetails(fileLocation).futureValue
 
-      ScalaFutures.whenReady(result): result =>
-        result shouldBe SuccessfulFileDetails(
-          fileReference    = FileReference("ref1"),
-          callbackUrl      = callbackUrl,
-          fileName         = "test.pdf",
-          fileMimeType     = "application/pdf",
-          uploadTimestamp  = initiateDate,
-          checksum         = checksum,
-          size             = contentLength,
-          requestContext   = RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1"),
-          consumingService = consumingService,
-          userMetadata    = Map(
-                              "mime-type"         -> "application/pdf",
-                              "callback-url"      -> "http://my.callback.url",
-                              "file-reference"    -> "ref1",
-                              "consuming-service" -> "consumingService",
-                              "request-id"        -> "REQUEST_ID",
-                              "session-id"        -> "SESSION_ID",
-                              "checksum"          -> "1a2b3c4d5e",
-                              "client-ip"         -> "127.0.0.1",
-                              "original-filename" -> "test.pdf",
-                              "initiate-date"     -> "2018-04-24T09:30:00Z"
-                            )
-        )
+      result shouldBe SuccessfulFileDetails(
+        fileReference    = FileReference("ref1"),
+        callbackUrl      = callbackUrl,
+        fileName         = "test.pdf",
+        fileMimeType     = "application/pdf",
+        uploadTimestamp  = initiateDate,
+        checksum         = checksum,
+        size             = contentLength,
+        requestContext   = RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1"),
+        consumingService = consumingService,
+        userMetadata    = Map(
+                            "mime-type"         -> "application/pdf",
+                            "callback-url"      -> "http://my.callback.url",
+                            "file-reference"    -> "ref1",
+                            "consuming-service" -> "consumingService",
+                            "request-id"        -> "REQUEST_ID",
+                            "session-id"        -> "SESSION_ID",
+                            "checksum"          -> "1a2b3c4d5e",
+                            "client-ip"         -> "127.0.0.1",
+                            "original-filename" -> "test.pdf",
+                            "initiate-date"     -> "2018-04-24T09:30:00Z"
+                          )
+      )
 
     "return wrapped failure if the metadata doesn't contain callback URL for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
@@ -102,7 +103,7 @@ class S3FileManagerSpec extends UnitSpec:
       val s3client    = mock[AmazonS3]
       val fileManager = S3FileManager(s3client)
 
-      val userMetadata = util.TreeMap[String, String]()
+      val userMetadata = TreeMap[String, String]()
       userMetadata.put("initiate-date"    , DateTimeFormatter.ISO_INSTANT.format(initiateDate))
       userMetadata.put("checksum"         , checksum)
       userMetadata.put("original-filename", "test.pdf")
@@ -117,11 +118,9 @@ class S3FileManagerSpec extends UnitSpec:
       when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
-
-      ScalaFutures.whenReady(result.failed): error =>
-        error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"Metadata not found: [callback-url] for object=[${fileLocation.objectKey}]."
+      val error = fileManager.receiveSuccessfulFileDetails(fileLocation).failed.futureValue
+      error            shouldBe a[NoSuchElementException]
+      error.getMessage shouldBe s"Metadata not found: [callback-url] for object=[${fileLocation.objectKey}]."
 
     "return wrapped failure if the metadata doesn't contain a name for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
@@ -129,7 +128,7 @@ class S3FileManagerSpec extends UnitSpec:
       val s3client    = mock[AmazonS3]
       val fileManager = S3FileManager(s3client)
 
-      val userMetadata = util.TreeMap[String, String]()
+      val userMetadata = TreeMap[String, String]()
       userMetadata.put("callback-url"  , callbackUrl.toString)
       userMetadata.put("initiate-date" , DateTimeFormatter.ISO_INSTANT.format(initiateDate))
       userMetadata.put("checksum"      , checksum)
@@ -144,11 +143,9 @@ class S3FileManagerSpec extends UnitSpec:
       when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
-
-      ScalaFutures.whenReady(result.failed): error =>
-        error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"Metadata not found: [original-filename] for object=[${fileLocation.objectKey}]."
+      val error = fileManager.receiveSuccessfulFileDetails(fileLocation).failed.futureValue
+      error            shouldBe a[NoSuchElementException]
+      error.getMessage shouldBe s"Metadata not found: [original-filename] for object=[${fileLocation.objectKey}]."
 
     "return wrapped failure if the metadata doesn't contain a mime-type for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
@@ -156,7 +153,7 @@ class S3FileManagerSpec extends UnitSpec:
       val s3client    = mock[AmazonS3]
       val fileManager = S3FileManager(s3client)
 
-      val userMetadata = util.TreeMap[String, String]()
+      val userMetadata = TreeMap[String, String]()
       userMetadata.put("callback-url"     , callbackUrl.toString)
       userMetadata.put("initiate-date"    , DateTimeFormatter.ISO_INSTANT.format(initiateDate))
       userMetadata.put("checksum"         , checksum)
@@ -171,11 +168,9 @@ class S3FileManagerSpec extends UnitSpec:
       when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
-
-      ScalaFutures.whenReady(result.failed): error =>
-        error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"Metadata not found: [mime-type] for object=[${fileLocation.objectKey}]."
+      val error = fileManager.receiveSuccessfulFileDetails(fileLocation).failed.futureValue
+      error            shouldBe a[NoSuchElementException]
+      error.getMessage shouldBe s"Metadata not found: [mime-type] for object=[${fileLocation.objectKey}]."
 
     "return wrapped failure if the metadata doesn't contain a timestamp for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
@@ -183,7 +178,7 @@ class S3FileManagerSpec extends UnitSpec:
       val s3client    = mock[AmazonS3]
       val fileManager = S3FileManager(s3client)
 
-      val userMetadata = util.TreeMap[String, String]()
+      val userMetadata = TreeMap[String, String]()
       userMetadata.put("callback-url"  , callbackUrl.toString)
       userMetadata.put("checksum"      , checksum)
       userMetadata.put("client-ip"     , "127.0.0.1")
@@ -196,11 +191,9 @@ class S3FileManagerSpec extends UnitSpec:
       when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
-
-      ScalaFutures.whenReady(result.failed): error =>
-        error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"Metadata not found: [initiate-date] for object=[${fileLocation.objectKey}]."
+      val error = fileManager.receiveSuccessfulFileDetails(fileLocation).failed.futureValue
+      error            shouldBe a[NoSuchElementException]
+      error.getMessage shouldBe s"Metadata not found: [initiate-date] for object=[${fileLocation.objectKey}]."
 
     "return wrapped failure if the metadata doesn't contain a checksum for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
@@ -208,7 +201,7 @@ class S3FileManagerSpec extends UnitSpec:
       val s3client    = mock[AmazonS3]
       val fileManager = S3FileManager(s3client)
 
-      val userMetadata = util.TreeMap[String, String]()
+      val userMetadata = TreeMap[String, String]()
       userMetadata.put("callback-url"     , callbackUrl.toString)
       userMetadata.put("initiate-date"    , DateTimeFormatter.ISO_INSTANT.format(initiateDate))
       userMetadata.put("original-filename", "test.pdf")
@@ -223,11 +216,9 @@ class S3FileManagerSpec extends UnitSpec:
       when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
-
-      ScalaFutures.whenReady(result.failed): error =>
-        error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"Metadata not found: [checksum] for object=[${fileLocation.objectKey}]."
+      val error = fileManager.receiveSuccessfulFileDetails(fileLocation).failed.futureValue
+      error            shouldBe a[NoSuchElementException]
+      error.getMessage shouldBe s"Metadata not found: [checksum] for object=[${fileLocation.objectKey}]."
 
     "return wrapped failure if the metadata doesn't contain a client-ip for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
@@ -235,7 +226,7 @@ class S3FileManagerSpec extends UnitSpec:
       val s3client    = mock[AmazonS3]
       val fileManager = S3FileManager(s3client)
 
-      val userMetadata = util.TreeMap[String, String]()
+      val userMetadata = TreeMap[String, String]()
       userMetadata.put("callback-url"     , callbackUrl.toString)
       userMetadata.put("initiate-date"    , DateTimeFormatter.ISO_INSTANT.format(initiateDate))
       userMetadata.put("original-filename", "test.pdf")
@@ -250,11 +241,9 @@ class S3FileManagerSpec extends UnitSpec:
       when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
-
-      ScalaFutures.whenReady(result.failed): error =>
-        error            shouldBe a[NoSuchElementException]
-        error.getMessage shouldBe s"Metadata not found: [client-ip] for object=[${fileLocation.objectKey}]."
+      val error = fileManager.receiveSuccessfulFileDetails(fileLocation).failed.futureValue
+      error            shouldBe a[NoSuchElementException]
+      error.getMessage shouldBe s"Metadata not found: [client-ip] for object=[${fileLocation.objectKey}]."
 
     "return wrapped failure if the callback metadata is not a valid URL for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
@@ -262,7 +251,7 @@ class S3FileManagerSpec extends UnitSpec:
       val s3client    = mock[AmazonS3]
       val fileManager = S3FileManager(s3client)
 
-      val userMetadata = util.TreeMap[String, String]()
+      val userMetadata = TreeMap[String, String]()
       userMetadata.put("callback-url"  , "not-a-valid-url")
       userMetadata.put("initiate-date" , DateTimeFormatter.ISO_INSTANT.format(initiateDate))
       userMetadata.put("checksum"      , checksum)
@@ -276,12 +265,10 @@ class S3FileManagerSpec extends UnitSpec:
       when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
-
-      ScalaFutures.whenReady(result.failed): error =>
-        error shouldBe a[Exception]
-        error.getMessage shouldBe s"Invalid metadata: [callback-url: not-a-valid-url] for object=[${fileLocation.objectKey}]. " +
-          s"Error: java.net.MalformedURLException: no protocol: not-a-valid-url"
+      val error = fileManager.receiveSuccessfulFileDetails(fileLocation).failed.futureValue
+      error shouldBe a[Exception]
+      error.getMessage shouldBe s"Invalid metadata: [callback-url: not-a-valid-url] for object=[${fileLocation.objectKey}]. " +
+        s"Error: java.net.MalformedURLException: no protocol: not-a-valid-url"
 
     "return wrapped failure if the initiate date is not a valid date for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
@@ -289,7 +276,7 @@ class S3FileManagerSpec extends UnitSpec:
       val s3client    = mock[AmazonS3]
       val fileManager = S3FileManager(s3client)
 
-      val userMetadata = util.TreeMap[String, String]()
+      val userMetadata = TreeMap[String, String]()
       userMetadata.put("callback-url"  , callbackUrl.toString)
       userMetadata.put("initiate-date" , "not-a-valid-date")
       userMetadata.put("checksum"      , checksum)
@@ -303,12 +290,10 @@ class S3FileManagerSpec extends UnitSpec:
       when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
-
-      ScalaFutures.whenReady(result.failed): error =>
-        error shouldBe a[Exception]
-        error.getMessage shouldBe s"Invalid metadata: [initiate-date: not-a-valid-date] for object=[${fileLocation.objectKey}]. " +
-          s"Error: java.time.format.DateTimeParseException: Text 'not-a-valid-date' could not be parsed at index 0"
+      val error = fileManager.receiveSuccessfulFileDetails(fileLocation).failed.futureValue
+      error shouldBe a[Exception]
+      error.getMessage shouldBe s"Invalid metadata: [initiate-date: not-a-valid-date] for object=[${fileLocation.objectKey}]. " +
+        s"Error: java.time.format.DateTimeParseException: Text 'not-a-valid-date' could not be parsed at index 0"
 
     "properly handle exceptions when fetching metadata" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
@@ -319,10 +304,8 @@ class S3FileManagerSpec extends UnitSpec:
       when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenThrow(RuntimeException("Exception"))
 
-      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
-
-      ScalaFutures.whenReady(result.failed): result =>
-        result.getMessage shouldBe "Exception"
+      val error = fileManager.receiveSuccessfulFileDetails(fileLocation).failed.futureValue
+      error.getMessage shouldBe "Exception"
 
     "decode MIME-encoded original filenames from metadata" in:
 
@@ -333,7 +316,7 @@ class S3FileManagerSpec extends UnitSpec:
       val s3client    = mock[AmazonS3]
       val fileManager = S3FileManager(s3client)
 
-      val userMetadata = util.TreeMap[String, String]()
+      val userMetadata = TreeMap[String, String]()
       userMetadata.put("callback-url"     , callbackUrl.toString)
       userMetadata.put("initiate-date"    , DateTimeFormatter.ISO_INSTANT.format(initiateDate))
       userMetadata.put("checksum"         , checksum)
@@ -354,7 +337,5 @@ class S3FileManagerSpec extends UnitSpec:
       when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
         .thenReturn(objectMetadata)
 
-      val result = fileManager.receiveSuccessfulFileDetails(fileLocation)
-
-      ScalaFutures.whenReady(result): result =>
-        result.fileName shouldBe originalFileName
+      val result = fileManager.receiveSuccessfulFileDetails(fileLocation).futureValue
+      result.fileName shouldBe originalFileName

@@ -21,6 +21,7 @@ import com.amazonaws.services.sqs.model.Message
 import com.github.tomakehurst.wiremock.client.WireMock
 import com.github.tomakehurst.wiremock.client.WireMock.{aResponse, post, urlEqualTo}
 import com.github.tomakehurst.wiremock.verification.LoggedRequest
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.play.guice.GuiceOneServerPerSuite
@@ -36,7 +37,6 @@ import uk.gov.hmrc.upscannotify.harness.wiremock.WithWireMock
 import java.net.URL
 import java.time.Instant
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, Future}
 
 object TestData:
   val bucketName       = "bucket-name-UrlExpirationIntegrationSpec"
@@ -62,15 +62,15 @@ object TestData:
   ): ObjectMetadata =
     val metadata = ObjectMetadata()
     metadata.setContentLength(fileSizeInBytes)
-    metadata.addUserMetadata("file-reference", fileReference)
-    metadata.addUserMetadata("callback-url", callbackUrl)
-    metadata.addUserMetadata("initiate-date", initiateDate)
-    metadata.addUserMetadata("checksum", checksum)
+    metadata.addUserMetadata("file-reference"   , fileReference)
+    metadata.addUserMetadata("callback-url"     , callbackUrl)
+    metadata.addUserMetadata("initiate-date"    , initiateDate)
+    metadata.addUserMetadata("checksum"         , checksum)
     metadata.addUserMetadata("original-filename", originalFilename)
-    metadata.addUserMetadata("mime-type", mimeType)
-    metadata.addUserMetadata("client-ip", clientIp)
-    metadata.addUserMetadata("request-id", requestId)
-    metadata.addUserMetadata("session-id", sessionId)
+    metadata.addUserMetadata("mime-type"        , mimeType)
+    metadata.addUserMetadata("client-ip"        , clientIp)
+    metadata.addUserMetadata("request-id"       , requestId)
+    metadata.addUserMetadata("session-id"       , sessionId)
     metadata.addUserMetadata("consuming-service", consumingService)
     metadata
 
@@ -105,6 +105,8 @@ class UrlExpirationIntegrationSpec
      with should.Matchers
      with GuiceOneServerPerSuite
      with GuiceableModuleConversions
+     with ScalaFutures
+     with IntegrationPatience
      with WithWireMock:
 
   override lazy val app: Application =
@@ -133,9 +135,7 @@ class UrlExpirationIntegrationSpec
       val notifyOnSuccessfulFileUploadMessageProcessingJob =
         app.injector.instanceOf[NotifyOnSuccessfulFileUploadMessageProcessingJob]
 
-      val result: Future[Unit] = notifyOnSuccessfulFileUploadMessageProcessingJob.run()
-
-      Await.result(result, 1.seconds)
+      notifyOnSuccessfulFileUploadMessageProcessingJob.run().futureValue
 
       val loggedRequests =
         wireMockServer.findAll(WireMock.postRequestedFor(WireMock.urlMatching(TestData.callbackPath)))

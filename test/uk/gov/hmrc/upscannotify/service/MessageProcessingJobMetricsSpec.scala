@@ -19,7 +19,6 @@ package uk.gov.hmrc.upscannotify.service
 import java.net.URL
 import java.time.{Clock, Instant}
 import com.codahale.metrics.MetricRegistry
-import org.mockito.Mockito.when
 import uk.gov.hmrc.play.bootstrap.tools.LogCapturing
 import uk.gov.hmrc.upscannotify.model._
 import uk.gov.hmrc.upscannotify.test.UnitSpec

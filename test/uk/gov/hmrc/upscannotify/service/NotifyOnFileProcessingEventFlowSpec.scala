@@ -20,6 +20,7 @@ import com.codahale.metrics.MetricRegistry
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{times, verify, verifyNoMoreInteractions, when}
 import org.scalatest.GivenWhenThen
+import org.scalatest.concurrent.ScalaFutures
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.model._
 import uk.gov.hmrc.upscannotify.test.UnitSpec
@@ -28,12 +29,13 @@ import java.net.URL
 import java.time._
 import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.Future
 
 class NotifyOnFileProcessingEventFlowSpec
   extends UnitSpec
-     with GivenWhenThen:
+     with GivenWhenThen
+     with ScalaFutures:
 
   val messageParser =
     new MessageParser:
@@ -115,7 +117,7 @@ class NotifyOnFileProcessingEventFlowSpec
       )(using summon[ExecutionContext], metricRegistry, clock)
 
       When("the orchestrator is called")
-      Await.result(queueOrchestrator.run(), 30.seconds)
+      queueOrchestrator.run().futureValue
 
       Then("the queue consumer should poll for messages")
       verify(queueConsumer).poll()
@@ -184,7 +186,7 @@ class NotifyOnFileProcessingEventFlowSpec
       )(using summon[ExecutionContext], metricRegistry, clock)
 
       When("the orchestrator is called")
-      Await.result(queueOrchestrator.run(), 30.seconds)
+      queueOrchestrator.run().futureValue
 
       Then("the queue consumer should poll for messages")
       verify(queueConsumer).poll()
@@ -285,7 +287,7 @@ class NotifyOnFileProcessingEventFlowSpec
       )(using summon[ExecutionContext], metricRegistry, clock)
 
       When("the orchestrator is called")
-      Await.result(queueOrchestrator.run(), 30.seconds)
+      queueOrchestrator.run().futureValue
 
       Then("the queue consumer should poll for messages")
       verify(queueConsumer).poll()
