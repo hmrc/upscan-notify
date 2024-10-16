@@ -17,41 +17,23 @@
 package uk.gov.hmrc.upscannotify.connector.aws
 
 import com.amazonaws.auth.{AWSCredentialsProvider, AWSSessionCredentials}
+import org.mockito.Mockito.when
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.test.UnitSpec
-
-import scala.concurrent.duration.{Duration, FiniteDuration}
 
 class ProviderOfAWSCredentialsSpec extends UnitSpec:
 
   "ProviderOfAWSCredentials" should:
     "create BasicSessionCredentials if session token provided" in:
-      val configuration =
-        new ServiceConfiguration:
-          override def successfulProcessingBatchSize: Int = ???
+      val configuration = mock[ServiceConfiguration]
+      when(configuration.accessKeyId)
+        .thenReturn("KEY_ID")
+      when(configuration.secretAccessKey)
+        .thenReturn("ACCESS_KEY")
+      when(configuration.sessionToken)
+        .thenReturn(Some("SESSION_TOKEN"))
 
-          override def quarantineProcessingBatchSize: Int = ???
-
-
-          override def accessKeyId: String = "KEY_ID"
-
-          override def awsRegion: String = ???
-
-          override def secretAccessKey: String = "ACCESS_KEY"
-
-          override def sessionToken: Option[String] = Some("SESSION_TOKEN")
-
-          override def outboundSuccessfulQueueUrl: String = ???
-
-          override def retryInterval = ???
-
-          override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = ???
-
-          override def outboundQuarantineQueueUrl: String = ???
-
-          override def endToEndProcessingThreshold: Duration = ???
-
-      val credentials: AWSCredentialsProvider = ProviderOfAWSCredentials(configuration).get()
+      val credentials: AWSCredentialsProvider = OldProviderOfAWSCredentials(configuration).get()
 
       credentials.getCredentials.getAWSAccessKeyId                                   shouldBe "KEY_ID"
       credentials.getCredentials.getAWSSecretKey                                     shouldBe "ACCESS_KEY"
@@ -59,32 +41,15 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec:
       credentials.getCredentials.asInstanceOf[AWSSessionCredentials].getSessionToken shouldBe "SESSION_TOKEN"
 
     "create BasicAWSCredentials in no session token provided" in:
-      val configuration =
-        new ServiceConfiguration:
-          override def successfulProcessingBatchSize: Int = ???
+      val configuration = mock[ServiceConfiguration]
+      when(configuration.accessKeyId)
+        .thenReturn("KEY_ID")
+      when(configuration.secretAccessKey)
+        .thenReturn("ACCESS_KEY")
+      when(configuration.sessionToken)
+        .thenReturn(None)
 
-          override def quarantineProcessingBatchSize: Int = ???
-
-
-          override def accessKeyId: String = "KEY_ID"
-
-          override def awsRegion: String = ???
-
-          override def secretAccessKey: String = "ACCESS_KEY"
-
-          override def sessionToken: Option[String] = None
-
-          override def outboundSuccessfulQueueUrl: String = ???
-
-          override def retryInterval = ???
-
-          override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = ???
-
-          override def outboundQuarantineQueueUrl: String = ???
-
-          override def endToEndProcessingThreshold: Duration = ???
-
-      val credentials: AWSCredentialsProvider = ProviderOfAWSCredentials(configuration).get()
+      val credentials: AWSCredentialsProvider = OldProviderOfAWSCredentials(configuration).get()
 
       credentials.getCredentials.getAWSAccessKeyId shouldBe "KEY_ID"
       credentials.getCredentials.getAWSSecretKey   shouldBe "ACCESS_KEY"

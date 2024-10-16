@@ -16,25 +16,38 @@
 
 package uk.gov.hmrc.upscannotify.connector.aws
 
-import com.amazonaws.services.s3.AmazonS3
+import software.amazon.awssdk.services.s3.model.GetObjectRequest
+import software.amazon.awssdk.services.s3.presigner.S3Presigner
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.model.S3ObjectLocation
 import uk.gov.hmrc.upscannotify.service.{DownloadUrlGenerator, SuccessfulFileDetails}
 
 import java.net.URL
-import java.time.Instant
-import java.util.Date
 import javax.inject.Inject
 
 class S3DownloadUrlGenerator @Inject()(
-  s3Client: AmazonS3,
   config: ServiceConfiguration
 ) extends DownloadUrlGenerator:
-  override def generate(objectLocation: S3ObjectLocation, metadata: SuccessfulFileDetails): URL =
-    s3Client
-      .generatePresignedUrl(objectLocation.bucket, objectLocation.objectKey, expirationDate(metadata.consumingService))
 
-  private def expirationDate(serviceName: String): Date =
-    val now         = Instant.now()
-    val lifetimeEnd = now.plusSeconds(config.s3UrlExpirationPeriod(serviceName).toSeconds)
-    Date.from(lifetimeEnd)
+  override def generate(objectLocation: S3ObjectLocation, metadata: SuccessfulFileDetails): URL =
+    val expirationPeriod = config.s3UrlExpirationPeriod(metadata.consumingService)
+
+    val presigner = S3Presigner.create()
+
+    val objectRequest =
+      GetObjectRequest.builder()
+        .bucket(objectLocation.bucket)
+        .key(objectLocation.objectKey)
+        .build()
+
+    val presignRequest =
+      GetObjectPresignRequest.builder()
+        .signatureDuration(java.time.Duration.ofMinutes(expirationPeriod.toMinutes))
+        .getObjectRequest(objectRequest)
+        .build()
+
+    val presignedRequest =
+      presigner.presignGetObject(presignRequest)
+
+    presignedRequest.url()

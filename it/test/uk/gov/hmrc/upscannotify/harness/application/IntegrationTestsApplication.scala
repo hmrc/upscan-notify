@@ -16,32 +16,27 @@
 
 package uk.gov.hmrc.upscannotify.harness.application
 
-import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.sqs.AmazonSQS
 import org.scalatestplus.mockito.MockitoSugar.mock
 import play.api.inject.bind
 import play.api.inject.guice.GuiceApplicationBuilder
+import software.amazon.awssdk.services.s3.S3AsyncClient
 import uk.gov.hmrc.upscannotify.NotifyModule
 import uk.gov.hmrc.upscannotify.harness.module.FilteredNotifyModule
 import uk.gov.hmrc.upscannotify.service.ContinuousPoller
-
-import javax.inject.Provider
 
 /**
   * Bootstrap logic for an integration test application.
   */
 object IntegrationTestsApplication:
-  val mockAmazonS3 : AmazonS3  = mock[AmazonS3]
-  val mockAmazonSQS: AmazonSQS = mock[AmazonSQS]
+  val mockS3Client : S3AsyncClient = mock[S3AsyncClient]
+  val mockAmazonSQS: AmazonSQS     = mock[AmazonSQS]
 
   def defaultApplicationBuilder(): GuiceApplicationBuilder =
     GuiceApplicationBuilder(disabled = Seq(classOf[ContinuousPoller]))
       .disable(classOf[NotifyModule])
       .overrides(FilteredNotifyModule())
       .overrides(
-        bind[AmazonSQS].to(SingletonProvider(mockAmazonSQS)),
-        bind[AmazonS3 ].to(SingletonProvider(mockAmazonS3))
+        bind[AmazonSQS    ].toInstance(mockAmazonSQS),
+        bind[S3AsyncClient].toInstance(mockS3Client)
       )
-
-  private class SingletonProvider[T](singleton: T) extends Provider[T]:
-    override def get(): T = singleton

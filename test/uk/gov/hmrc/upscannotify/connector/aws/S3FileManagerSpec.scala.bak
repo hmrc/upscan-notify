@@ -16,11 +16,10 @@
 
 package uk.gov.hmrc.upscannotify.connector.aws
 
-import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.model.ObjectMetadata
 import jakarta.mail.internet.MimeUtility
 import org.mockito.Mockito.when
 import org.scalatest.concurrent.ScalaFutures
+import software.amazon.awssdk.services.s3.S3AsyncClient
 import uk.gov.hmrc.upscannotify.model.{FileReference, RequestContext, S3ObjectLocation}
 import uk.gov.hmrc.upscannotify.service.SuccessfulFileDetails
 import uk.gov.hmrc.upscannotify.test.UnitSpec
@@ -47,7 +46,7 @@ class S3FileManagerSpec
     "allow to fetch objects metadata" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
 
-      val s3client    = mock[AmazonS3]
+      val s3client    = mock[S3AsyncClient]
       val fileManager = S3FileManager(s3client)
 
       val userMetadata = TreeMap[String, String]()
@@ -100,7 +99,7 @@ class S3FileManagerSpec
     "return wrapped failure if the metadata doesn't contain callback URL for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
 
-      val s3client    = mock[AmazonS3]
+      val s3client    = mock[S3AsyncClient]
       val fileManager = S3FileManager(s3client)
 
       val userMetadata = TreeMap[String, String]()
@@ -125,7 +124,7 @@ class S3FileManagerSpec
     "return wrapped failure if the metadata doesn't contain a name for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
 
-      val s3client    = mock[AmazonS3]
+      val s3client    = mock[S3AsyncClient]
       val fileManager = S3FileManager(s3client)
 
       val userMetadata = TreeMap[String, String]()
@@ -150,7 +149,7 @@ class S3FileManagerSpec
     "return wrapped failure if the metadata doesn't contain a mime-type for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
 
-      val s3client    = mock[AmazonS3]
+      val s3client    = mock[S3AsyncClient]
       val fileManager = S3FileManager(s3client)
 
       val userMetadata = TreeMap[String, String]()
@@ -175,7 +174,7 @@ class S3FileManagerSpec
     "return wrapped failure if the metadata doesn't contain a timestamp for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
 
-      val s3client    = mock[AmazonS3]
+      val s3client    = mock[S3AsyncClient]
       val fileManager = S3FileManager(s3client)
 
       val userMetadata = TreeMap[String, String]()
@@ -198,7 +197,7 @@ class S3FileManagerSpec
     "return wrapped failure if the metadata doesn't contain a checksum for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
 
-      val s3client    = mock[AmazonS3]
+      val s3client    = mock[S3AsyncClient]
       val fileManager = S3FileManager(s3client)
 
       val userMetadata = TreeMap[String, String]()
@@ -223,7 +222,7 @@ class S3FileManagerSpec
     "return wrapped failure if the metadata doesn't contain a client-ip for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
 
-      val s3client    = mock[AmazonS3]
+      val s3client    = mock[S3AsyncClient]
       val fileManager = S3FileManager(s3client)
 
       val userMetadata = TreeMap[String, String]()
@@ -248,7 +247,7 @@ class S3FileManagerSpec
     "return wrapped failure if the callback metadata is not a valid URL for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
 
-      val s3client    = mock[AmazonS3]
+      val s3client    = mock[S3AsyncClient]
       val fileManager = S3FileManager(s3client)
 
       val userMetadata = TreeMap[String, String]()
@@ -273,7 +272,7 @@ class S3FileManagerSpec
     "return wrapped failure if the initiate date is not a valid date for uploaded file" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
 
-      val s3client    = mock[AmazonS3]
+      val s3client    = mock[S3AsyncClient]
       val fileManager = S3FileManager(s3client)
 
       val userMetadata = TreeMap[String, String]()
@@ -298,7 +297,7 @@ class S3FileManagerSpec
     "properly handle exceptions when fetching metadata" in:
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
 
-      val s3client    = mock[AmazonS3]
+      val s3client    = mock[S3AsyncClient]
       val fileManager = S3FileManager(s3client)
 
       when(s3client.getObjectMetadata(fileLocation.bucket, fileLocation.objectKey))
@@ -313,7 +312,7 @@ class S3FileManagerSpec
 
       val fileLocation = S3ObjectLocation("bucket", "objectKey")
 
-      val s3client    = mock[AmazonS3]
+      val s3client    = mock[S3AsyncClient]
       val fileManager = S3FileManager(s3client)
 
       val userMetadata = TreeMap[String, String]()
