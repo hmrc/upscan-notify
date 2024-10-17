@@ -72,7 +72,7 @@ class NotifyOnFileProcessingEventFlowSpec
       sampleRequestContext,
       consumingService,
       Map(
-        "x-amz-meta-upscan-notify-received" -> "2018-04-24T09:45:15Z",
+        "upscan-notify-received" -> "2018-04-24T09:45:15Z",
       )
     )
   when(fileManager.receiveSuccessfulFileDetails(any[S3ObjectLocation]))

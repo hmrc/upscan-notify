@@ -84,8 +84,8 @@ class HttpNotificationService @Inject()(
 
   private def collectExecutionTimeMetadata(timeMeasurement: TimeMeasurement): Seq[Checkpoint] =
     Seq(
-      Checkpoint("x-amz-meta-upscan-notify-callback-started", timeMeasurement.start),
-      Checkpoint("x-amz-meta-upscan-notify-callback-ended", timeMeasurement.end)
+      Checkpoint("upscan-notify-callback-started", timeMeasurement.start),
+      Checkpoint("upscan-notify-callback-ended"  , timeMeasurement.end)
     )
 
   case class TimeMeasurement(

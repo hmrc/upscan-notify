@@ -48,9 +48,9 @@ class MessageProcessingJobMetricsSpec extends UnitSpec with LogCapturing:
 
         val checkpoints = Checkpoints(
           Seq(
-            Checkpoint("x-amz-meta-upscan-notify-received"        , Instant.parse("2018-12-01T14:36:20Z")),
-            Checkpoint("x-amz-meta-upscan-notify-callback-started", Instant.parse("2018-12-01T14:36:30Z")),
-            Checkpoint("x-amz-meta-upscan-notify-callback-ended"  , Instant.parse("2018-12-01T14:36:31Z"))
+            Checkpoint("upscan-notify-received"        , Instant.parse("2018-12-01T14:36:20Z")),
+            Checkpoint("upscan-notify-callback-started", Instant.parse("2018-12-01T14:36:30Z")),
+            Checkpoint("upscan-notify-callback-ended"  , Instant.parse("2018-12-01T14:36:31Z"))
           )
         )
 
@@ -80,9 +80,9 @@ class MessageProcessingJobMetricsSpec extends UnitSpec with LogCapturing:
 
         val checkpoints = Checkpoints(
           Seq(
-            Checkpoint("x-amz-meta-upscan-notify-received"        , Instant.parse("2018-12-01T14:36:20Z")),
-            Checkpoint("x-amz-meta-upscan-notify-callback-started", Instant.parse("2018-12-01T14:36:30Z")),
-            Checkpoint("x-amz-meta-upscan-notify-callback-ended"  , Instant.parse("2018-12-01T14:36:31Z"))
+            Checkpoint("upscan-notify-received"        , Instant.parse("2018-12-01T14:36:20Z")),
+            Checkpoint("upscan-notify-callback-started", Instant.parse("2018-12-01T14:36:30Z")),
+            Checkpoint("upscan-notify-callback-ended"  , Instant.parse("2018-12-01T14:36:31Z"))
           ))
 
         withCaptureOfLoggingFrom(MessageProcessingJob.logger): logs =>

@@ -114,7 +114,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
                                logger.warn(s"Unexpected original filename ${metadata.fileName} for object=[${parsedMessage.location.objectKey}] with upload Key=[${metadata.fileReference.reference}].")
              _            =  logger.debug:
                                s"Retrieved file with Key=[${metadata.fileReference.reference}] and callbackUrl=[${metadata.callbackUrl}] for object=[${parsedMessage.location.objectKey}]."
-             checkpoint2  =  Checkpoint("x-amz-meta-upscan-notify-received", message.receivedAt)
+             checkpoint2  =  Checkpoint("upscan-notify-received", message.receivedAt)
              _            =  upscanAuditingService.notifyFileUploadedSuccessfully(retrieved)
              _            =  MessageProcessingJob.collectMetricsBeforeNotification(retrieved)
              checkpoints3 <- notificationService.notifySuccessfulCallback(retrieved)
@@ -168,7 +168,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
                              )
              _            =  logger.debug:
                                s"Retrieved quarantined file with Key=[${quarantineFile.fileReference.reference}] and callbackUrl=[${quarantineFile.callbackUrl}] for object=[${parsedMessage.location.objectKey}]."
-             checkpoint2  =  Checkpoint("x-amz-meta-upscan-notify-received", message.receivedAt)
+             checkpoint2  =  Checkpoint("upscan-notify-received", message.receivedAt)
              _            =  upscanAuditingService.notifyFileIsQuarantined(retrieved)
              checkpoints3 <- notificationService.notifyFailedCallback(retrieved)
              _            =  MessageProcessingJob.collectMetricsAfterNotificationFailed(
@@ -193,7 +193,7 @@ object MessageProcessingJob:
   def parseCheckpoints(userMetadata: Map[String, String]) =
     userMetadata
       .view
-      .filterKeys(_.startsWith("x-amz-meta-upscan-"))
+      .filterKeys(_.startsWith("upscan-"))
       .flatMap:
         case (key, value) =>
           Try(java.time.Instant.parse(value)) match
@@ -235,8 +235,8 @@ object MessageProcessingJob:
 
     val updatedCheckpoints =
       checkpoints ++ Seq(
-        Checkpoint("x-amz-meta-upscan-file-uploaded", notification.uploadTimestamp),
-        Checkpoint("x-amz-meta-upscan-notify-responded", respondedAt)
+        Checkpoint("upscan-file-uploaded"   , notification.uploadTimestamp),
+        Checkpoint("upscan-notify-responded", respondedAt)
       )
 
     val totalProcessingTime = java.time.Duration.between(notification.uploadTimestamp, respondedAt)
@@ -268,8 +268,8 @@ object MessageProcessingJob:
 
     val updatedCheckpoints =
       checkpoints ++ Seq(
-        Checkpoint("x-amz-meta-upscan-file-uploaded", notification.uploadTimestamp),
-        Checkpoint("x-amz-meta-upscan-notify-responded", respondedAt)
+        Checkpoint("upscan-file-uploaded"   , notification.uploadTimestamp),
+        Checkpoint("upscan-notify-responded", respondedAt)
       )
 
     val totalProcessingTime = java.time.Duration.between(notification.uploadTimestamp, respondedAt)

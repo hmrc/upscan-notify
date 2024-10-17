@@ -92,8 +92,8 @@ class HttpNotificationServiceSpec
 
       Then("service should return success")
       result should contain.allOf (
-        Checkpoint("x-amz-meta-upscan-notify-callback-started", baseTime),
-        Checkpoint("x-amz-meta-upscan-notify-callback-ended", baseTime.plusSeconds(1))
+        Checkpoint("upscan-notify-callback-started", baseTime),
+        Checkpoint("upscan-notify-callback-ended"  , baseTime.plusSeconds(1))
       )
 
       And("callback URL is called with expected JSON body")
