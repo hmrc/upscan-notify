@@ -57,7 +57,7 @@ class NotifyOnFileProcessingEventFlowSpec
   val fileSize         = 10L
   val consumingService = "consuming-service"
 
-  val fileManager = mock[FileManager]
+  val fileNotificationDetailsRetriever = mock[FileNotificationDetailsRetriever]
   val sampleRequestContext =
     RequestContext(Some("REQUEST_ID"), Some("SESSION_ID"), "127.0.0.1")
   val objectMetadata =
@@ -75,7 +75,7 @@ class NotifyOnFileProcessingEventFlowSpec
         "upscan-notify-received" -> "2018-04-24T09:45:15Z",
       )
     )
-  when(fileManager.receiveSuccessfulFileDetails(any[S3ObjectLocation]))
+  when(fileNotificationDetailsRetriever.receiveSuccessfulFileDetails(any[S3ObjectLocation]))
     .thenReturn(Future.successful(objectMetadata))
 
   val downloadUrlGenerator = mock[DownloadUrlGenerator]
@@ -109,7 +109,7 @@ class NotifyOnFileProcessingEventFlowSpec
       val queueOrchestrator = NotifyOnSuccessfulFileUploadMessageProcessingJob(
         queueConsumer,
         messageParser,
-        fileManager,
+        fileNotificationDetailsRetriever,
         notificationService,
         downloadUrlGenerator,
         auditingService,
@@ -178,7 +178,7 @@ class NotifyOnFileProcessingEventFlowSpec
       val queueOrchestrator = NotifyOnSuccessfulFileUploadMessageProcessingJob(
         queueConsumer,
         messageParser,
-        fileManager,
+        fileNotificationDetailsRetriever,
         notificationService,
         downloadUrlGenerator,
         auditingService,
@@ -220,7 +220,7 @@ class NotifyOnFileProcessingEventFlowSpec
       when(queueConsumer.confirm(any[Message]))
         .thenReturn(Future.unit)
 
-      when(fileManager.receiveSuccessfulFileDetails(any[S3ObjectLocation]))
+      when(fileNotificationDetailsRetriever.receiveSuccessfulFileDetails(any[S3ObjectLocation]))
         .thenAnswer: i =>
           val objectLocation = i.getArgument[S3ObjectLocation](0)
           val fileReference = FileReference("R" + objectLocation.objectKey) // These are unrelated, we're just correlating for the test
@@ -279,7 +279,7 @@ class NotifyOnFileProcessingEventFlowSpec
       val queueOrchestrator = NotifyOnSuccessfulFileUploadMessageProcessingJob(
         queueConsumer,
         messageParser,
-        fileManager,
+        fileNotificationDetailsRetriever,
         notificationService,
         downloadUrlGenerator,
         auditingService,

@@ -73,23 +73,23 @@ trait SuccessfulQueueConsumer extends QueueConsumer
 trait QuarantineQueueConsumer extends QueueConsumer
 
 class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
-  override val consumer: SuccessfulQueueConsumer,
-  override val parser  : MessageParser,
-  fileManager          : FileManager,
-  notificationService  : NotificationService,
-  downloadUrlGenerator : DownloadUrlGenerator,
-  upscanAuditingService: UpscanAuditingService,
-  serviceConfiguration : ServiceConfiguration
+  override val consumer           : SuccessfulQueueConsumer,
+  override val parser             : MessageParser,
+  fileNotificationDetailsRetriever: FileNotificationDetailsRetriever,
+  notificationService             : NotificationService,
+  downloadUrlGenerator            : DownloadUrlGenerator,
+  upscanAuditingService           : UpscanAuditingService,
+  serviceConfiguration            : ServiceConfiguration
 )(using
-  override val executionContext: ExecutionContext,
-  metricRegistry       : MetricRegistry,
-  clock                : Clock
+  override val executionContext   : ExecutionContext,
+  metricRegistry                  : MetricRegistry,
+  clock                           : Clock
 ) extends MessageProcessingJob:
 
   private[service] override val logger: Logger = Logger(getClass)
 
   override def processMessage(message: Message, parsedMessage: FileUploadEvent): Future[Boolean] =
-    fileManager.receiveSuccessfulFileDetails(parsedMessage.location)
+    fileNotificationDetailsRetriever.receiveSuccessfulFileDetails(parsedMessage.location)
       .flatMap: metadata =>
         LoggingUtils.withMdc(Map(
           "file-reference" -> metadata.fileReference.reference
@@ -135,22 +135,22 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
 
 
 class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
-  override val consumer: QuarantineQueueConsumer,
-  override val parser  : MessageParser,
-  fileManager          : FileManager,
-  notificationService  : NotificationService,
-  upscanAuditingService: UpscanAuditingService,
-  serviceConfiguration : ServiceConfiguration
+  override val consumer           : QuarantineQueueConsumer,
+  override val parser             : MessageParser,
+  fileNotificationDetailsRetriever: FileNotificationDetailsRetriever,
+  notificationService             : NotificationService,
+  upscanAuditingService           : UpscanAuditingService,
+  serviceConfiguration            : ServiceConfiguration
 )(using
-  override val executionContext: ExecutionContext,
-  metricRegistry       : MetricRegistry,
-  clock                : Clock
+  override val executionContext   : ExecutionContext,
+  metricRegistry                  : MetricRegistry,
+  clock                           : Clock
 ) extends MessageProcessingJob:
 
   private[service] override val logger: Logger = Logger(getClass)
 
   override def processMessage(message: Message, parsedMessage: FileUploadEvent): Future[Boolean] =
-    fileManager.receiveFailedFileDetails(parsedMessage.location)
+    fileNotificationDetailsRetriever.receiveFailedFileDetails(parsedMessage.location)
       .flatMap: quarantineFile =>
         LoggingUtils.withMdc(Map(
           "file-reference" -> quarantineFile.fileReference.reference

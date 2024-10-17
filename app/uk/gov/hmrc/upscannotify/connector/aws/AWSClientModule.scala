@@ -24,19 +24,19 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.sqs.SqsAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
-import uk.gov.hmrc.upscannotify.service.{DownloadUrlGenerator, FileManager, MessageParser}
+import uk.gov.hmrc.upscannotify.service.{DownloadUrlGenerator, FileNotificationDetailsRetriever, MessageParser}
 
 import javax.inject.{Inject, Provider}
 
 class AWSClientModule extends Module:
   override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] =
     Seq(
-      bind[AwsCredentialsProvider].toProvider[ProviderOfAwsCredentials],
-      bind[SqsAsyncClient        ].toProvider[SqsClientProvider],
-      bind[S3AsyncClient         ].toProvider[S3ClientProvider],
-      bind[FileManager           ].to[S3FileManager],
-      bind[MessageParser         ].to[S3EventParser],
-      bind[DownloadUrlGenerator  ].to[S3DownloadUrlGenerator]
+      bind[AwsCredentialsProvider          ].toProvider[ProviderOfAwsCredentials],
+      bind[SqsAsyncClient                  ].toProvider[SqsClientProvider],
+      bind[S3AsyncClient                   ].toProvider[S3ClientProvider],
+      bind[FileNotificationDetailsRetriever].to[S3FileNotificationDetailsRetriever],
+      bind[MessageParser                   ].to[S3EventParser],
+      bind[DownloadUrlGenerator            ].to[S3DownloadUrlGenerator]
     )
 
 class ProviderOfAwsCredentials @Inject()(configuration: ServiceConfiguration) extends Provider[AwsCredentialsProvider]:

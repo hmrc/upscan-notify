@@ -30,7 +30,7 @@ class S3DownloadUrlGenerator @Inject()(
   config: ServiceConfiguration
 ) extends DownloadUrlGenerator:
 
-  override def generate(objectLocation: S3ObjectLocation, metadata: SuccessfulFileDetails): URL =
+  override def generate(objectLocation: S3ObjectLocation, metadata: SuccessfulFileDetails): URL = // TODO replace metadata with consumingService as param
     val expirationPeriod = config.s3UrlExpirationPeriod(metadata.consumingService)
 
     val presigner = S3Presigner.create()
