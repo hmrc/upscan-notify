@@ -17,42 +17,27 @@
 package uk.gov.hmrc.upscannotify.service
 
 import org.apache.pekko.actor.ActorSystem
+import org.mockito.Mockito.when
 import org.scalatest.concurrent.Eventually
 import play.api.inject.DefaultApplicationLifecycle
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.test.UnitSpec
 
 import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 class ContinuousPollerSpec extends UnitSpec with Eventually:
 
   given actorSystem: ActorSystem = ActorSystem()
 
-  val serviceConfiguration =
-    new ServiceConfiguration:
-      override def successfulProcessingBatchSize: Int = 10
-
-      override def quarantineProcessingBatchSize: Int = 10
-
-      override def accessKeyId: String = ???
-
-      override def awsRegion: String = ???
-
-      override def secretAccessKey: String = ???
-
-      override def sessionToken: Option[String] = ???
-
-      override def retryInterval: FiniteDuration = 1.second
-
-      override def outboundSuccessfulQueueUrl: String = ???
-
-      override def s3UrlExpirationPeriod(serviceName: String): FiniteDuration = ???
-
-      override def outboundQuarantineQueueUrl: String = ???
-
-      override def endToEndProcessingThreshold: Duration = ???
+  val serviceConfiguration = mock[ServiceConfiguration]
+  when(serviceConfiguration.successfulProcessingBatchSize)
+    .thenReturn(10)
+  when(serviceConfiguration.quarantineProcessingBatchSize)
+    .thenReturn(10)
+  when(serviceConfiguration.retryInterval)
+    .thenReturn(1.second)
 
   "QueuePollingJob" should:
     "continuously poll the queue" in:

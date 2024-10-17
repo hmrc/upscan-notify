@@ -16,9 +16,9 @@
 
 package uk.gov.hmrc.upscannotify.config
 
-import com.amazonaws.services.sqs.AmazonSQS
 import play.api.inject.{Binding, Module}
 import play.api.{Configuration, Environment}
+import software.amazon.awssdk.services.sqs.SqsAsyncClient
 import uk.gov.hmrc.upscannotify.connector.aws.SqsQueueConsumer
 import uk.gov.hmrc.upscannotify.service._
 
@@ -34,7 +34,7 @@ class UpscanQueuesModule extends Module:
     )
 
 class SuccessfulSqsQueueConsumerProvider @Inject()(
-  sqsClient    : AmazonSQS,
+  sqsClient    : SqsAsyncClient,
   configuration: ServiceConfiguration,
   clock        : Clock
 )(using
@@ -45,11 +45,12 @@ class SuccessfulSqsQueueConsumerProvider @Inject()(
       sqsClient,
       configuration.outboundSuccessfulQueueUrl,
       configuration.successfulProcessingBatchSize,
+      configuration.successfulWaitTime,
       clock
     ) with SuccessfulQueueConsumer
 
 class QuarantineSqsQueueConsumerProvider @Inject()(
-  sqsClient    : AmazonSQS,
+  sqsClient    : SqsAsyncClient,
   configuration: ServiceConfiguration,
   clock        : Clock
 )(using
@@ -60,5 +61,6 @@ class QuarantineSqsQueueConsumerProvider @Inject()(
       sqsClient,
       configuration.outboundQuarantineQueueUrl,
       configuration.quarantineProcessingBatchSize,
+      configuration.quarantineWaitTime,
       clock
     ) with QuarantineQueueConsumer

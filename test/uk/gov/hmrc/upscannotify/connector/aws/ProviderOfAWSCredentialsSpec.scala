@@ -16,7 +16,8 @@
 
 package uk.gov.hmrc.upscannotify.connector.aws
 
-import com.amazonaws.auth.{AWSCredentialsProvider, AWSSessionCredentials}
+import software.amazon.awssdk.auth.credentials.{AwsCredentials, AwsSessionCredentials}
+
 import org.mockito.Mockito.when
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.test.UnitSpec
@@ -33,12 +34,12 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec:
       when(configuration.sessionToken)
         .thenReturn(Some("SESSION_TOKEN"))
 
-      val credentials: AWSCredentialsProvider = OldProviderOfAWSCredentials(configuration).get()
+      val credentials: AwsCredentials = ProviderOfAwsCredentials(configuration).get().resolveCredentials()
 
-      credentials.getCredentials.getAWSAccessKeyId                                   shouldBe "KEY_ID"
-      credentials.getCredentials.getAWSSecretKey                                     shouldBe "ACCESS_KEY"
-      credentials.getCredentials                                                     shouldBe a[AWSSessionCredentials]
-      credentials.getCredentials.asInstanceOf[AWSSessionCredentials].getSessionToken shouldBe "SESSION_TOKEN"
+      credentials.accessKeyId                                         shouldBe "KEY_ID"
+      credentials.secretAccessKey                                     shouldBe "ACCESS_KEY"
+      credentials                                                     shouldBe a[AwsSessionCredentials]
+      credentials.asInstanceOf[AwsSessionCredentials].sessionToken shouldBe "SESSION_TOKEN"
 
     "create BasicAWSCredentials in no session token provided" in:
       val configuration = mock[ServiceConfiguration]
@@ -49,8 +50,8 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec:
       when(configuration.sessionToken)
         .thenReturn(None)
 
-      val credentials: AWSCredentialsProvider = OldProviderOfAWSCredentials(configuration).get()
+      val credentials: AwsCredentials = ProviderOfAwsCredentials(configuration).get().resolveCredentials()
 
-      credentials.getCredentials.getAWSAccessKeyId shouldBe "KEY_ID"
-      credentials.getCredentials.getAWSSecretKey   shouldBe "ACCESS_KEY"
-      credentials.getCredentials shouldNot be(a[AWSSessionCredentials])
+      credentials.accessKeyId     shouldBe "KEY_ID"
+      credentials.secretAccessKey shouldBe "ACCESS_KEY"
+      credentials                 shouldNot be(a[AwsSessionCredentials])

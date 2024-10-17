@@ -16,44 +16,52 @@
 
 package uk.gov.hmrc.upscannotify.connector.aws
 
-import com.amazonaws.services.sqs.AmazonSQS
-import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, ReceiveMessageResult}
 import play.api.Logging
+import software.amazon.awssdk.services.sqs.SqsAsyncClient
+import software.amazon.awssdk.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest}
 import uk.gov.hmrc.upscannotify.model.Message
 import uk.gov.hmrc.upscannotify.service.QueueConsumer
 
 import java.time.Clock
 import scala.jdk.CollectionConverters._
+import scala.jdk.FutureConverters._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.Duration
 
 abstract class SqsQueueConsumer(
-  val sqsClient      : AmazonSQS,
+  val sqsClient      : SqsAsyncClient,
   queueUrl           : String,
   processingBatchSize: Int,
+  waitTime           : Duration,
   clock              : Clock
 )(using
   val ec: ExecutionContext
 ) extends QueueConsumer with Logging:
 
   override def poll(): Future[Seq[Message]] =
-    val receiveMessageRequest = ReceiveMessageRequest(queueUrl)
-      .withMaxNumberOfMessages(processingBatchSize)
-      .withWaitTimeSeconds(20)
-
-    val receiveMessageResult: Future[ReceiveMessageResult] =
-      Future(sqsClient.receiveMessage(receiveMessageRequest))
-
-    receiveMessageResult.map: result =>
-      val receivedAt = clock.instant()
-
-      result.getMessages.asScala
-        .map: sqsMessage =>
-          logger.debug(s"Received message with id: [${sqsMessage.getMessageId}] and receiptHandle: [${sqsMessage.getReceiptHandle}].")
-          Message(sqsMessage.getMessageId, sqsMessage.getBody, sqsMessage.getReceiptHandle, receivedAt)
-        .toSeq
+    sqsClient
+      .receiveMessage:
+        ReceiveMessageRequest.builder()
+          .queueUrl(queueUrl)
+          .maxNumberOfMessages(processingBatchSize)
+          .waitTimeSeconds(waitTime.toSeconds.toInt)
+          .build
+      .asScala
+      .map: result =>
+        val receivedAt = clock.instant()
+        result.messages.asScala
+          .map: sqsMessage =>
+            logger.debug(s"Received message with id: [${sqsMessage.messageId}] and receiptHandle: [${sqsMessage.receiptHandle}].")
+            Message(sqsMessage.messageId, sqsMessage.body, sqsMessage.receiptHandle, receivedAt)
+          .toSeq
 
   override def confirm(message: Message): Future[Unit] =
-    val deleteMessageRequest = DeleteMessageRequest(queueUrl, message.receiptHandle)
-    Future:
-      sqsClient.deleteMessage(deleteMessageRequest)
-      logger.debug(s"Deleted message from Queue: [$queueUrl], for receiptHandle: [${message.receiptHandle}].")
+    sqsClient
+      .deleteMessage:
+        DeleteMessageRequest.builder()
+          .queueUrl(queueUrl)
+          .receiptHandle(message.receiptHandle)
+          .build()
+      .asScala
+      .map: _ =>
+        logger.debug(s"Deleted message from Queue: [$queueUrl], for receiptHandle: [${message.receiptHandle}].")

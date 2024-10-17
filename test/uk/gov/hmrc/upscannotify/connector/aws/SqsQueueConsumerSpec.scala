@@ -16,18 +16,21 @@
 
 package uk.gov.hmrc.upscannotify.connector.aws
 
-import com.amazonaws.services.sqs.AmazonSQS
-import com.amazonaws.services.sqs.model.{Message => SqsMessage, _}
 import org.scalatest.{Assertions, GivenWhenThen}
 import org.scalatest.concurrent.ScalaFutures
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{verify, when}
+import software.amazon.awssdk.services.sqs.SqsAsyncClient
+import software.amazon.awssdk.services.sqs.model.{DeleteMessageRequest, DeleteMessageResponse, Message => SqsMessage, OverLimitException, ReceiptHandleIsInvalidException, ReceiveMessageRequest, ReceiveMessageResponse}
 import uk.gov.hmrc.upscannotify.model.Message
 import uk.gov.hmrc.upscannotify.test.UnitSpec
 
 import java.time.{Clock, Instant, ZoneId}
+import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters._
+import scala.jdk.FutureConverters._
 
 class SqsQueueConsumerSpec
   extends UnitSpec
@@ -38,27 +41,30 @@ class SqsQueueConsumerSpec
   private def sqsMessages(messageCount: Int): java.util.List[SqsMessage] =
     (1 to messageCount)
       .map: index =>
-        val message = SqsMessage()
-        message.setBody(s"SQS message body: $index")
-        message.setReceiptHandle(s"SQS receipt handle: $index")
-        message.setMessageId(s"ID$index")
-        message
+        SqsMessage.builder()
+          .body(s"SQS message body: $index")
+          .receiptHandle(s"SQS receipt handle: $index")
+          .messageId(s"ID$index")
+          .build()
       .asJava
 
   private val receivedAt = Instant.parse("2018-11-30T16:29:15Z")
   private val batchSize  = 10
+  private val waitTime   = 20.seconds
   private val clock      = Clock.fixed(receivedAt, ZoneId.systemDefault())
 
   "SqsQueueConsumer" should:
     "call an SQS endpoint to receive messages" in:
       Given("an SQS queue consumer and a queue containing messages")
-      val messageResult: ReceiveMessageResult = mock[ReceiveMessageResult]
-      when(messageResult.getMessages).thenReturn(sqsMessages(2))
-
-      val sqsClient: AmazonSQS = mock[AmazonSQS]
+      val sqsClient: SqsAsyncClient = mock[SqsAsyncClient]
       when(sqsClient.receiveMessage(any[ReceiveMessageRequest]))
-        .thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, clock) {}
+        .thenReturn:
+          Future
+            .successful:
+              ReceiveMessageResponse.builder().messages(sqsMessages(2)).build()
+            .asJava
+
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, waitTime, clock) {}
 
       When("the consumer poll method is called")
       val messages: Seq[Message] = consumer.poll().futureValue
@@ -74,14 +80,15 @@ class SqsQueueConsumerSpec
 
     "call an SQS endpoint to receive messages for empty queue" in:
       Given("an SQS queue consumer and a queue containing NO messages")
-      val messageResult: ReceiveMessageResult = mock[ReceiveMessageResult]
-      when(messageResult.getMessages)
-        .thenReturn(sqsMessages(0))
-
-      val sqsClient: AmazonSQS = mock[AmazonSQS]
+      val sqsClient: SqsAsyncClient = mock[SqsAsyncClient]
       when(sqsClient.receiveMessage(any[ReceiveMessageRequest]))
-        .thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, clock) {}
+        .thenReturn:
+          Future
+            .successful:
+              ReceiveMessageResponse.builder().messages(sqsMessages(0)).build()
+            .asJava
+
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, waitTime, clock) {}
 
       When("the consumer poll method is called")
       val messages: Seq[Message] = consumer.poll().futureValue
@@ -94,11 +101,14 @@ class SqsQueueConsumerSpec
 
     "handle failing SQS receive messages calls" in:
       Given("a message containing a receipt handle")
-      val sqsClient: AmazonSQS = mock[AmazonSQS]
+      val sqsClient: SqsAsyncClient = mock[SqsAsyncClient]
       when(sqsClient.receiveMessage(any[ReceiveMessageRequest]))
-        .thenThrow(OverLimitException(""))
+        .thenReturn:
+          Future
+            .failed(OverLimitException.builder().build())
+            .asJava
 
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, clock) {}
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, waitTime, clock) {}
 
       When("the consumer confirm method is called")
       val error = consumer.poll().failed.futureValue
@@ -111,14 +121,18 @@ class SqsQueueConsumerSpec
 
     "call an SQS endpoint to delete a message" in:
       Given("a message containing a receipt handle")
-      val messageResult: ReceiveMessageResult = mock[ReceiveMessageResult]
-      when(messageResult.getMessages)
-        .thenReturn(sqsMessages(1))
-
-      val sqsClient: AmazonSQS = mock[AmazonSQS]
+      val sqsClient: SqsAsyncClient = mock[SqsAsyncClient]
       when(sqsClient.receiveMessage(any[ReceiveMessageRequest]))
-        .thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, clock) {}
+        .thenReturn:
+          Future
+            .successful:
+              ReceiveMessageResponse.builder().messages(sqsMessages(1)).build()
+            .asJava
+
+      when(sqsClient.deleteMessage(any[DeleteMessageRequest]))
+        .thenReturn(Future.successful(DeleteMessageResponse.builder().build()).asJava)
+
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, waitTime, clock) {}
 
       val message: Message = consumer.poll().futureValue.head
 
@@ -133,18 +147,23 @@ class SqsQueueConsumerSpec
 
     "handle failing SQS delete calls" in:
       Given("a message containing a receipt handle")
-      val messageResult: ReceiveMessageResult = mock[ReceiveMessageResult]
-      when(messageResult.getMessages)
-        .thenReturn(sqsMessages(1))
-
-      val sqsClient: AmazonSQS = mock[AmazonSQS]
+      val sqsClient: SqsAsyncClient = mock[SqsAsyncClient]
       when(sqsClient.receiveMessage(any[ReceiveMessageRequest]))
-        .thenReturn(messageResult)
-      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, clock) {}
+        .thenReturn:
+          Future
+            .successful:
+              ReceiveMessageResponse.builder().messages(sqsMessages(1)).build()
+            .asJava
+
+      val consumer = new SqsQueueConsumer(sqsClient, "Test.aws.sqs.queue", batchSize, waitTime, clock) {}
 
       And("an SQS endpoint which is throwing an error")
       when(sqsClient.deleteMessage(any[DeleteMessageRequest]))
-        .thenThrow(ReceiptHandleIsInvalidException(""))
+        .thenReturn:
+          Future
+            .failed:
+              ReceiptHandleIsInvalidException.builder().build()
+            .asJava
 
       val message: Message = consumer.poll().futureValue.head
 

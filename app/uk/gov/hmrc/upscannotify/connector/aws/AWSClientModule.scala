@@ -16,12 +16,12 @@
 
 package uk.gov.hmrc.upscannotify.connector.aws
 
-import com.amazonaws.auth.{AWSCredentialsProvider, AWSStaticCredentialsProvider, BasicAWSCredentials, BasicSessionCredentials}
-import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClientBuilder}
+import org.apache.pekko.actor.ActorSystem
 import play.api.inject.{Binding, Module}
 import play.api.{Configuration, Environment}
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, AwsCredentialsProvider, AwsSessionCredentials, StaticCredentialsProvider}
 import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.sqs.SqsAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.service.{DownloadUrlGenerator, FileManager, MessageParser}
@@ -31,23 +31,12 @@ import javax.inject.{Inject, Provider}
 class AWSClientModule extends Module:
   override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] =
     Seq(
-      bind[AWSCredentialsProvider].toProvider[OldProviderOfAWSCredentials],
       bind[AwsCredentialsProvider].toProvider[ProviderOfAwsCredentials],
-      bind[AmazonSQS             ].toProvider[SqsClientProvider],
+      bind[SqsAsyncClient        ].toProvider[SqsClientProvider],
       bind[S3AsyncClient         ].toProvider[S3ClientProvider],
       bind[FileManager           ].to[S3FileManager],
       bind[MessageParser         ].to[S3EventParser],
       bind[DownloadUrlGenerator  ].to[S3DownloadUrlGenerator]
-    )
-
-class OldProviderOfAWSCredentials @Inject()(configuration: ServiceConfiguration) extends Provider[AWSCredentialsProvider]:
-  override def get(): AWSCredentialsProvider =
-    AWSStaticCredentialsProvider(
-      configuration.sessionToken match
-        case Some(sessionToken) =>
-          BasicSessionCredentials(configuration.accessKeyId, configuration.secretAccessKey, sessionToken)
-        case None =>
-          BasicAWSCredentials(configuration.accessKeyId, configuration.secretAccessKey)
     )
 
 class ProviderOfAwsCredentials @Inject()(configuration: ServiceConfiguration) extends Provider[AwsCredentialsProvider]:
@@ -61,21 +50,28 @@ class ProviderOfAwsCredentials @Inject()(configuration: ServiceConfiguration) ex
 
 class SqsClientProvider @Inject()(
   configuration      : ServiceConfiguration,
-  credentialsProvider: AWSCredentialsProvider
-) extends Provider[AmazonSQS]:
-  override def get(): AmazonSQS =
-    AmazonSQSClientBuilder
-      .standard()
-      .withRegion(configuration.awsRegion)
-      .withCredentials(credentialsProvider)
-      .build()
+  credentialsProvider: AwsCredentialsProvider,
+  actorSystem        : ActorSystem
+) extends Provider[SqsAsyncClient]:
+  override def get(): SqsAsyncClient =
+    val client =
+      SqsAsyncClient.builder()
+        .region(Region.of(configuration.awsRegion))
+        .credentialsProvider(credentialsProvider)
+        .build()
+    actorSystem.registerOnTermination(client.close())
+    client
 
 class S3ClientProvider @Inject()(
   configuration      : ServiceConfiguration,
-  credentialsProvider: AwsCredentialsProvider
+  credentialsProvider: AwsCredentialsProvider,
+  actorSystem        : ActorSystem
 ) extends Provider[S3AsyncClient]:
   override def get(): S3AsyncClient =
-    S3AsyncClient.builder()
-      .region(Region.of(configuration.awsRegion))
-      .credentialsProvider(credentialsProvider)
-      .build()
+    val client =
+      S3AsyncClient.builder()
+        .region(Region.of(configuration.awsRegion))
+        .credentialsProvider(credentialsProvider)
+        .build()
+    actorSystem.registerOnTermination(client.close())
+    client

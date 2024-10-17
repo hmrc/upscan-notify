@@ -16,10 +16,10 @@
 
 package uk.gov.hmrc.upscannotify.harness.application
 
-import com.amazonaws.services.sqs.AmazonSQS
 import org.scalatestplus.mockito.MockitoSugar.mock
 import play.api.inject.bind
 import play.api.inject.guice.GuiceApplicationBuilder
+import software.amazon.awssdk.services.sqs.SqsAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
 import uk.gov.hmrc.upscannotify.NotifyModule
 import uk.gov.hmrc.upscannotify.harness.module.FilteredNotifyModule
@@ -29,14 +29,14 @@ import uk.gov.hmrc.upscannotify.service.ContinuousPoller
   * Bootstrap logic for an integration test application.
   */
 object IntegrationTestsApplication:
-  val mockS3Client : S3AsyncClient = mock[S3AsyncClient]
-  val mockAmazonSQS: AmazonSQS     = mock[AmazonSQS]
+  val mockS3Client : S3AsyncClient  = mock[S3AsyncClient]
+  val mockSqsClient: SqsAsyncClient = mock[SqsAsyncClient]
 
   def defaultApplicationBuilder(): GuiceApplicationBuilder =
     GuiceApplicationBuilder(disabled = Seq(classOf[ContinuousPoller]))
       .disable(classOf[NotifyModule])
       .overrides(FilteredNotifyModule())
       .overrides(
-        bind[AmazonSQS    ].toInstance(mockAmazonSQS),
-        bind[S3AsyncClient].toInstance(mockS3Client)
+        bind[SqsAsyncClient].toInstance(mockSqsClient),
+        bind[S3AsyncClient ].toInstance(mockS3Client)
       )

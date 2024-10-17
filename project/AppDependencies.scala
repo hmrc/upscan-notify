@@ -7,8 +7,8 @@ object AppDependencies {
   val compile = Seq(
     "uk.gov.hmrc"            %% "bootstrap-backend-play-30" % bootstrapVersion,
     "org.typelevel"          %% "cats-core"                 % "2.12.0",
+    "software.amazon.awssdk" %  "sqs"                       % "2.28.19",
     "software.amazon.awssdk" %  "s3"                        % "2.28.19",
-    "com.amazonaws"          %  "aws-java-sdk-sqs"          % "1.12.606",
     "jakarta.mail"           %  "jakarta.mail-api"          % "2.1.3",
     "org.eclipse.angus"      %  "jakarta.mail"              % "2.0.3"
   )

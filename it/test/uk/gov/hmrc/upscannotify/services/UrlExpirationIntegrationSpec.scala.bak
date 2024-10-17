@@ -16,7 +16,6 @@
 
 package uk.gov.hmrc.upscannotify.service
 
-import com.amazonaws.services.sqs.model.Message
 import com.github.tomakehurst.wiremock.client.WireMock
 import com.github.tomakehurst.wiremock.client.WireMock.{aResponse, post, urlEqualTo}
 import com.github.tomakehurst.wiremock.verification.LoggedRequest
@@ -24,20 +23,19 @@ import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.play.guice.GuiceOneServerPerSuite
+import org.mockito.ArgumentMatchers.{any, eq => eqTo}
+import org.mockito.Mockito.when
 import play.api.Application
 import play.api.inject.guice.GuiceableModuleConversions
 import play.api.libs.json._
+import software.amazon.awssdk.services.sqs.SqsAsyncClient
+import software.amazon.awssdk.services.sqs.model.{Message, ReceiveMessageRequest, ReceiveMessageResponse}
+import software.amazon.awssdk.services.s3.S3AsyncClient
+import software.amazon.awssdk.services.s3.model.ObjectMetadata
 import uk.gov.hmrc.upscannotify.connector.ReadyCallbackBody
 import uk.gov.hmrc.upscannotify.harness.application.IntegrationTestsApplication
 import uk.gov.hmrc.upscannotify.harness.model.JsonReads.given
 import uk.gov.hmrc.upscannotify.harness.wiremock.WithWireMock
-
-import com.amazonaws.services.sqs.AmazonSQS
-import com.amazonaws.services.sqs.model.{Message, ReceiveMessageRequest, ReceiveMessageResult}
-import org.mockito.ArgumentMatchers.{any, eq => eqTo}
-import org.mockito.Mockito.when
-import software.amazon.awssdk.services.s3.S3AsyncClient
-import software.amazon.awssdk.services.s3.model.ObjectMetadata
 
 import java.net.URL
 import java.util.Arrays.asList
@@ -122,9 +120,9 @@ class UrlExpirationIntegrationSpec
   override lazy val app: Application =
     IntegrationTestsApplication.defaultApplicationBuilder().build()
 
-  def setup(mock: AmazonSQS, message: Message): AmazonSQS =
+  def setup(mock: SqsAsyncClient, message: Message): SqsAsyncClient =
     when(mock.receiveMessage(any[ReceiveMessageRequest]))
-      .thenReturn(ReceiveMessageResult().withMessages(asList(message)))
+      .thenReturn(ReceiveMessageResponse().withMessages(asList(message)))
     mock
 
   def setup(mock: S3AsyncClient, bucketName: String, objectKey: String, metadata: ObjectMetadata, expirationUrl: URL): S3AsyncClient =
@@ -138,7 +136,7 @@ class UrlExpirationIntegrationSpec
   "receiveMessage" should:
     "generate pre-signed download url with expiration period derived from application.conf Test section" in:
       Mocks.setup(
-        IntegrationTestsApplication.mockAmazonSQS,
+        IntegrationTestsApplication.mockSqsClient,
         TestData.outboundMessage
       )
       Mocks.setup(

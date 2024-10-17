@@ -26,7 +26,15 @@ trait ServiceConfiguration:
 
   def outboundSuccessfulQueueUrl: String
 
+  def successfulProcessingBatchSize: Int
+
+  def successfulWaitTime: Duration
+
   def outboundQuarantineQueueUrl: String
+
+  def quarantineProcessingBatchSize: Int
+
+  def quarantineWaitTime: Duration
 
   def accessKeyId: String
 
@@ -35,10 +43,6 @@ trait ServiceConfiguration:
   def sessionToken: Option[String]
 
   def awsRegion: String
-
-  def successfulProcessingBatchSize: Int
-
-  def quarantineProcessingBatchSize: Int
 
   def s3UrlExpirationPeriod(serviceName: String): FiniteDuration
 
@@ -50,8 +54,20 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
   override def outboundSuccessfulQueueUrl: String =
     configuration.get[String]("aws.sqs.queue.outbound.successful")
 
+  override def successfulProcessingBatchSize: Int =
+    configuration.get[Int]("successful.processingBatchSize")
+
+  override def successfulWaitTime: Duration =
+    configuration.get[Duration]("successful.waitTime")
+
   override def outboundQuarantineQueueUrl: String =
     configuration.get[String]("aws.sqs.queue.outbound.quarantine")
+
+  override def quarantineProcessingBatchSize: Int =
+    configuration.get[Int]("quarantine.processingBatchSize")
+
+  override def quarantineWaitTime: Duration =
+    configuration.get[Duration]("quarantine.waitTime")
 
   override def awsRegion: String =
     configuration.get[String]("aws.s3.region")
@@ -76,12 +92,6 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
       val (source, value) = serviceS3UrlExpiry.orElse(defaultS3UrlExpiry).getOrElse(fallbackS3UrlExpiry)
       logger.debug(s"Using configuration value of [$value] for s3UrlExpirationPeriod for service [$serviceName] from config [$source]")
       value
-
-  override def successfulProcessingBatchSize: Int =
-    configuration.get[Int]("successful.processingBatchSize")
-
-  override def quarantineProcessingBatchSize: Int =
-    configuration.get[Int]("quarantine.processingBatchSize")
 
   override def endToEndProcessingThreshold: Duration =
     configuration.get[Duration]("upscan.endToEndProcessing.threshold")
