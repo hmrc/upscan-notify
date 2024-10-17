@@ -41,9 +41,11 @@ class S3DownloadUrlGenerator @Inject()(
         .key(objectLocation.objectKey)
         .build()
 
+    play.api.Logger(getClass).info(s"Setting signature duration for ${metadata.consumingService} to ${expirationPeriod.toMinutes} seconds")
+
     val presignRequest =
       GetObjectPresignRequest.builder()
-        .signatureDuration(java.time.Duration.ofMinutes(expirationPeriod.toMinutes))
+        .signatureDuration(java.time.Duration.ofSeconds(expirationPeriod.toSeconds))
         .getObjectRequest(objectRequest)
         .build()
 
