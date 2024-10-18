@@ -55,6 +55,7 @@ class HttpNotificationService @Inject()(
       "File ready"
     )
 
+  // TODO move Checkpoint/timed into MessageProcessingJob so all Checkpoints are created at the same level (and simplify this connector)
   override def notifyFailedCallback(quarantinedFile: FailedProcessingDetails): Future[Seq[Checkpoint]] =
     makeCallback(
       FailedCallbackBody(reference = quarantinedFile.reference, failureDetails = quarantinedFile.error),

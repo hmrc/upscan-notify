@@ -16,77 +16,110 @@
 
 package uk.gov.hmrc.upscannotify.service
 
-import org.apache.pekko.actor.{Actor, ActorSystem, PoisonPill, Props}
-import org.apache.pekko.event.Logging
+import org.apache.pekko.Done
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.Source
 import play.api.Logging
-import play.api.inject.ApplicationLifecycle
+import software.amazon.awssdk.services.sqs.SqsAsyncClient
+import software.amazon.awssdk.services.sqs.model.{ChangeMessageVisibilityRequest, DeleteMessageRequest, Message, ReceiveMessageRequest}
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
-import uk.gov.hmrc.upscannotify.service.ContinuousPollingActor.Poll
 
 import javax.inject.Inject
-import scala.concurrent.duration._
+import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.concurrent.duration.{Duration, DurationInt}
+import scala.jdk.CollectionConverters._
+import scala.jdk.FutureConverters._
+import scala.util.control.NonFatal
 
 trait PollingJob:
-  def run(): Future[Unit]
+  def processMessage(message: uk.gov.hmrc.upscannotify.model.Message): Future[Boolean]
 
   def jobName: String = this.getClass.getName
+
+  // TODO or use jobname to get out directly?
+  def queueUrl            : String
+  def processingBatchSize : Int
+  def waitTime            : Duration
 
 case class PollingJobs(
   jobs: Seq[PollingJob]
 )
 
+
 class ContinuousPoller @Inject()(
+  sqsClient           : SqsAsyncClient,
   pollingJobs         : PollingJobs,
-  serviceConfiguration: ServiceConfiguration
+  serviceConfiguration: ServiceConfiguration,
 )(using
   actorSystem         : ActorSystem,
-  applicationLifecycle: ApplicationLifecycle,
   ec                  : ExecutionContext
 ) extends Logging:
 
-  private val pollingActors =
-    pollingJobs.jobs.map: job =>
-      logger.info(s"Creating ContinuousPollingActor for PollingJob: [${job.jobName}].")
-      actorSystem.actorOf(ContinuousPollingActor(job, serviceConfiguration.retryInterval))
+  def runQueue(job: PollingJob): Future[Done] =
+    Source
+      .repeat:
+        ReceiveMessageRequest.builder()
+          .queueUrl(job.queueUrl)
+          .maxNumberOfMessages(job.processingBatchSize)
+          .waitTimeSeconds(job.waitTime.toSeconds.toInt)
+          //.visibilityTimeout(serviceConfiguration.inboundQueueVisibilityTimeout.toSeconds.toInt)
+          .build
+      .mapAsync(parallelism = 1)(getMessages(job.queueUrl, _))
+      .mapConcat(identity)
+      .mapAsync(parallelism = 1): message =>
+        job.processMessage(uk.gov.hmrc.upscannotify.model.Message(message.messageId, message.body, message.receiptHandle, receivedAt = Instant.now()))
+          .flatMap: isHandled =>
+            if isHandled then
+              deleteMessage(job.queueUrl, message)
+            else
+            // message will return to queue after retryInterval
+            // Note, we previously stopped processing *all* messages on this instance until the retryInterval
+            // We probably only need to do this for exceptions that are known to affect all messages
+            // This could be done by completing Future.unit after a timeout (e.g. complete a promise with `context.system.scheduler.scheduleOnce`)
+            returnMessage(job.queueUrl, message)
+        .recover:
+          case NonFatal(e) =>
+            logger.error(s"Failed to process message ${message.messageId} for job [${job.jobName}]", e)
+            returnMessage(job.queueUrl, message)
+      .run()
+      .andThen: res =>
+        logger.info(s"Queue for job [${job.jobName}] terminated: $res - restarting")
+        actorSystem.scheduler.scheduleOnce(10.seconds)(runQueue(job))
 
-  pollingActors.foreach: pollingActor =>
-    logger.info(s"Sending initial Poll message to Actor: [${pollingActor.toString}].")
-    pollingActor ! Poll
+  pollingJobs.jobs
+    .foreach(runQueue)
 
-  applicationLifecycle.addStopHook: () =>
-    val actorStopResults =
-      Future.traverse(pollingActors): pollingActor =>
-        logger.info(s"Sending PoisonPill message to Actor: [${pollingActor.toString}].")
-        pollingActor ! PoisonPill
-        Future.unit
+  private def getMessages(queueUrl: String, req: ReceiveMessageRequest): Future[Seq[Message]] =
+    logger.info(s"receiving messages from Queue: [${queueUrl}]")
+    sqsClient.receiveMessage(req)
+      .asScala
+      .map(_.messages.asScala.toSeq)
+      .map: res =>
+        logger.info(s"received ${res.size} messages")
+        res
 
-    actorStopResults.map(_ => ())
+  private def deleteMessage(queueUrl: String, message: Message): Future[Unit] =
+    sqsClient
+      .deleteMessage:
+        DeleteMessageRequest.builder()
+          .queueUrl(queueUrl)
+          .receiptHandle(message.receiptHandle)
+          .build()
+      .asScala
+      .map: _ =>
+        logger.debug:
+          s"Deleted message from Queue: [${queueUrl}], for receiptHandle: [${message.receiptHandle}]."
 
-class ContinuousPollingActor(
-  job          : PollingJob,
-  retryInterval: FiniteDuration
-) extends Actor:
-
-  import context.dispatcher
-
-  val log = Logging(context.system, this)
-
-  override def receive: Receive =
-    case Poll =>
-      log.debug(s"Polling for flow: [${job.jobName}].")
-      job.run().andThen:
-        case Success(r) =>
-          log.debug(s"Polling succeeded for flow: [${job.jobName}].")
-          self ! Poll
-        case Failure(f) =>
-          log.error(f, s"Polling failed for flow: [${job.jobName}].")
-          context.system.scheduler.scheduleOnce(retryInterval, self, Poll)
-
-object ContinuousPollingActor:
-
-  def apply(orchestrator: PollingJob, retryInterval: FiniteDuration): Props =
-    Props(new ContinuousPollingActor(orchestrator, retryInterval))
-
-  case object Poll
+  private def returnMessage(queueUrl: String, message: Message): Future[Unit] =
+    sqsClient
+      .changeMessageVisibility:
+        ChangeMessageVisibilityRequest.builder()
+          .queueUrl(queueUrl)
+          .receiptHandle(message.receiptHandle)
+          .visibilityTimeout(serviceConfiguration.retryInterval.toSeconds.toInt)
+          .build()
+      .asScala
+      .map: _ =>
+        logger.debug:
+          s"Returned message back to the queue (after ${serviceConfiguration.retryInterval}): [${queueUrl}], for receiptHandle: [${message.receiptHandle}]."

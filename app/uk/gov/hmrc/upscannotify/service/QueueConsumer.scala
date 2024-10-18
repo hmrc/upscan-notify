@@ -21,6 +21,4 @@ import uk.gov.hmrc.upscannotify.model.Message
 import scala.concurrent.Future
 
 trait QueueConsumer:
-  def poll(): Future[Seq[Message]]
-
   def confirm(message: Message): Future[Unit]

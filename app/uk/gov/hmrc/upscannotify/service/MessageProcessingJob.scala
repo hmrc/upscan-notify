@@ -40,40 +40,25 @@ trait MessageProcessingJob extends PollingJob:
 
   def parser  : MessageParser
 
-  def consumer: QueueConsumer
+  def processParsedMessage(message: Message, parsedMessage: FileUploadEvent): Future[Boolean]
 
-  def processMessage(message: Message, parsedMessage: FileUploadEvent): Future[Boolean]
-
-  def run(): Future[Unit] =
-     for
-       messages <- consumer.poll()
-       _        <- Future.traverse(messages)(handleMessage)
-     yield ()
-
-  private def handleMessage(message: Message): Future[Unit] =
+  override def processMessage(message: Message): Future[Boolean] =
     parser.parse(message)
       .flatMap: parsedMessage =>
         LoggingUtils.withMdc(Map(
           "object-key" -> parsedMessage.location.objectKey
         )):
-          (for
-            isHandled <- processMessage(message, parsedMessage)
-            _         <- // TODO if not handled, return to queue immediately for retry rather than waiting for visibility timeout
-                         if isHandled then consumer.confirm(message) else Future.unit
-           yield ()
-          ).recover:
-            case exception =>
-              logger.error(s"Failed to process message '${message.id}' for object=[${parsedMessage.location.objectKey}], cause ${exception.getMessage}", exception)
+          processParsedMessage(message, parsedMessage)
+            .recover:
+              case exception =>
+                logger.error(s"Failed to process message '${message.id}' for object=[${parsedMessage.location.objectKey}], cause ${exception.getMessage}", exception)
+                false
       .recover:
         case exception =>
           logger.error(s"Failed to process message '${message.id}', cause ${exception.getMessage}", exception)
-
-trait SuccessfulQueueConsumer extends QueueConsumer
-
-trait QuarantineQueueConsumer extends QueueConsumer
+          false
 
 class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
-  override val consumer           : SuccessfulQueueConsumer,
   override val parser             : MessageParser,
   fileNotificationDetailsRetriever: FileNotificationDetailsRetriever,
   notificationService             : NotificationService,
@@ -88,7 +73,11 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
 
   private[service] override val logger: Logger = Logger(getClass)
 
-  override def processMessage(message: Message, parsedMessage: FileUploadEvent): Future[Boolean] =
+  override val queueUrl            = serviceConfiguration.outboundSuccessfulQueueUrl
+  override val processingBatchSize = serviceConfiguration.successfulProcessingBatchSize
+  override val waitTime            = serviceConfiguration.successfulWaitTime
+
+  override def processParsedMessage(message: Message, parsedMessage: FileUploadEvent): Future[Boolean] =
     fileNotificationDetailsRetriever.receiveSuccessfulFileDetails(parsedMessage.location)
       .flatMap: metadata =>
         LoggingUtils.withMdc(Map(
@@ -135,7 +124,6 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
 
 
 class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
-  override val consumer           : QuarantineQueueConsumer,
   override val parser             : MessageParser,
   fileNotificationDetailsRetriever: FileNotificationDetailsRetriever,
   notificationService             : NotificationService,
@@ -149,7 +137,11 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
 
   private[service] override val logger: Logger = Logger(getClass)
 
-  override def processMessage(message: Message, parsedMessage: FileUploadEvent): Future[Boolean] =
+  override val queueUrl            = serviceConfiguration.outboundQuarantineQueueUrl
+  override val processingBatchSize = serviceConfiguration.quarantineProcessingBatchSize
+  override val waitTime            = serviceConfiguration.quarantineWaitTime
+
+  override def processParsedMessage(message: Message, parsedMessage: FileUploadEvent): Future[Boolean] =
     fileNotificationDetailsRetriever.receiveFailedFileDetails(parsedMessage.location)
       .flatMap: quarantineFile =>
         LoggingUtils.withMdc(Map(

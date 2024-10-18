@@ -17,72 +17,195 @@
 package uk.gov.hmrc.upscannotify.service
 
 import org.apache.pekko.actor.ActorSystem
-import org.mockito.Mockito.when
+import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito.{atLeast => atLeastTimes, times, verify, when}
+import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.Eventually
-import play.api.inject.DefaultApplicationLifecycle
+import software.amazon.awssdk.services.sqs.SqsAsyncClient
+import software.amazon.awssdk.services.sqs.model.{ChangeMessageVisibilityRequest, ChangeMessageVisibilityResponse, DeleteMessageRequest, DeleteMessageResponse, Message, ReceiveMessageRequest, ReceiveMessageResponse}
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
+import uk.gov.hmrc.upscannotify.model.{Message => UpscanMessage}
 import uk.gov.hmrc.upscannotify.test.UnitSpec
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.jdk.FutureConverters._
 
-class ContinuousPollerSpec extends UnitSpec with Eventually:
+class ContinuousPollerSpec extends UnitSpec with Eventually with BeforeAndAfterEach:
+  self =>
 
-  given actorSystem: ActorSystem = ActorSystem()
+  var actorSystem: ActorSystem = ActorSystem()
 
   val serviceConfiguration = mock[ServiceConfiguration]
-  when(serviceConfiguration.successfulProcessingBatchSize)
-    .thenReturn(10)
-  when(serviceConfiguration.quarantineProcessingBatchSize)
-    .thenReturn(10)
   when(serviceConfiguration.retryInterval)
     .thenReturn(1.second)
 
+  val queueUrl = "queueUrl"
+
   "QueuePollingJob" should:
     "continuously poll the queue" in:
+      given ActorSystem = actorSystem
+
       val callCount = AtomicInteger(0)
 
-      val orchestrator: PollingJob =
+      val pollingJob: PollingJob =
         new PollingJob:
-          override def run() = Future.successful(callCount.incrementAndGet())
+          override def processMessage(message: UpscanMessage): Future[Boolean] =
+            callCount.incrementAndGet()
+            Future.successful(true)
 
-      val jobs = PollingJobs(List(orchestrator))
+          override def processingBatchSize: Int =
+            1
+          override def queueUrl: String =
+            self.queueUrl
+          override def waitTime: scala.concurrent.duration.Duration =
+            10.seconds
 
-      val serviceLifecycle = DefaultApplicationLifecycle()
+      val jobs = PollingJobs(List(pollingJob))
 
-      ContinuousPoller(jobs, serviceConfiguration)(using
-        actorSystem,
-        serviceLifecycle,
-        ExecutionContext.Implicits.global
-      )
+      val sqsClient = mock[SqsAsyncClient]
+      when(sqsClient.deleteMessage(any[DeleteMessageRequest]))
+        .thenReturn(Future.successful(DeleteMessageResponse.builder().build()).asJava)
+      when(sqsClient.receiveMessage(any[ReceiveMessageRequest]))
+        .thenReturn:
+          Future
+            .successful:
+              ReceiveMessageResponse.builder().messages(Message.builder().build()).build()
+            .asJava
+
+      ContinuousPoller(sqsClient, jobs, serviceConfiguration)
 
       eventually:
-        callCount.get() > 5
+        callCount.get() should be > 5
 
-      serviceLifecycle.stop()
+      // just assert > 4 - the final one may not have been deleted yet
+      verify(sqsClient, atLeastTimes(1)).deleteMessage(any[DeleteMessageRequest])
 
-    "recover from failure after some time" in:
+
+    "not delete a message if it was not handled" in:
+      given ActorSystem = actorSystem
+
+      val genId     = AtomicInteger(0)
       val callCount = AtomicInteger(0)
 
-      val orchestrator: PollingJob =
+      val pollingJob: PollingJob =
         new PollingJob:
-          override def run() =
-            if callCount.get() == 1 then
+          override def processMessage(message: UpscanMessage): Future[Boolean] =
+            callCount.incrementAndGet()
+            if message.receiptHandle == "2" then
+              Future.successful(false)
+            else
+              Future.successful(true)
+
+          override def processingBatchSize: Int =
+            1
+          override def queueUrl: String =
+            self.queueUrl
+          override def waitTime: scala.concurrent.duration.Duration =
+            10.seconds
+
+      val jobs = PollingJobs(List(pollingJob))
+
+      val sqsClient = mock[SqsAsyncClient]
+      when(sqsClient.deleteMessage(any[DeleteMessageRequest]))
+        .thenReturn(Future.successful(DeleteMessageResponse.builder().build()).asJava)
+      when(sqsClient.changeMessageVisibility(any[ChangeMessageVisibilityRequest]))
+        .thenReturn(Future.successful(ChangeMessageVisibilityResponse.builder().build()).asJava)
+      when(sqsClient.receiveMessage(any[ReceiveMessageRequest]))
+        .thenAnswer: _ =>
+          Future
+            .successful:
+              ReceiveMessageResponse
+                .builder()
+                .messages:
+                  Message
+                    .builder()
+                    .receiptHandle(genId.incrementAndGet().toString)
+                    .build()
+                .build()
+            .asJava
+
+
+      ContinuousPoller(sqsClient, jobs, serviceConfiguration)
+
+      eventually:
+        callCount.get() should be > 5
+
+      // final one may not have been deleted yet
+      verify(sqsClient, atLeastTimes(3)).deleteMessage(any[DeleteMessageRequest])
+
+      //specifically
+      verify(sqsClient).deleteMessage(DeleteMessageRequest.builder().queueUrl(queueUrl).receiptHandle("1").build())
+      verify(sqsClient).deleteMessage(DeleteMessageRequest.builder().queueUrl(queueUrl).receiptHandle("3").build())
+      // but not
+      verify(sqsClient, times(0)).deleteMessage(DeleteMessageRequest.builder().queueUrl(queueUrl).receiptHandle("2").build())
+      // instead
+      verify(sqsClient).changeMessageVisibility(ChangeMessageVisibilityRequest.builder().queueUrl(queueUrl).receiptHandle("2").visibilityTimeout(serviceConfiguration.retryInterval.toSeconds.toInt).build())
+
+    "recover from failure" in:
+      given ActorSystem = actorSystem
+
+      val genId     = AtomicInteger(0)
+      val callCount = AtomicInteger(0)
+
+      val pollingJob: PollingJob =
+        new PollingJob:
+          override def processMessage(message: UpscanMessage): Future[Boolean] =
+            callCount.incrementAndGet()
+            if message.receiptHandle == "2" then
               Future.failed(RuntimeException("Planned failure"))
             else
-              Future.successful(callCount.incrementAndGet())
+              Future.successful(true)
 
-      val jobs             = PollingJobs(List(orchestrator))
-      val serviceLifecycle = DefaultApplicationLifecycle()
+          override def processingBatchSize: Int =
+            1
+          override def queueUrl: String =
+            self.queueUrl
+          override def waitTime: scala.concurrent.duration.Duration =
+            10.seconds
 
-      ContinuousPoller(jobs, serviceConfiguration)(using
-        actorSystem,
-        serviceLifecycle,
-        ExecutionContext.Implicits.global
-      )
+      val jobs = PollingJobs(List(pollingJob))
+
+      val sqsClient = mock[SqsAsyncClient]
+      when(sqsClient.deleteMessage(any[DeleteMessageRequest]))
+        .thenReturn(Future.successful(DeleteMessageResponse.builder().build()).asJava)
+      when(sqsClient.changeMessageVisibility(any[ChangeMessageVisibilityRequest]))
+        .thenReturn(Future.successful(ChangeMessageVisibilityResponse.builder().build()).asJava)
+      when(sqsClient.receiveMessage(any[ReceiveMessageRequest]))
+        .thenAnswer: _ =>
+          Future
+            .successful:
+              ReceiveMessageResponse
+                .builder()
+                .messages:
+                  Message
+                    .builder()
+                    .receiptHandle(genId.incrementAndGet().toString)
+                    .build()
+                .build()
+            .asJava
+
+
+      ContinuousPoller(sqsClient, jobs, serviceConfiguration)
 
       eventually:
-        callCount.get() > 5
+        callCount.get() should be > 5
 
-      serviceLifecycle.stop()
+      // final one may not have been deleted yet
+      verify(sqsClient, atLeastTimes(3)).deleteMessage(any[DeleteMessageRequest])
+
+      //specifically
+      verify(sqsClient).deleteMessage(DeleteMessageRequest.builder().queueUrl(queueUrl).receiptHandle("1").build())
+      verify(sqsClient).deleteMessage(DeleteMessageRequest.builder().queueUrl(queueUrl).receiptHandle("3").build())
+      // but not
+      verify(sqsClient, times(0)).deleteMessage(DeleteMessageRequest.builder().queueUrl(queueUrl).receiptHandle("2").build())
+      // instead
+      verify(sqsClient).changeMessageVisibility(ChangeMessageVisibilityRequest.builder().queueUrl(queueUrl).receiptHandle("2").visibilityTimeout(serviceConfiguration.retryInterval.toSeconds.toInt).build())
+
+  override def beforeEach(): Unit =
+    actorSystem = ActorSystem()
+
+  override def afterEach(): Unit =
+    actorSystem.terminate()

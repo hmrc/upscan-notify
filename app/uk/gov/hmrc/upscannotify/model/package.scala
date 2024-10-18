@@ -29,6 +29,7 @@ object FileReference:
   given Writes[FileReference] =
     (o: FileReference) => JsString(o.reference)
 
+// TODO do we need this?
 case class Message(
   id           : String,
   body         : String,
