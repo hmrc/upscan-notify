@@ -33,7 +33,7 @@ class NotifyModule extends Module:
       bind[NotificationService ].to[HttpNotificationService],
       bind[MessageParser       ].to[S3EventParser],
       bind[PollingJobs         ].toProvider[SqsPollingJobsProvider],
-      bind[ContinuousPoller    ].toSelf.eagerly(),
+      bind[SqsConsumer         ].toSelf.eagerly(),
       bind[Clock               ].toInstance(Clock.systemDefaultZone())
     )
 

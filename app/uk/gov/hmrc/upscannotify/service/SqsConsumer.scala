@@ -47,10 +47,10 @@ case class PollingJobs(
 )
 
 
-class ContinuousPoller @Inject()(
+class SqsConsumer @Inject()(
   sqsClient           : SqsAsyncClient,
   pollingJobs         : PollingJobs,
-  serviceConfiguration: ServiceConfiguration,
+  serviceConfiguration: ServiceConfiguration
 )(using
   actorSystem         : ActorSystem,
   ec                  : ExecutionContext

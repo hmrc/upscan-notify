@@ -19,9 +19,10 @@ package uk.gov.hmrc.upscannotify.service
 import com.github.tomakehurst.wiremock.client.WireMock
 import com.github.tomakehurst.wiremock.client.WireMock.{aResponse, post, urlEqualTo}
 import com.github.tomakehurst.wiremock.verification.LoggedRequest
+import org.apache.pekko.actor.ActorSystem
 import org.mockito.ArgumentMatchers.{any, eq => eqTo}
 import org.mockito.Mockito.when
-import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
+import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.mockito.MockitoSugar
@@ -33,6 +34,7 @@ import play.api.libs.json._
 import software.amazon.awssdk.services.sqs.SqsAsyncClient
 import software.amazon.awssdk.services.sqs.model.{DeleteMessageRequest, DeleteMessageResponse, Message, ReceiveMessageRequest, ReceiveMessageResponse}
 import uk.gov.hmrc.upscannotify.NotifyModule
+import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.connector.ReadyCallbackBody
 import uk.gov.hmrc.upscannotify.connector.aws.{S3FileManager, S3ObjectMetadata}
 import uk.gov.hmrc.upscannotify.harness.model.JsonReads.given
@@ -41,7 +43,7 @@ import uk.gov.hmrc.upscannotify.model.S3ObjectLocation
 
 import java.net.URL
 import java.time.Instant
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters._
 import scala.jdk.FutureConverters._
@@ -118,11 +120,11 @@ object TestData:
 /**
   * Testing subclass of NotifyModule that disables components that should not be run during integration testing.
   */
-class NotifyModuleWithoutContinuousPoller extends NotifyModule:
+class NotifyModuleWithoutSqsConsumer extends NotifyModule:
   override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] =
     super
       .bindings(environment, configuration)
-      .filterNot(_.key == bind[ContinuousPoller])    // We don't want the normal poller to be invoked in the background
+      .filterNot(_.key == bind[SqsConsumer])    // We don't want the normal consumer to be invoked in the background
 
 
 class UrlExpirationIntegrationSpec
@@ -132,6 +134,7 @@ class UrlExpirationIntegrationSpec
      with GuiceableModuleConversions
      with ScalaFutures
      with IntegrationPatience
+     with Eventually
      with MockitoSugar
      with WithWireMock:
 
@@ -142,7 +145,7 @@ class UrlExpirationIntegrationSpec
   override lazy val app: Application =
     GuiceApplicationBuilder()
       .disable(classOf[NotifyModule])
-      .overrides(NotifyModuleWithoutContinuousPoller())
+      .overrides(NotifyModuleWithoutSqsConsumer())
       .overrides(
         bind[SqsAsyncClient      ].toInstance(sqsClient),
         bind[S3FileManager       ].toInstance(s3FileManager),
@@ -175,10 +178,18 @@ class UrlExpirationIntegrationSpec
             aResponse()
               .withStatus(204)
 
-      val notifyOnSuccessfulFileUploadMessageProcessingJob =
-        app.injector.instanceOf[NotifyOnSuccessfulFileUploadMessageProcessingJob]
+      SqsConsumer(
+        sqsClient            = app.injector.instanceOf[SqsAsyncClient],
+        pollingJobs          = app.injector.instanceOf[PollingJobs],
+        serviceConfiguration = app.injector.instanceOf[ServiceConfiguration]
+      )(using
+        actorSystem          = app.injector.instanceOf[ActorSystem],
+        ec                   = app.injector.instanceOf[ExecutionContext]
+      )
 
-      notifyOnSuccessfulFileUploadMessageProcessingJob.run().futureValue
+      eventually:
+        wireMockServer.findAll(WireMock.postRequestedFor(WireMock.urlMatching(TestData.callbackPath))).isEmpty shouldBe false
+
 
       val loggedRequests =
         wireMockServer.findAll(WireMock.postRequestedFor(WireMock.urlMatching(TestData.callbackPath)))

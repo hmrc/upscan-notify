@@ -33,7 +33,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.jdk.FutureConverters._
 
-class ContinuousPollerSpec extends UnitSpec with Eventually with BeforeAndAfterEach:
+class SqsConsumerSpec extends UnitSpec with Eventually with BeforeAndAfterEach:
   self =>
 
   var actorSystem: ActorSystem = ActorSystem()
@@ -44,7 +44,7 @@ class ContinuousPollerSpec extends UnitSpec with Eventually with BeforeAndAfterE
 
   val queueUrl = "queueUrl"
 
-  "QueuePollingJob" should:
+  "SqsConsumer" should:
     "continuously poll the queue" in:
       given ActorSystem = actorSystem
 
@@ -75,7 +75,7 @@ class ContinuousPollerSpec extends UnitSpec with Eventually with BeforeAndAfterE
               ReceiveMessageResponse.builder().messages(Message.builder().build()).build()
             .asJava
 
-      ContinuousPoller(sqsClient, jobs, serviceConfiguration)
+      SqsConsumer(sqsClient, jobs, serviceConfiguration)
 
       eventually:
         callCount.get() should be > 5
@@ -128,7 +128,7 @@ class ContinuousPollerSpec extends UnitSpec with Eventually with BeforeAndAfterE
             .asJava
 
 
-      ContinuousPoller(sqsClient, jobs, serviceConfiguration)
+      SqsConsumer(sqsClient, jobs, serviceConfiguration)
 
       eventually:
         callCount.get() should be > 5
@@ -188,7 +188,7 @@ class ContinuousPollerSpec extends UnitSpec with Eventually with BeforeAndAfterE
             .asJava
 
 
-      ContinuousPoller(sqsClient, jobs, serviceConfiguration)
+      SqsConsumer(sqsClient, jobs, serviceConfiguration)
 
       eventually:
         callCount.get() should be > 5
