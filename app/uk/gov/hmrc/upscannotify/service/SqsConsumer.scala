@@ -62,7 +62,6 @@ class SqsConsumer @Inject()(
           .queueUrl(job.queueUrl)
           .maxNumberOfMessages(job.processingBatchSize)
           .waitTimeSeconds(job.waitTime.toSeconds.toInt)
-          //.visibilityTimeout(serviceConfiguration.inboundQueueVisibilityTimeout.toSeconds.toInt)
           .build
       .mapAsync(parallelism = 1)(getMessages(job.queueUrl, _))
       .mapConcat(identity)

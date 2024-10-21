@@ -26,9 +26,6 @@
 
     <logger name="application" level="DEBUG"/>
 
-    <!--Used to log warnings about slowly processed requests. -->
-    <logger name="services.NotifyOnQuarantineFileUploadMessageProcessingJob" level="INFO"/>
-
     <logger name="connector" level="TRACE">
         <appender-ref ref="STDOUT"/>
     </logger>
