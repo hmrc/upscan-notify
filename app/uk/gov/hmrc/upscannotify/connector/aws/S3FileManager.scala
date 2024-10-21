@@ -50,7 +50,6 @@ class S3FileManager @Inject()(
         S3ObjectMetadata(
           objectLocation,
           response.metadata.asScala.toMap,
-          response.lastModified,
           response.contentLength
         )
 
@@ -69,7 +68,6 @@ class S3FileManager @Inject()(
         (S3ObjectMetadata(
            objectLocation,
            in.response.metadata.asScala.toMap,
-           in.response.lastModified,
            in.response.contentLength
          ),
          in.asUtf8String

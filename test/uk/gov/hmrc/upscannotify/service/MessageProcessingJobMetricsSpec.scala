@@ -46,13 +46,12 @@ class MessageProcessingJobMetricsSpec extends UnitSpec with LogCapturing:
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
 
-        val checkpoints = Checkpoints(
+        val checkpoints =
           Seq(
             Checkpoint("upscan-notify-received"        , Instant.parse("2018-12-01T14:36:20Z")),
             Checkpoint("upscan-notify-callback-started", Instant.parse("2018-12-01T14:36:30Z")),
             Checkpoint("upscan-notify-callback-ended"  , Instant.parse("2018-12-01T14:36:31Z"))
           )
-        )
 
         withCaptureOfLoggingFrom(MessageProcessingJob.logger): logs =>
           MessageProcessingJob.collectMetricsAfterNotificationSuccess(notification, checkpoints, endToEndProcessingThreshold = 0.seconds)(using metricsRegistry, clock)
@@ -60,11 +59,9 @@ class MessageProcessingJobMetricsSpec extends UnitSpec with LogCapturing:
           val warnMessages = logs.filter(_.getLevel == Level.WARN).map(_.getFormattedMessage)
 
           warnMessages.size shouldBe 1
-          warnMessages.head should include("upscan-file-uploaded")
           warnMessages.head should include("upscan-notify-received")
           warnMessages.head should include("upscan-notify-callback-started")
           warnMessages.head should include("upscan-notify-callback-end")
-          warnMessages.head should include("upscan-notify-responded")
 
 
     "collectMetricsAfterNotificationFailed" should:
@@ -78,12 +75,12 @@ class MessageProcessingJobMetricsSpec extends UnitSpec with LogCapturing:
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
 
-        val checkpoints = Checkpoints(
+        val checkpoints =
           Seq(
             Checkpoint("upscan-notify-received"        , Instant.parse("2018-12-01T14:36:20Z")),
             Checkpoint("upscan-notify-callback-started", Instant.parse("2018-12-01T14:36:30Z")),
             Checkpoint("upscan-notify-callback-ended"  , Instant.parse("2018-12-01T14:36:31Z"))
-          ))
+          )
 
         withCaptureOfLoggingFrom(MessageProcessingJob.logger): logs =>
           MessageProcessingJob.collectMetricsAfterNotificationFailed(notification, checkpoints, endToEndProcessingThreshold = 0.seconds)(using metricsRegistry, clock)
@@ -91,8 +88,6 @@ class MessageProcessingJobMetricsSpec extends UnitSpec with LogCapturing:
           val warnMessages = logs.filter(_.getLevel == Level.WARN).map(_.getFormattedMessage)
 
           warnMessages.size shouldBe 1
-          warnMessages.head should include("upscan-file-uploaded")
           warnMessages.head should include("upscan-notify-received")
           warnMessages.head should include("upscan-notify-callback-started")
           warnMessages.head should include("upscan-notify-callback-end")
-          warnMessages.head should include("upscan-notify-responded")

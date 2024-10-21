@@ -36,7 +36,7 @@ import software.amazon.awssdk.services.sqs.model.{DeleteMessageRequest, DeleteMe
 import uk.gov.hmrc.upscannotify.connector.ReadyCallbackBody
 import uk.gov.hmrc.upscannotify.connector.aws.{S3FileManager, S3ObjectMetadata}
 import uk.gov.hmrc.upscannotify.harness.model.JsonReads.given
-import uk.gov.hmrc.upscannotify.harness.wiremock.WithWireMock
+import uk.gov.hmrc.http.test.WireMockSupport
 import uk.gov.hmrc.upscannotify.model.S3ObjectLocation
 
 import java.net.URL
@@ -47,11 +47,21 @@ import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters._
 import scala.jdk.FutureConverters._
 
-object TestData:
+class UrlExpirationIntegrationSpec
+  extends AnyWordSpec
+     with should.Matchers
+     with GuiceOneAppPerTest
+     with GuiceableModuleConversions
+     with ScalaFutures
+     with IntegrationPatience
+     with Eventually
+     with MockitoSugar
+     with WireMockSupport:
+
   val bucketName       = "bucket-name-UrlExpirationIntegrationSpec"
   val objectKey        = "object-key-UrlExpirationIntegrationSpec"
   val callbackPath     = "/UrlExpirationIntegrationSpec-callback-url"
-  val callbackUrl      = s"http://localhost:8080$callbackPath"
+  val callbackUrl      = s"$wireMockUrl$callbackPath"
   val expirationPeriod = 7.days
   val expirationUrl    = URL(s"https://$bucketName.$objectKey.${expirationPeriod.toMillis}.com")
   val fileReference    = "file-reference-UrlExpirationIntegrationSpec"
@@ -84,8 +94,7 @@ object TestData:
                             "session-id"        -> sessionId,
                             "consuming-service" -> consumingService,
                           ),
-      uploadedTimestamp = initiateDate,
-      getContentLength  = fileSizeInBytes
+      contentLength     = fileSizeInBytes
     )
 
   val outboundMessage: Message =
@@ -103,10 +112,10 @@ object TestData:
           |      "eventName": "ObjectCreated:Put",
           |      "s3": {
           |        "bucket": {
-          |          "name": "${TestData.bucketName}"
+          |          "name": "$bucketName"
           |        },
           |        "object": {
-          |          "key": "${TestData.objectKey}"
+          |          "key": "$objectKey"
           |        }
           |      }
           |    }
@@ -115,17 +124,6 @@ object TestData:
             """.stripMargin
       )
       .build()
-
-class UrlExpirationIntegrationSpec
-  extends AnyWordSpec
-     with should.Matchers
-     with GuiceOneAppPerTest
-     with GuiceableModuleConversions
-     with ScalaFutures
-     with IntegrationPatience
-     with Eventually
-     with MockitoSugar
-     with WithWireMock:
 
   val sqsClient            = mock[SqsAsyncClient]
   val s3FileManager        = mock[S3FileManager]
@@ -137,22 +135,22 @@ class UrlExpirationIntegrationSpec
     when(sqsClient.receiveMessage(any[ReceiveMessageRequest]))
       .thenReturn:
         Future
-          .successful(ReceiveMessageResponse.builder().messages(Seq(TestData.outboundMessage).asJava).build)
+          .successful(ReceiveMessageResponse.builder().messages(Seq(outboundMessage).asJava).build)
           .asJava
 
     when(sqsClient.deleteMessage(any[DeleteMessageRequest]))
       .thenReturn(Future.successful(DeleteMessageResponse.builder().build()).asJava)
 
-    val objectLocation = S3ObjectLocation(TestData.bucketName, TestData.objectKey)
+    val objectLocation = S3ObjectLocation(bucketName, objectKey)
     when(s3FileManager.getObjectMetadata(objectLocation))
       .thenReturn:
-        Future.successful(TestData.metadata(objectLocation))
+        Future.successful(metadata(objectLocation))
 
     when(downloadUrlGenerator.generate(eqTo(objectLocation), any[SuccessfulFileDetails]))
-      .thenReturn(TestData.expirationUrl)
+      .thenReturn(expirationUrl)
 
     wireMockServer.stubFor:
-      post(urlEqualTo(TestData.callbackPath))
+      post(urlEqualTo(callbackPath))
         .willReturn:
           aResponse()
             .withStatus(204)
@@ -169,10 +167,10 @@ class UrlExpirationIntegrationSpec
   "receiveMessage" should:
     "generate pre-signed download url with expiration period derived from application.conf Test section" in:
       eventually:
-        wireMockServer.findAll(WireMock.postRequestedFor(WireMock.urlMatching(TestData.callbackPath))).isEmpty shouldBe false
+        wireMockServer.findAll(WireMock.postRequestedFor(WireMock.urlMatching(callbackPath))).isEmpty shouldBe false
 
       val loggedRequest =
-        wireMockServer.findAll(WireMock.postRequestedFor(WireMock.urlMatching(TestData.callbackPath))).get(0)
+        wireMockServer.findAll(WireMock.postRequestedFor(WireMock.urlMatching(callbackPath))).get(0)
 
       val bodyAsString = loggedRequest.getBodyAsString
 
@@ -181,11 +179,11 @@ class UrlExpirationIntegrationSpec
 
       callbackBodyResult match
         case JsSuccess(callbackBody, _) =>
-          callbackBody.downloadUrl shouldBe TestData.expirationUrl
-          callbackBody.reference.reference shouldBe TestData.fileReference
-          callbackBody.uploadDetails.size shouldBe TestData.fileSizeInBytes
+          callbackBody.downloadUrl         shouldBe expirationUrl
+          callbackBody.reference.reference shouldBe fileReference
+          callbackBody.uploadDetails.size  shouldBe fileSizeInBytes
         case _                          =>
-          fail(s"Failed to find sent notification for file reference: [${TestData.fileReference}].")
+          fail(s"Failed to find sent notification for file reference: [$fileReference].")
 
 class OnlySuccessfulPollingJobsProvider @Inject()(
   successfulFileUploadProcessingJob: NotifyOnSuccessfulFileUploadMessageProcessingJob

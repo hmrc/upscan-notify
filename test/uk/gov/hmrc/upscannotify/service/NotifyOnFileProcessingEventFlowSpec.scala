@@ -94,7 +94,7 @@ class NotifyOnFileProcessingEventFlowSpec
 
       val notificationService = mock[NotificationService]
       when(notificationService.notifySuccessfulCallback(any[SuccessfulProcessingDetails]))
-        .thenReturn(Future.successful(Nil))
+        .thenReturn(Future.unit)
 
       val metricRegistry = MetricRegistry()
 
@@ -149,7 +149,7 @@ class NotifyOnFileProcessingEventFlowSpec
 
       val notificationService = mock[NotificationService]
       when(notificationService.notifySuccessfulCallback(any[SuccessfulProcessingDetails]))
-        .thenReturn(Future.successful(Nil))
+        .thenReturn(Future.unit)
 
       val metricRegistry = MetricRegistry()
 

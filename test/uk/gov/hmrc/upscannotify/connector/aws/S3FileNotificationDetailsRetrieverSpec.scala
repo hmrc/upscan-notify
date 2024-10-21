@@ -66,7 +66,6 @@ class S3FileNotificationDetailsRetrieverSpec
             S3ObjectMetadata(
               objectLocation,
               userMetadata,
-              initiateDate,
               contentLength
             )
 
@@ -117,7 +116,6 @@ class S3FileNotificationDetailsRetrieverSpec
             S3ObjectMetadata(
               objectLocation,
               userMetadata,
-              initiateDate,
               contentLength
             )
 
@@ -146,7 +144,6 @@ class S3FileNotificationDetailsRetrieverSpec
             S3ObjectMetadata(
               objectLocation,
               userMetadata,
-              initiateDate,
               contentLength
             )
 
@@ -175,7 +172,6 @@ class S3FileNotificationDetailsRetrieverSpec
             S3ObjectMetadata(
               objectLocation,
               userMetadata,
-              initiateDate,
               contentLength
             )
 
@@ -202,7 +198,6 @@ class S3FileNotificationDetailsRetrieverSpec
             S3ObjectMetadata(
               objectLocation,
               userMetadata,
-              initiateDate,
               contentLength
             )
 
@@ -231,7 +226,6 @@ class S3FileNotificationDetailsRetrieverSpec
             S3ObjectMetadata(
               objectLocation,
               userMetadata,
-              initiateDate,
               contentLength
             )
 
@@ -260,7 +254,6 @@ class S3FileNotificationDetailsRetrieverSpec
             S3ObjectMetadata(
               objectLocation,
               userMetadata,
-              initiateDate,
               contentLength
             )
 
@@ -288,7 +281,6 @@ class S3FileNotificationDetailsRetrieverSpec
             S3ObjectMetadata(
               objectLocation,
               userMetadata,
-              initiateDate,
               contentLength
             )
 
@@ -317,7 +309,6 @@ class S3FileNotificationDetailsRetrieverSpec
             S3ObjectMetadata(
               objectLocation,
               userMetadata,
-              initiateDate,
               contentLength
             )
 
@@ -367,7 +358,6 @@ class S3FileNotificationDetailsRetrieverSpec
             S3ObjectMetadata(
               objectLocation,
               userMetadata,
-              initiateDate,
               contentLength
             )
 

@@ -50,7 +50,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
         fileMimeType     = uploadDetails.fileMimeType,
         uploadTimestamp  = uploadDetails.uploadTimestamp,
         checksum         = uploadDetails.checksum,
-        size             = metadata.getContentLength,
+        size             = metadata.contentLength,
         requestContext   = requestContext,
         consumingService = consumingService,
         userMetadata     = metadata.items
@@ -69,7 +69,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
         callbackUrl     = callbackUrl,
         fileName        = uploadDetails.fileName,
         uploadTimestamp = uploadDetails.uploadTimestamp,
-        size            = metadata.getContentLength,
+        size            = metadata.contentLength,
         requestContext  = requestContext,
         userMetadata    = metadata.items,
         content
@@ -120,8 +120,7 @@ case class FailedFileMetadata(
 case class S3ObjectMetadata(
   objectLocation   : S3ObjectLocation,
   items            : Map[String, String],
-  uploadedTimestamp: Instant, // used?
-  getContentLength : Long // TODO rename to contentLength
+  contentLength    : Long
 ):
   def get(key: String): Try[String] =
     items.get(key) match

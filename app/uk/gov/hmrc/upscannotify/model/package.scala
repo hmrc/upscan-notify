@@ -29,7 +29,6 @@ object FileReference:
   given Writes[FileReference] =
     (o: FileReference) => JsString(o.reference)
 
-// TODO do we need this?
 case class Message(
   id           : String,
   body         : String,
@@ -41,41 +40,6 @@ case class RequestContext(
   requestId: Option[String],
   sessionId: Option[String],
   clientIp : String
-)
-
-case class Checkpoint(
-  name     : String,
-  timestamp: Instant
-)
-
-case class Checkpoints(
-  items: Seq[Checkpoint]
-):
-  def :+(checkpoint: Checkpoint): Checkpoints =
-    copy(items = items :+ checkpoint)
-
-  def ++(newCheckpoints: Seq[Checkpoint]): Checkpoints =
-    copy(items = items ++ newCheckpoints)
-
-  def sortedCheckpoints: Seq[Checkpoint] =
-    items.sortBy(_.timestamp)
-
-  def breakdown: String =
-    def display(checkpoint: Checkpoint): String =
-      s"${checkpoint.name} @ ${checkpoint.timestamp}"
-
-    sortedCheckpoints
-      .foldLeft((Option.empty[Checkpoint], List.empty[String])):
-        case ((None          , acc), current) =>
-          (Some(current), acc :+ display(current))
-        case ((Some(previous), acc), current) =>
-          val duration = java.time.Duration.between(previous.timestamp, current.timestamp).toMillis
-          (Some(current), acc :+ display(current) + s", took $duration ms")
-      ._2.mkString("\n")
-
-case class WithCheckpoints[T](
-  details    : T,
-  checkpoints: Checkpoints
 )
 
 sealed trait ProcessingDetails:

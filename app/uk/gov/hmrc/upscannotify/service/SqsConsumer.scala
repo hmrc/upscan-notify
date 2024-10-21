@@ -37,7 +37,6 @@ trait PollingJob:
 
   def jobName: String = this.getClass.getName
 
-  // TODO or use jobname to get out directly?
   def queueUrl            : String
   def processingBatchSize : Int
   def waitTime            : Duration

@@ -25,7 +25,7 @@ import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.model._
 import uk.gov.hmrc.upscannotify.util.logging.LoggingUtils
 
-import java.time.Clock
+import java.time.{Clock, Instant}
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import scala.concurrent.{ExecutionContext, Future}
@@ -86,7 +86,9 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
           (for
              _            <- Future.unit
              downloadUrl  =  downloadUrlGenerator.generate(parsedMessage.location, metadata)
-             checkpoints1 =  Checkpoints(MessageProcessingJob.parseCheckpoints(metadata.userMetadata))
+             checkpoints  =  Checkpoint.parse(metadata.userMetadata)
+                               :+ Checkpoint("upscan-file-uploaded"  , metadata.uploadTimestamp)
+                               :+ Checkpoint("upscan-notify-received", message.receivedAt)
              retrieved    =  SuccessfulProcessingDetails(
                                metadata.callbackUrl,
                                metadata.fileReference,
@@ -103,13 +105,15 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
                                logger.warn(s"Unexpected original filename ${metadata.fileName} for object=[${parsedMessage.location.objectKey}] with upload Key=[${metadata.fileReference.reference}].")
              _            =  logger.debug:
                                s"Retrieved file with Key=[${metadata.fileReference.reference}] and callbackUrl=[${metadata.callbackUrl}] for object=[${parsedMessage.location.objectKey}]."
-             checkpoint2  =  Checkpoint("upscan-notify-received", message.receivedAt)
              _            =  upscanAuditingService.notifyFileUploadedSuccessfully(retrieved)
              _            =  MessageProcessingJob.collectMetricsBeforeNotification(retrieved)
-             checkpoints3 <- notificationService.notifySuccessfulCallback(retrieved)
+             cp2          =  Checkpoint("upscan-notify-callback-started")
+             _            <- notificationService.notifySuccessfulCallback(retrieved)
+             cp3          =  Checkpoint("upscan-notify-callback-ended")
+             cp4          =  Checkpoint("upscan-notify-responded")
              _            =  MessageProcessingJob.collectMetricsAfterNotificationSuccess(
                                retrieved,
-                               (checkpoints1 :+ checkpoint2) ++ checkpoints3,
+                               checkpoints :+ cp2 :+ cp3 :+ cp4,
                                endToEndProcessingThreshold = serviceConfiguration.endToEndProcessingThreshold
                              )
            yield
@@ -149,23 +153,27 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
         )):
           (for
              _            <- Future.unit
-             checkpoints1 =  Checkpoints(MessageProcessingJob.parseCheckpoints(quarantineFile.userMetadata))
+             checkpoints  =  Checkpoint.parse(quarantineFile.userMetadata)
+                               :+ Checkpoint("upscan-file-uploaded"  , quarantineFile.uploadTimestamp)
+                               :+ Checkpoint("upscan-notify-received", message.receivedAt)
              retrieved    =  FailedProcessingDetails(
                                callbackUrl     = quarantineFile.callbackUrl,
                                reference       = quarantineFile.fileReference,
                                fileName        = quarantineFile.fileName,
                                uploadTimestamp = quarantineFile.uploadTimestamp,
-                               error           = MessageProcessingJob.parseContents(quarantineFile.failureDetailsAsJson),
+                               error           = MessageProcessingJob.parseErrorDetails(quarantineFile.failureDetailsAsJson),
                                requestContext  = quarantineFile.requestContext
                              )
              _            =  logger.debug:
                                s"Retrieved quarantined file with Key=[${quarantineFile.fileReference.reference}] and callbackUrl=[${quarantineFile.callbackUrl}] for object=[${parsedMessage.location.objectKey}]."
-             checkpoint2  =  Checkpoint("upscan-notify-received", message.receivedAt)
              _            =  upscanAuditingService.notifyFileIsQuarantined(retrieved)
-             checkpoints3 <- notificationService.notifyFailedCallback(retrieved)
+             cp2          =  Checkpoint("upscan-notify-callback-started")
+             _            <- notificationService.notifyFailedCallback(retrieved)
+             cp3          =  Checkpoint("upscan-notify-callback-ended")
+             cp4          =  Checkpoint("upscan-notify-responded")
              _            =  MessageProcessingJob.collectMetricsAfterNotificationFailed(
                                retrieved,
-                               (checkpoints1 :+ checkpoint2) ++ checkpoints3,
+                               checkpoints :+ cp2 :+ cp3 :+ cp4,
                                endToEndProcessingThreshold = serviceConfiguration.endToEndProcessingThreshold
                              )
            yield
@@ -182,21 +190,7 @@ class NotifyOnQuarantineFileUploadMessageProcessingJob @Inject()(
 object MessageProcessingJob:
   private[service] val logger = Logger(getClass)
 
-  def parseCheckpoints(userMetadata: Map[String, String]) =
-    userMetadata
-      .view
-      .filterKeys(_.startsWith("upscan-"))
-      .flatMap:
-        case (key, value) =>
-          Try(java.time.Instant.parse(value)) match
-            case Success(parsedTimestamp) =>
-              Some(Checkpoint(key, parsedTimestamp))
-            case Failure(exception)       =>
-              logger.warn(s"Checkpoint field $key has invalid format", exception)
-              None
-      .toSeq
-
-  def parseContents(contents: String): ErrorDetails =
+  def parseErrorDetails(contents: String): ErrorDetails =
     def unknownError(): ErrorDetails = ErrorDetails("UNKNOWN", contents)
 
     Try(Json.parse(contents)) match
@@ -210,9 +204,8 @@ object MessageProcessingJob:
   def collectMetricsBeforeNotification(notification: SuccessfulProcessingDetails)(using metricRegistry: MetricRegistry, clock: Clock): Unit =
     val totalProcessingTime = java.time.Duration.between(notification.uploadTimestamp, clock.instant())
     if totalProcessingTime.isNegative then
-      logger.warn(
+      logger.warn:
         "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement"
-      )
     else
       metricRegistry
         .timer("fileProcessingTimeExcludingNotification")
@@ -220,22 +213,13 @@ object MessageProcessingJob:
 
   def collectMetricsAfterNotificationSuccess(
     notification               : SuccessfulProcessingDetails,
-    checkpoints                : Checkpoints,
+    checkpoints                : Seq[Checkpoint],
     endToEndProcessingThreshold: Duration
   )(using metricRegistry: MetricRegistry, clock: Clock): Unit =
-    val respondedAt = clock.instant()
-
-    val updatedCheckpoints =
-      checkpoints ++ Seq(
-        Checkpoint("upscan-file-uploaded"   , notification.uploadTimestamp),
-        Checkpoint("upscan-notify-responded", respondedAt)
-      )
-
-    val totalProcessingTime = java.time.Duration.between(notification.uploadTimestamp, respondedAt)
-
+    val totalProcessingTime = java.time.Duration.between(notification.uploadTimestamp, clock.instant())
     if totalProcessingTime.isNegative then
-      logger.warn(
-        "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
+      logger.warn:
+        "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement"
     else
       metricRegistry
         .timer("totalFileProcessingTime")
@@ -244,36 +228,65 @@ object MessageProcessingJob:
       if totalProcessingTime.toMillis > endToEndProcessingThreshold.toMillis then
         logger.warn:
           s"""Accepted file total processing time: [${totalProcessingTime.getSeconds} seconds] exceeded threshold of [$endToEndProcessingThreshold].
-             |Processing checkpoints were:\n${updatedCheckpoints.breakdown}.
+             |Processing checkpoints were:\n${Checkpoint.breakdown(checkpoints)}.
            """.stripMargin
 
     metricRegistry.histogram("fileSize").update(notification.size)
-
     metricRegistry.counter("successfulUploadNotificationSent").inc()
 
   def collectMetricsAfterNotificationFailed(
     notification               : FailedProcessingDetails,
-    checkpoints                : Checkpoints,
+    checkpoints                : Seq[Checkpoint],
     endToEndProcessingThreshold: Duration
   )(using metricRegistry: MetricRegistry, clock: Clock): Unit =
-    val respondedAt = clock.instant()
-
-    val updatedCheckpoints =
-      checkpoints ++ Seq(
-        Checkpoint("upscan-file-uploaded"   , notification.uploadTimestamp),
-        Checkpoint("upscan-notify-responded", respondedAt)
-      )
-
-    val totalProcessingTime = java.time.Duration.between(notification.uploadTimestamp, respondedAt)
-
+    val totalProcessingTime = java.time.Duration.between(notification.uploadTimestamp, clock.instant())
     if totalProcessingTime.isNegative then
-      logger.warn(
-        "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement")
+      logger.warn:
+        "File processing time is negative, it might be caused by clocks out of sync, ignoring the measurement"
     else
-      metricRegistry.counter("quarantinedUploadNotificationSent").inc()
-
       if totalProcessingTime.toMillis > endToEndProcessingThreshold.toMillis then
         logger.warn:
           s"""Rejected file total processing time: [${totalProcessingTime.getSeconds} seconds] exceeded threshold of [$endToEndProcessingThreshold].
-             |Processing checkpoints were:\n${updatedCheckpoints.breakdown}.
+             |Processing checkpoints were:\n${Checkpoint.breakdown(checkpoints)}.
            """.stripMargin
+
+    metricRegistry.counter("quarantinedUploadNotificationSent").inc()
+
+
+case class Checkpoint(
+  name     : String,
+  timestamp: Instant
+)
+
+object Checkpoint:
+  private val logger = Logger(getClass)
+
+  def parse(userMetadata: Map[String, String]): Seq[Checkpoint] =
+    userMetadata
+      .view
+      .filterKeys(_.startsWith("upscan-"))
+      .flatMap:
+        case (key, value) =>
+          Try(java.time.Instant.parse(value)) match
+            case Success(parsedTimestamp) =>
+              Some(Checkpoint(key, parsedTimestamp))
+            case Failure(exception)       =>
+              logger.warn(s"Checkpoint field $key has invalid format", exception)
+              None
+      .toSeq
+
+  def apply(name: String)(using clock: Clock): Checkpoint =
+    apply(name, clock.instant())
+
+  def breakdown(checkpoints: Seq[Checkpoint]): String =
+    checkpoints
+      .sortBy(_.timestamp)
+      .foldLeft((Option.empty[Checkpoint], List.empty[String])):
+        case ((optPrevious, acc), current) =>
+          val description =
+            optPrevious.foldLeft(s"${current.name} @ ${current.timestamp}"): (prefix, previous) =>
+              val duration = java.time.Duration.between(previous.timestamp, current.timestamp).toMillis
+              s"$prefix, took $duration ms"
+          (Some(current), acc :+ description)
+      ._2
+      .mkString("\n")

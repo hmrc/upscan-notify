@@ -18,7 +18,7 @@ package uk.gov.hmrc.upscannotify.harness.model
 
 import play.api.libs.json._
 import uk.gov.hmrc.upscannotify.connector.{FileStatus, ReadyCallbackBody, UploadDetails}
-import uk.gov.hmrc.upscannotify.model._
+import uk.gov.hmrc.upscannotify.model.FileReference
 
 import java.net.URL
 

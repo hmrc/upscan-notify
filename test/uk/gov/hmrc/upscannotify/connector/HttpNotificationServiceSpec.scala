@@ -23,10 +23,10 @@ import org.scalatest.{BeforeAndAfterAll, GivenWhenThen}
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import uk.gov.hmrc.http.test.HttpClientV2Support
 import uk.gov.hmrc.upscannotify.model._
-import uk.gov.hmrc.upscannotify.test.{IncrementingClock, UnitSpec}
+import uk.gov.hmrc.upscannotify.test.UnitSpec
 
 import java.net.URL
-import java.time.{Clock, Duration, Instant, ZoneId}
+import java.time.Instant
 import scala.concurrent.ExecutionContext
 
 class HttpNotificationServiceSpec
@@ -38,11 +38,6 @@ class HttpNotificationServiceSpec
      with HttpClientV2Support:
 
   private val callbackServer = WireMockServer(wireMockConfig().port(11111))
-
-  private val baseTime = Instant.parse("2018-12-01T14:36:30Z")
-
-  private val fixedClock  = Clock.fixed(baseTime, ZoneId.systemDefault())
-  private val clock       = IncrementingClock(fixedClock.millis(), Duration.ofSeconds(1))
 
   import ExecutionContext.Implicits.global
 
@@ -87,14 +82,11 @@ class HttpNotificationServiceSpec
         checksum        = "1a2b3c4d5e",
         requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
       )
-      val service = HttpNotificationService(httpClientV2, clock)
-      val result  = service.notifySuccessfulCallback(notification).futureValue
+      val service = HttpNotificationService(httpClientV2)
+      val result  = service.notifySuccessfulCallback(notification)
 
       Then("service should return success")
-      result should contain.allOf (
-        Checkpoint("upscan-notify-callback-started", baseTime),
-        Checkpoint("upscan-notify-callback-ended"  , baseTime.plusSeconds(1))
-      )
+      result.futureValue
 
       And("callback URL is called with expected JSON body")
       callbackServer.verify:
@@ -128,7 +120,7 @@ class HttpNotificationServiceSpec
           error           = ErrorDetails("QUARANTINE", "This file has a virus"),
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = HttpNotificationService(httpClientV2, clock)
+      val service = HttpNotificationService(httpClientV2)
       service.notifyFailedCallback(notification).futureValue
 
       And("callback URL is called with expected JSON body")
@@ -160,7 +152,7 @@ class HttpNotificationServiceSpec
           error           = ErrorDetails("REJECTED", "MIME type [some-type] not allowed for service [some-service]"),
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = HttpNotificationService(httpClientV2, clock)
+      val service = HttpNotificationService(httpClientV2)
       service.notifyFailedCallback(notification).futureValue
 
       And("callback URL is called with expected JSON body")
@@ -197,7 +189,7 @@ class HttpNotificationServiceSpec
           checksum        = "1a2b3c4d5e",
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = HttpNotificationService(httpClientV2, clock)
+      val service = HttpNotificationService(httpClientV2)
       val result = service.notifySuccessfulCallback(notification)
 
       Then("service should return an error")
@@ -223,7 +215,7 @@ class HttpNotificationServiceSpec
           checksum        = "1a2b3c4d5e",
           requestContext  = RequestContext(Some("requestId"), Some("sessionId"), "127.0.0.1")
         )
-      val service = HttpNotificationService(httpClientV2, clock)
+      val service = HttpNotificationService(httpClientV2)
       val result  = service.notifySuccessfulCallback(notification)
 
       Then("service should return an error")
