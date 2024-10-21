@@ -18,9 +18,35 @@ package uk.gov.hmrc.upscannotify.service
 
 import uk.gov.hmrc.upscannotify.model._
 
+import java.net.URL
+import java.time.Instant
 import scala.concurrent.Future
 
-trait FileNotificationDetailsRetriever:
-  def retrieveUploadedFileDetails(objectLocation: S3ObjectLocation): Future[WithCheckpoints[SuccessfulProcessingDetails]]
+case class SuccessfulFileDetails(
+  fileReference   : FileReference,
+  callbackUrl     : URL,
+  fileName        : String,
+  fileMimeType    : String,
+  uploadTimestamp : Instant,
+  checksum        : String,
+  size            : Long,
+  requestContext  : RequestContext,
+  consumingService: String,
+  userMetadata    : Map[String, String]
+)
 
-  def retrieveQuarantinedFileDetails(objectLocation: S3ObjectLocation): Future[WithCheckpoints[FailedProcessingDetails]]
+case class FailedFileDetails(
+  fileReference       : FileReference,
+  callbackUrl         : URL,
+  fileName            : String,
+  uploadTimestamp     : Instant,
+  size                : Long,
+  requestContext      : RequestContext,
+  userMetadata        : Map[String, String],
+  failureDetailsAsJson: String
+)
+
+trait FileNotificationDetailsRetriever:
+  def receiveSuccessfulFileDetails(objectLocation: S3ObjectLocation): Future[SuccessfulFileDetails]
+
+  def receiveFailedFileDetails(objectLocation: S3ObjectLocation): Future[FailedFileDetails]

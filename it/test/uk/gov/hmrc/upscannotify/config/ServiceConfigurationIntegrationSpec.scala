@@ -24,7 +24,11 @@ import play.api.inject.guice.GuiceApplicationBuilder
 
 import scala.concurrent.duration.DurationInt
 
-class ServiceConfigurationIntegrationSpec extends AnyWordSpec with should.Matchers with GuiceOneServerPerSuite:
+class ServiceConfigurationIntegrationSpec
+  extends AnyWordSpec
+     with should.Matchers
+     with GuiceOneServerPerSuite:
+
   override lazy val app: Application = GuiceApplicationBuilder()
     .configure(
       s"consuming-services.1hour-ok.aws.s3.urlExpirationPeriod"  -> "1 hour",

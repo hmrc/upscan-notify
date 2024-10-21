@@ -17,15 +17,20 @@
 package uk.gov.hmrc.upscannotify.util.logging
 
 import org.slf4j.MDC
-import uk.gov.hmrc.http.logging.LoggingDetails
 
-object WithLoggingDetails:
-  def withLoggingDetails[T](context: LoggingDetails)(block: => T): T =
+import scala.concurrent.{ExecutionContext, Future}
+
+/**
+  * Ensures the file reference is included in all subsequent logs
+  */
+object LoggingUtils:
+  def withMdc[T](mdcData: Map[String, String])(block: => Future[T])(using ExecutionContext): Future[T] =
     val previous = Option(MDC.getCopyOfContextMap)
-    context.mdcData.foreach:
+    mdcData.foreach {
       case (k, v) => MDC.put(k, v)
-    try
-      block
-    finally
+    }
+    val f = Future.unit.flatMap(_ => block) // flatMap to ensure exceptions initialising block are handled by onComplete
+    f.onComplete: _ =>
       MDC.clear()
       previous.foreach(MDC.setContextMap)
+    f

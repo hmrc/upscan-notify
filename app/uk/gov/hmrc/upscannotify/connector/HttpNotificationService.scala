@@ -23,22 +23,21 @@ import uk.gov.hmrc.http.{HeaderCarrier, HttpReads, HttpResponse}
 import uk.gov.hmrc.http.client.HttpClientV2
 import uk.gov.hmrc.upscannotify.model._
 import uk.gov.hmrc.upscannotify.service.NotificationService
-import uk.gov.hmrc.upscannotify.util.logging.LoggingDetails
-import uk.gov.hmrc.upscannotify.util.logging.WithLoggingDetails.withLoggingDetails
 
 import java.net.URL
-import java.time.{Clock, Instant}
+import java.time.Instant
 import javax.inject.Inject
 import scala.concurrent.{ExecutionContext, Future}
 
 class HttpNotificationService @Inject()(
-  httpClientV2: HttpClientV2,
-  clock       : Clock
+  httpClientV2: HttpClientV2
 )(using
   ExecutionContext
 ) extends NotificationService with Logging:
 
-  override def notifySuccessfulCallback(uploadedFile: SuccessfulProcessingDetails): Future[Seq[Checkpoint]] =
+  private given HeaderCarrier = HeaderCarrier()
+
+  override def notifySuccessfulCallback(uploadedFile: SuccessfulProcessingDetails): Future[Unit] =
     makeCallback(
       ReadyCallbackBody(
         reference     = uploadedFile.reference,
@@ -55,57 +54,28 @@ class HttpNotificationService @Inject()(
       "File ready"
     )
 
-  override def notifyFailedCallback(quarantinedFile: FailedProcessingDetails): Future[Seq[Checkpoint]] =
+  override def notifyFailedCallback(quarantinedFile: FailedProcessingDetails): Future[Unit] =
     makeCallback(
       FailedCallbackBody(reference = quarantinedFile.reference, failureDetails = quarantinedFile.error),
       quarantinedFile,
       "File failed"
     )
 
-  private def makeCallback[T, M <: ProcessingDetails](
-    callback: T,
-    metadata: M,
+  private def makeCallback[T: Writes](
+    callback        : T,
+    metadata        : ProcessingDetails,
     notificationType: String
-  )(using
-    Writes[T]
-  ): Future[Seq[Checkpoint]] =
-    given ld: HeaderCarrier = LoggingDetails.fromFileReference(metadata.reference)
-
+  ): Future[Unit] =
     given HttpReads[HttpResponse] =
       HttpReads.Implicits.throwOnFailure(HttpReads.Implicits.readEitherOf(HttpReads.Implicits.readRaw))
-    timed(
-      httpClientV2.post(metadata.callbackUrl)
-        .withBody(Json.toJson(callback))
-        .execute[HttpResponse]
-    ).map:
-      case WithTimeMeasurement(measurement, httpResult) =>
-        withLoggingDetails(ld):
+    httpClientV2.post(metadata.callbackUrl)
+      .withBody(Json.toJson(callback))
+      .execute[HttpResponse]
+      .map:
+        case httpResult =>
           logger.info:
             s"""$notificationType notification for Key=[${metadata.reference.reference}] sent to service with callbackUrl: [${metadata.callbackUrl}].
               | Response status was: [${httpResult.status}].""".stripMargin
-        collectExecutionTimeMetadata(measurement)
-
-  private def collectExecutionTimeMetadata(timeMeasurement: TimeMeasurement): Seq[Checkpoint] =
-    Seq(
-      Checkpoint("x-amz-meta-upscan-notify-callback-started", timeMeasurement.start),
-      Checkpoint("x-amz-meta-upscan-notify-callback-ended", timeMeasurement.end)
-    )
-
-  case class TimeMeasurement(
-    start: Instant,
-    end  : Instant
-  )
-
-  case class WithTimeMeasurement[T](
-    timeMeasurement: TimeMeasurement,
-    result         : T
-  )
-
-  private def timed[T](f: => Future[T])(using ExecutionContext): Future[WithTimeMeasurement[T]] =
-    val startTime = clock.instant()
-    f.map: result =>
-      val endTime = clock.instant()
-      WithTimeMeasurement(TimeMeasurement(startTime, endTime), result)
 
 case class ReadyCallbackBody(
   reference    : FileReference,
@@ -141,7 +111,6 @@ object FailedCallbackBody:
   given Writes[FailedCallbackBody] =
     Json.writes[FailedCallbackBody]
 
-// TODO not needed - can be inferred from ReadyCallbackBody or FailedCallbackBody
 enum FileStatus(val status: String):
   case Ready  extends FileStatus("READY")
   case Failed extends FileStatus("FAILED")

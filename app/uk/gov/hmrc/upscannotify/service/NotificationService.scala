@@ -16,11 +16,11 @@
 
 package uk.gov.hmrc.upscannotify.service
 
-import uk.gov.hmrc.upscannotify.model._
+import uk.gov.hmrc.upscannotify.model.{FailedProcessingDetails, SuccessfulProcessingDetails}
 
 import scala.concurrent.Future
 
 trait NotificationService:
-  def notifySuccessfulCallback(notification: SuccessfulProcessingDetails): Future[Seq[Checkpoint]]
+  def notifySuccessfulCallback(notification: SuccessfulProcessingDetails): Future[Unit]
 
-  def notifyFailedCallback(notification: FailedProcessingDetails): Future[Seq[Checkpoint]]
+  def notifyFailedCallback(notification: FailedProcessingDetails): Future[Unit]
