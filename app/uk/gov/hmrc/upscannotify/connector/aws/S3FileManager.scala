@@ -28,7 +28,6 @@ import scala.jdk.CollectionConverters._
 import scala.jdk.FutureConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-// TOFO S3FileManagerSpec and UrlExpirationIntegrationSpec have been disabled for now, they can be adjusted accordingly
 class S3FileManager @Inject()(
   s3Client: S3AsyncClient
 )(using

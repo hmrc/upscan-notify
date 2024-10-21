@@ -27,9 +27,6 @@ import javax.inject.Inject
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-// TODO S3FileManager should only contain getObjectMetadata and getObject
-// either move the rest to the client (MessageProcessingJob) or another intermediary layer
-// S3FileManagerSpec and UrlExpirationIntegrationSpec have been disabled for now, they can be adjusted accordingly
 class S3FileNotificationDetailsRetriever @Inject()(
   s3FileManager: S3FileManager
 )(using

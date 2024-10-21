@@ -19,22 +19,20 @@ package uk.gov.hmrc.upscannotify.service
 import com.github.tomakehurst.wiremock.client.WireMock
 import com.github.tomakehurst.wiremock.client.WireMock.{aResponse, post, urlEqualTo}
 import com.github.tomakehurst.wiremock.verification.LoggedRequest
-import org.apache.pekko.actor.ActorSystem
 import org.mockito.ArgumentMatchers.{any, eq => eqTo}
 import org.mockito.Mockito.when
+import org.scalatest.TestData
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.mockito.MockitoSugar
-import org.scalatestplus.play.guice.GuiceOneServerPerSuite
-import play.api.{Application, Configuration, Environment}
-import play.api.inject.{Binding, bind}
+import org.scalatestplus.play.guice.GuiceOneAppPerTest
+import play.api.Application
+import play.api.inject.bind
 import play.api.inject.guice.{GuiceApplicationBuilder, GuiceableModuleConversions}
 import play.api.libs.json._
 import software.amazon.awssdk.services.sqs.SqsAsyncClient
 import software.amazon.awssdk.services.sqs.model.{DeleteMessageRequest, DeleteMessageResponse, Message, ReceiveMessageRequest, ReceiveMessageResponse}
-import uk.gov.hmrc.upscannotify.NotifyModule
-import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.connector.ReadyCallbackBody
 import uk.gov.hmrc.upscannotify.connector.aws.{S3FileManager, S3ObjectMetadata}
 import uk.gov.hmrc.upscannotify.harness.model.JsonReads.given
@@ -43,7 +41,8 @@ import uk.gov.hmrc.upscannotify.model.S3ObjectLocation
 
 import java.net.URL
 import java.time.Instant
-import scala.concurrent.{ExecutionContext, Future}
+import javax.inject.{Inject, Provider}
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters._
 import scala.jdk.FutureConverters._
@@ -117,20 +116,10 @@ object TestData:
       )
       .build()
 
-/**
-  * Testing subclass of NotifyModule that disables components that should not be run during integration testing.
-  */
-class NotifyModuleWithoutSqsConsumer extends NotifyModule:
-  override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] =
-    super
-      .bindings(environment, configuration)
-      .filterNot(_.key == bind[SqsConsumer])    // We don't want the normal consumer to be invoked in the background
-
-
 class UrlExpirationIntegrationSpec
   extends AnyWordSpec
      with should.Matchers
-     with GuiceOneServerPerSuite
+     with GuiceOneAppPerTest
      with GuiceableModuleConversions
      with ScalaFutures
      with IntegrationPatience
@@ -142,62 +131,48 @@ class UrlExpirationIntegrationSpec
   val s3FileManager        = mock[S3FileManager]
   val downloadUrlGenerator = mock[DownloadUrlGenerator]
 
-  override lazy val app: Application =
+  override def newAppForTest(testData: TestData): Application =
+    // we want to instruct the sqsClient before starting guice app, since it starts streaming from sqs immediately
+
+    when(sqsClient.receiveMessage(any[ReceiveMessageRequest]))
+      .thenReturn:
+        Future
+          .successful(ReceiveMessageResponse.builder().messages(Seq(TestData.outboundMessage).asJava).build)
+          .asJava
+
+    when(sqsClient.deleteMessage(any[DeleteMessageRequest]))
+      .thenReturn(Future.successful(DeleteMessageResponse.builder().build()).asJava)
+
+    val objectLocation = S3ObjectLocation(TestData.bucketName, TestData.objectKey)
+    when(s3FileManager.getObjectMetadata(objectLocation))
+      .thenReturn:
+        Future.successful(TestData.metadata(objectLocation))
+
+    when(downloadUrlGenerator.generate(eqTo(objectLocation), any[SuccessfulFileDetails]))
+      .thenReturn(TestData.expirationUrl)
+
+    wireMockServer.stubFor:
+      post(urlEqualTo(TestData.callbackPath))
+        .willReturn:
+          aResponse()
+            .withStatus(204)
+
     GuiceApplicationBuilder()
-      .disable(classOf[NotifyModule])
-      .overrides(NotifyModuleWithoutSqsConsumer())
       .overrides(
         bind[SqsAsyncClient      ].toInstance(sqsClient),
         bind[S3FileManager       ].toInstance(s3FileManager),
-        bind[DownloadUrlGenerator].toInstance(downloadUrlGenerator)
+        bind[DownloadUrlGenerator].toInstance(downloadUrlGenerator),
+        bind[PollingJobs         ].toProvider[OnlySuccessfulPollingJobsProvider]
       )
       .build()
 
   "receiveMessage" should:
     "generate pre-signed download url with expiration period derived from application.conf Test section" in:
-      when(sqsClient.receiveMessage(any[ReceiveMessageRequest]))
-        .thenReturn:
-          Future
-            .successful(ReceiveMessageResponse.builder().messages(Seq(TestData.outboundMessage).asJava).build)
-            .asJava
-
-      when(sqsClient.deleteMessage(any[DeleteMessageRequest]))
-        .thenReturn(Future.successful(DeleteMessageResponse.builder().build()).asJava)
-
-      val objectLocation = S3ObjectLocation(TestData.bucketName, TestData.objectKey)
-      when(s3FileManager.getObjectMetadata(objectLocation))
-        .thenReturn:
-          Future.successful(TestData.metadata(objectLocation))
-
-      when(downloadUrlGenerator.generate(eqTo(objectLocation), any[SuccessfulFileDetails]))
-        .thenReturn(TestData.expirationUrl)
-
-      wireMockServer.stubFor:
-        post(urlEqualTo(TestData.callbackPath))
-          .willReturn:
-            aResponse()
-              .withStatus(204)
-
-      SqsConsumer(
-        sqsClient            = app.injector.instanceOf[SqsAsyncClient],
-        pollingJobs          = app.injector.instanceOf[PollingJobs],
-        serviceConfiguration = app.injector.instanceOf[ServiceConfiguration]
-      )(using
-        actorSystem          = app.injector.instanceOf[ActorSystem],
-        ec                   = app.injector.instanceOf[ExecutionContext]
-      )
-
       eventually:
         wireMockServer.findAll(WireMock.postRequestedFor(WireMock.urlMatching(TestData.callbackPath))).isEmpty shouldBe false
 
-
-      val loggedRequests =
-        wireMockServer.findAll(WireMock.postRequestedFor(WireMock.urlMatching(TestData.callbackPath)))
-
-      if loggedRequests.isEmpty then
-        fail(s"WireMock did not receive a notification callback for url: [${TestData.callbackUrl}].")
-
-      val loggedRequest: LoggedRequest = loggedRequests.get(0)
+      val loggedRequest =
+        wireMockServer.findAll(WireMock.postRequestedFor(WireMock.urlMatching(TestData.callbackPath))).get(0)
 
       val bodyAsString = loggedRequest.getBodyAsString
 
@@ -211,3 +186,11 @@ class UrlExpirationIntegrationSpec
           callbackBody.uploadDetails.size shouldBe TestData.fileSizeInBytes
         case _                          =>
           fail(s"Failed to find sent notification for file reference: [${TestData.fileReference}].")
+
+class OnlySuccessfulPollingJobsProvider @Inject()(
+  successfulFileUploadProcessingJob: NotifyOnSuccessfulFileUploadMessageProcessingJob
+) extends Provider[PollingJobs]:
+  override def get(): PollingJobs =
+    PollingJobs(List(
+      successfulFileUploadProcessingJob
+    ))
