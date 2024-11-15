@@ -3,7 +3,6 @@ import sbt.Keys.*
 import sbt.*
 import scoverage.ScoverageKeys
 import uk.gov.hmrc.DefaultBuildSettings
-import uk.gov.hmrc.DefaultBuildSettings.integrationTestSettings
 
 
 ThisBuild / majorVersion  := 0

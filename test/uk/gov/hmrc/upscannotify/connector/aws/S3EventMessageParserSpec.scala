@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.upscannotify.connector.aws
 
-import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import uk.gov.hmrc.upscannotify.model.{FileUploadEvent, Message, S3ObjectLocation}
 import uk.gov.hmrc.upscannotify.test.UnitSpec
 
@@ -25,7 +25,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class S3EventMessageParserSpec
   extends UnitSpec
-     with ScalaFutures:
+     with ScalaFutures
+     with IntegrationPatience:
 
   val parser = S3EventParser()
 
