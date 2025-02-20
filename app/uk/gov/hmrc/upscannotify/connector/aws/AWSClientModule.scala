@@ -53,12 +53,19 @@ class SqsClientProvider @Inject()(
   credentialsProvider: AwsCredentialsProvider,
   actorSystem        : ActorSystem
 ) extends Provider[SqsAsyncClient]:
+  
   override def get(): SqsAsyncClient =
-    val client =
-      SqsAsyncClient.builder()
-        .region(Region.of(configuration.awsRegion))
-        .credentialsProvider(credentialsProvider)
-        .build()
+    val builder = SqsAsyncClient.builder()
+      .region(Region.of(configuration.awsRegion))
+
+    val client = (
+      if configuration.useAwsPolicies then
+        builder
+      else
+        builder.credentialsProvider(credentialsProvider)
+      )
+      .build()
+
     actorSystem.registerOnTermination(client.close())
     client
 
@@ -67,11 +74,18 @@ class S3ClientProvider @Inject()(
   credentialsProvider: AwsCredentialsProvider,
   actorSystem        : ActorSystem
 ) extends Provider[S3AsyncClient]:
+  
   override def get(): S3AsyncClient =
-    val client =
-      S3AsyncClient.builder()
-        .region(Region.of(configuration.awsRegion))
-        .credentialsProvider(credentialsProvider)
-        .build()
+    val builder = S3AsyncClient.builder()
+      .region(Region.of(configuration.awsRegion))
+
+    val client = (
+      if configuration.useAwsPolicies then
+        builder
+      else
+        builder.credentialsProvider(credentialsProvider)
+      )
+      .build()
+    
     actorSystem.registerOnTermination(client.close())
     client

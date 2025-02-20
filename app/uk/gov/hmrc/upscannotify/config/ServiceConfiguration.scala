@@ -47,6 +47,8 @@ trait ServiceConfiguration:
   def s3UrlExpirationPeriod(serviceName: String): FiniteDuration
 
   def endToEndProcessingThreshold: Duration
+  
+  def useAwsPolicies: Boolean
 
 class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) extends ServiceConfiguration with Logging:
   import PlayBasedServiceConfiguration._
@@ -96,6 +98,9 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
   override def endToEndProcessingThreshold: Duration =
     configuration.get[Duration]("upscan.endToEndProcessing.threshold")
 
+  override def useAwsPolicies: Boolean =
+    configuration.get[Boolean]("features.use-aws-policies")
+  
   private def replaceInvalidChars(serviceName: String): String =
     serviceName.replaceAll("[/.,]", "-")
 
