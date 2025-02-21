@@ -44,9 +44,10 @@ class ProviderOfAwsCredentials @Inject()(configuration: ServiceConfiguration) ex
     StaticCredentialsProvider.create:
       configuration.sessionToken match
         case Some(sessionToken) =>
-          AwsSessionCredentials.create(configuration.accessKeyId, configuration.secretAccessKey, sessionToken)
+          AwsSessionCredentials.create("KEY_ID", "ACCESS_KEY", sessionToken)
+//          AwsSessionCredentials.create(configuration.accessKeyId, configuration.secretAccessKey, sessionToken)
         case None =>
-          AwsBasicCredentials.create(configuration.accessKeyId, configuration.secretAccessKey)
+          AwsBasicCredentials.create("KEY_ID", "ACCESS_KEY")
 
 class SqsClientProvider @Inject()(
   configuration      : ServiceConfiguration,
