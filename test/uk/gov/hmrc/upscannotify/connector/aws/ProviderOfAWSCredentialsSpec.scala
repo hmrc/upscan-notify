@@ -49,6 +49,8 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec:
         .thenReturn("ACCESS_KEY")
       when(configuration.sessionToken)
         .thenReturn(None)
+      when(configuration.awsRegion)
+        .thenReturn("eu-west2")
 
       val credentials: AwsCredentials = ProviderOfAwsCredentials(configuration).get().resolveCredentials()
 

@@ -18,9 +18,12 @@ package uk.gov.hmrc.upscannotify.connector.aws
 
 import org.apache.pekko.actor.ActorSystem
 import play.api.inject.{Binding, Module}
+import play.api.Logger
 import play.api.{Configuration, Environment}
-import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, AwsCredentialsProvider, AwsSessionCredentials, StaticCredentialsProvider}
+import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, AwsCredentialsProvider, AwsSessionCredentials, ContainerCredentialsProvider, StaticCredentialsProvider}
 import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient
+import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest
 import software.amazon.awssdk.services.sqs.SqsAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
@@ -40,12 +43,33 @@ class AWSClientModule extends Module:
     )
 
 class ProviderOfAwsCredentials @Inject()(configuration: ServiceConfiguration) extends Provider[AwsCredentialsProvider]:
+
+  private val logger: Logger = Logger(getClass)
   override def get(): AwsCredentialsProvider =
     StaticCredentialsProvider.create:
       configuration.sessionToken match
         case Some(sessionToken) =>
           AwsSessionCredentials.create(configuration.accessKeyId, configuration.secretAccessKey, sessionToken)
         case None =>
+          val containerCredentialsProvider = ContainerCredentialsProvider.builder().build()
+          val secretsClient = SecretsManagerClient.builder()
+                .credentialsProvider(containerCredentialsProvider)
+                .region(Region.of(configuration.awsRegion))
+                .build()
+
+          try
+            val request = GetSecretValueRequest.builder()
+              .secretId("service/upscan-notify")
+              .build()
+
+            val secretResponse = secretsClient.getSecretValue(request)
+
+            logger.info(s"Successfully retrieved secret: ${secretResponse.secretString()}")
+          catch
+            case e: Exception =>
+              logger.warn(s"Failed to initialize AWS credentials from Secrets Manager: ${e.getMessage}", e)
+          finally
+            secretsClient.close()
           AwsBasicCredentials.create(configuration.accessKeyId, configuration.secretAccessKey)
 
 class SqsClientProvider @Inject()(
