@@ -59,7 +59,7 @@ class ProviderOfAwsCredentials @Inject()(configuration: ServiceConfiguration) ex
 
           try
             val request = GetSecretValueRequest.builder()
-              .secretId("service/upscan-notify")
+              .secretId("arn:aws:secretsmanager:eu-west-2:063874132475:secret:service/upscan-notify-6Ile95")
               .build()
 
             val secretResponse = secretsClient.getSecretValue(request)
