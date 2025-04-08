@@ -17,10 +17,14 @@
 package uk.gov.hmrc.upscannotify.connector.aws
 
 import software.amazon.awssdk.auth.credentials.{AwsCredentials, AwsSessionCredentials}
+import software.amazon.awssdk.services.secretsmanager.model.{GetSecretValueRequest, GetSecretValueResponse}
+import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient
 
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.test.UnitSpec
+import play.api.libs.json.Json
 
 class ProviderOfAWSCredentialsSpec extends UnitSpec:
 
@@ -34,26 +38,33 @@ class ProviderOfAWSCredentialsSpec extends UnitSpec:
       when(configuration.sessionToken)
         .thenReturn(Some("SESSION_TOKEN"))
 
-      val credentials: AwsCredentials = ProviderOfAwsCredentials(configuration).get().resolveCredentials()
+      val credentials: AwsCredentials = ProviderOfAwsCredentials(configuration, mock[SecretsManagerClient]).get().resolveCredentials()
 
       credentials.accessKeyId                                         shouldBe "KEY_ID"
       credentials.secretAccessKey                                     shouldBe "ACCESS_KEY"
       credentials                                                     shouldBe a[AwsSessionCredentials]
       credentials.asInstanceOf[AwsSessionCredentials].sessionToken shouldBe "SESSION_TOKEN"
 
-    "create BasicAWSCredentials in no session token provided" in:
-      val configuration = mock[ServiceConfiguration]
-      when(configuration.accessKeyId)
-        .thenReturn("KEY_ID")
-      when(configuration.secretAccessKey)
-        .thenReturn("ACCESS_KEY")
+    "create BasicAWSCredentials from Secrets Manager when no session token provided" in:
+      val configuration  = mock[ServiceConfiguration]
+      val secretsClient  = mock[SecretsManagerClient]
+      
       when(configuration.sessionToken)
         .thenReturn(None)
-      when(configuration.awsRegion)
-        .thenReturn("eu-west2")
+      when(configuration.secretArn)
+        .thenReturn("test-secret-arn")
 
-      val credentials: AwsCredentials = ProviderOfAwsCredentials(configuration).get().resolveCredentials()
+      val secretJson = Json.obj(
+        "accessKeyId"     -> "SECRET_KEY_ID", 
+        "secretAccessKey" -> "SECRET_ACCESS_KEY"
+      ).toString()
 
-      credentials.accessKeyId     shouldBe "KEY_ID"
-      credentials.secretAccessKey shouldBe "ACCESS_KEY"
+      when(secretsClient.getSecretValue(any[GetSecretValueRequest]))
+        .thenReturn(GetSecretValueResponse.builder().secretString(secretJson).build())
+
+
+      val credentials: AwsCredentials = ProviderOfAwsCredentials(configuration, secretsClient).get().resolveCredentials()
+
+      credentials.accessKeyId     shouldBe "SECRET_KEY_ID"
+      credentials.secretAccessKey shouldBe "SECRET_ACCESS_KEY"
       credentials                 shouldNot be(a[AwsSessionCredentials])

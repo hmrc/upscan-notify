@@ -20,6 +20,8 @@ import org.apache.pekko.actor.ActorSystem
 import play.api.inject.{Binding, Module}
 import play.api.Logger
 import play.api.{Configuration, Environment}
+import play.api.libs.functional.syntax.toFunctionalBuilderOps
+import play.api.libs.json.*
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, AwsCredentialsProvider, AwsSessionCredentials, ContainerCredentialsProvider, StaticCredentialsProvider}
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient
@@ -34,6 +36,7 @@ import javax.inject.{Inject, Provider}
 class AWSClientModule extends Module:
   override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] =
     Seq(
+      bind[SecretsManagerClient            ].toProvider[SecretsManagerClientProvider],
       bind[AwsCredentialsProvider          ].toProvider[ProviderOfAwsCredentials],
       bind[SqsAsyncClient                  ].toProvider[SqsClientProvider],
       bind[S3AsyncClient                   ].toProvider[S3ClientProvider],
@@ -42,8 +45,10 @@ class AWSClientModule extends Module:
       bind[DownloadUrlGenerator            ].to[S3DownloadUrlGenerator]
     )
 
-class ProviderOfAwsCredentials @Inject()(configuration: ServiceConfiguration) extends Provider[AwsCredentialsProvider]:
-
+class ProviderOfAwsCredentials @Inject()(
+  configuration       : ServiceConfiguration,
+  secretsManagerClient: SecretsManagerClient
+) extends Provider[AwsCredentialsProvider]:
   private val logger: Logger = Logger(getClass)
   override def get(): AwsCredentialsProvider =
     StaticCredentialsProvider.create:
@@ -51,26 +56,19 @@ class ProviderOfAwsCredentials @Inject()(configuration: ServiceConfiguration) ex
         case Some(sessionToken) =>
           AwsSessionCredentials.create(configuration.accessKeyId, configuration.secretAccessKey, sessionToken)
         case None =>
-          val containerCredentialsProvider = ContainerCredentialsProvider.builder().build()
-          val secretsClient = SecretsManagerClient.builder()
-                .credentialsProvider(containerCredentialsProvider)
-                .region(Region.of(configuration.awsRegion))
-                .build()
-
           try
             val request = GetSecretValueRequest.builder()
-              .secretId("arn:aws:secretsmanager:eu-west-2:063874132475:secret:service/upscan-notify-6Ile95")
+              .secretId(configuration.secretArn)
               .build()
 
-            val secretResponse = secretsClient.getSecretValue(request)
+            val secretResponse = secretsManagerClient.getSecretValue(request)
+            val creds = Json.parse(secretResponse.secretString()).as[RetrievedCredentials](RetrievedCredentials.reads)
 
-            logger.info(s"Successfully retrieved secret: ${secretResponse.secretString()}")
+            AwsBasicCredentials.create(creds.accessKeyId, creds.secretAccessKey)
           catch
             case e: Exception =>
-              logger.warn(s"Failed to initialize AWS credentials from Secrets Manager: ${e.getMessage}", e)
-          finally
-            secretsClient.close()
-          AwsBasicCredentials.create(configuration.accessKeyId, configuration.secretAccessKey)
+              logger.error(s"Failed to retrieve AWS credentials from Secrets Manager: ${e.getMessage}", e)
+              throw e
 
 class SqsClientProvider @Inject()(
   configuration      : ServiceConfiguration,
@@ -99,3 +97,26 @@ class S3ClientProvider @Inject()(
         .build()
     actorSystem.registerOnTermination(client.close())
     client
+
+class SecretsManagerClientProvider @Inject()(
+  configuration: ServiceConfiguration,
+  actorSystem  : ActorSystem
+) extends Provider[SecretsManagerClient]:
+  override def get(): SecretsManagerClient =
+    val containerCredentials = ContainerCredentialsProvider.builder().build()
+    val client =
+      SecretsManagerClient.builder()
+        .credentialsProvider(containerCredentials)
+        .region(Region.of(configuration.awsRegion))
+        .build()
+    actorSystem.registerOnTermination(client.close())
+    client
+
+final case class RetrievedCredentials(accessKeyId: String, secretAccessKey: String):
+  override def toString(): String = s"RetrievedCredentials($accessKeyId, REDACTED)"
+
+object RetrievedCredentials:
+  val reads: Reads[RetrievedCredentials] =
+    ( (__ \ "accessKeyId"    ).read[String]
+    ~ (__ \ "secretAccessKey").read[String]
+    )(apply)

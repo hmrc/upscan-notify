@@ -40,6 +40,8 @@ trait ServiceConfiguration:
 
   def secretAccessKey: String
 
+  def secretArn: String
+
   def sessionToken: Option[String]
 
   def awsRegion: String
@@ -77,6 +79,9 @@ class PlayBasedServiceConfiguration @Inject()(configuration: Configuration) exte
 
   override def secretAccessKey: String =
     configuration.get[String]("aws.secretAccessKey")
+
+  override def secretArn: String =
+    configuration.get[String]("aws.secretArn")
 
   override def sessionToken: Option[String] =
     configuration.getOptional[String]("aws.sessionToken")
