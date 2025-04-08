@@ -18,9 +18,14 @@ package uk.gov.hmrc.upscannotify.connector.aws
 
 import org.apache.pekko.actor.ActorSystem
 import play.api.inject.{Binding, Module}
+import play.api.Logger
 import play.api.{Configuration, Environment}
-import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, AwsCredentialsProvider, AwsSessionCredentials, StaticCredentialsProvider}
+import play.api.libs.functional.syntax.toFunctionalBuilderOps
+import play.api.libs.json.*
+import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, AwsCredentialsProvider, AwsSessionCredentials, ContainerCredentialsProvider, StaticCredentialsProvider}
 import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient
+import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest
 import software.amazon.awssdk.services.sqs.SqsAsyncClient
 import software.amazon.awssdk.services.s3.S3AsyncClient
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
@@ -31,6 +36,7 @@ import javax.inject.{Inject, Provider}
 class AWSClientModule extends Module:
   override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] =
     Seq(
+      bind[SecretsManagerClient            ].toProvider[SecretsManagerClientProvider],
       bind[AwsCredentialsProvider          ].toProvider[ProviderOfAwsCredentials],
       bind[SqsAsyncClient                  ].toProvider[SqsClientProvider],
       bind[S3AsyncClient                   ].toProvider[S3ClientProvider],
@@ -39,14 +45,30 @@ class AWSClientModule extends Module:
       bind[DownloadUrlGenerator            ].to[S3DownloadUrlGenerator]
     )
 
-class ProviderOfAwsCredentials @Inject()(configuration: ServiceConfiguration) extends Provider[AwsCredentialsProvider]:
+class ProviderOfAwsCredentials @Inject()(
+  configuration       : ServiceConfiguration,
+  secretsManagerClient: SecretsManagerClient
+) extends Provider[AwsCredentialsProvider]:
+  private val logger: Logger = Logger(getClass)
   override def get(): AwsCredentialsProvider =
     StaticCredentialsProvider.create:
       configuration.sessionToken match
         case Some(sessionToken) =>
           AwsSessionCredentials.create(configuration.accessKeyId, configuration.secretAccessKey, sessionToken)
         case None =>
-          AwsBasicCredentials.create(configuration.accessKeyId, configuration.secretAccessKey)
+          try
+            val request = GetSecretValueRequest.builder()
+              .secretId(configuration.secretArn)
+              .build()
+
+            val secretResponse = secretsManagerClient.getSecretValue(request)
+            val creds = Json.parse(secretResponse.secretString()).as[RetrievedCredentials](RetrievedCredentials.reads)
+
+            AwsBasicCredentials.create(creds.accessKeyId, creds.secretAccessKey)
+          catch
+            case e: Exception =>
+              logger.error(s"Failed to retrieve AWS credentials from Secrets Manager: ${e.getMessage}", e)
+              throw e
 
 class SqsClientProvider @Inject()(
   configuration      : ServiceConfiguration,
@@ -75,3 +97,26 @@ class S3ClientProvider @Inject()(
         .build()
     actorSystem.registerOnTermination(client.close())
     client
+
+class SecretsManagerClientProvider @Inject()(
+  configuration: ServiceConfiguration,
+  actorSystem  : ActorSystem
+) extends Provider[SecretsManagerClient]:
+  override def get(): SecretsManagerClient =
+    val containerCredentials = ContainerCredentialsProvider.builder().build()
+    val client =
+      SecretsManagerClient.builder()
+        .credentialsProvider(containerCredentials)
+        .region(Region.of(configuration.awsRegion))
+        .build()
+    actorSystem.registerOnTermination(client.close())
+    client
+
+final case class RetrievedCredentials(accessKeyId: String, secretAccessKey: String):
+  override def toString(): String = s"RetrievedCredentials($accessKeyId, REDACTED)"
+
+object RetrievedCredentials:
+  val reads: Reads[RetrievedCredentials] =
+    ( (__ \ "accessKeyId"    ).read[String]
+    ~ (__ \ "secretAccessKey").read[String]
+    )(apply)
