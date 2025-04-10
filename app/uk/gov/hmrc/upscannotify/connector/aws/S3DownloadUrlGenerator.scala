@@ -16,9 +16,11 @@
 
 package uk.gov.hmrc.upscannotify.connector.aws
 
+import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.model.GetObjectRequest
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.model.S3ObjectLocation
 import uk.gov.hmrc.upscannotify.service.{DownloadUrlGenerator, SuccessfulFileDetails}
@@ -27,10 +29,15 @@ import java.net.URL
 import javax.inject.Inject
 
 class S3DownloadUrlGenerator @Inject()(
-  config: ServiceConfiguration
+  config: ServiceConfiguration,
+  awsCredentialsProvider: AwsCredentialsProvider
 ) extends DownloadUrlGenerator:
 
-  private val presigner = S3Presigner.create()
+  private val presigner = S3Presigner
+    .builder()
+    .region(Region.of(config.awsRegion))
+    .credentialsProvider(awsCredentialsProvider)
+    .build()
 
   override def generate(objectLocation: S3ObjectLocation, metadata: SuccessfulFileDetails): URL =
     val expirationPeriod = config.s3UrlExpirationPeriod(metadata.consumingService)
