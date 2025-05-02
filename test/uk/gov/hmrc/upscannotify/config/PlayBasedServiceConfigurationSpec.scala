@@ -31,6 +31,9 @@ class PlayBasedServiceConfigurationSpec extends UnitSpec:
   private val playBasedServiceConfiguration = PlayBasedServiceConfiguration(mockConfiguration)
 
   "s3UrlExpirationPeriod" should:
+    "return a fallback expiration duration of 6 hours" in :
+      S3UrlExpirationPeriod.FallbackValue shouldBe 6.hours
+
     "return relevant config for a translated serviceName containing the invalid '/' and '.' characters" in:
       when(mockConfiguration.getOptional[Duration](s3UrlExpirationPeriodKeyFor("Mozilla-4-0")))
         .thenReturn(Some(1.day))
@@ -54,21 +57,21 @@ class PlayBasedServiceConfigurationSpec extends UnitSpec:
 
       playBasedServiceConfiguration.s3UrlExpirationPeriod(SomeServiceName) shouldBe 2.days
 
-    "return default configuration when valid (at most 7 days) and bespoke service configuration is not defined" in:
+    "return default configuration (6 hours) when valid and bespoke service configuration is not defined" in:
       when(mockConfiguration.getOptional[Duration](s3UrlExpirationPeriodKeyFor(SomeServiceName)))
         .thenReturn(None)
       when(mockConfiguration.getOptional[Duration](DefaultS3UrlExpirationKey))
-        .thenReturn(Some(5.days))
+        .thenReturn(Some(6.hours))
 
-      playBasedServiceConfiguration.s3UrlExpirationPeriod(SomeServiceName) shouldBe 5.days
+      playBasedServiceConfiguration.s3UrlExpirationPeriod(SomeServiceName) shouldBe 6.hours
 
-    "return default configuration when valid (at most 7 days) and bespoke service configuration is invalid (greater than 7 days)" in:
+    "return default configuration (6 hours) when valid and bespoke service configuration is invalid (greater than 7 days)" in:
       when(mockConfiguration.getOptional[Duration](s3UrlExpirationPeriodKeyFor(SomeServiceName)))
         .thenReturn(Some(8.days))
       when(mockConfiguration.getOptional[Duration](DefaultS3UrlExpirationKey))
-        .thenReturn(Some(5.days))
+        .thenReturn(Some(6.hours))
 
-      playBasedServiceConfiguration.s3UrlExpirationPeriod(SomeServiceName) shouldBe 5.days
+      playBasedServiceConfiguration.s3UrlExpirationPeriod(SomeServiceName) shouldBe 6.hours
 
     "return fallback configuration when default configuration is invalid (greater than 7 days) and bespoke service configuration is not defined" in:
       when(mockConfiguration.getOptional[Duration](s3UrlExpirationPeriodKeyFor(SomeServiceName)))

@@ -122,4 +122,4 @@ private[config] object PlayBasedServiceConfiguration:
   object S3UrlExpirationPeriod:
     val ConfigDescriptor: String         = "aws.s3.urlExpirationPeriod"
     val MaxValue        : FiniteDuration = 7.days
-    val FallbackValue   : FiniteDuration = 1.day
+    val FallbackValue   : FiniteDuration = 6.hours
