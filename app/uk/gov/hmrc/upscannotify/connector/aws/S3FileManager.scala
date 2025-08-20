@@ -20,7 +20,7 @@ import play.api.Logging
 import software.amazon.awssdk.core.async.AsyncResponseTransformer
 import software.amazon.awssdk.services.s3.S3AsyncClient
 import software.amazon.awssdk.services.s3.model.{GetObjectRequest, HeadObjectRequest}
-import uk.gov.hmrc.play.http.logging.Mdc
+import uk.gov.hmrc.mdc.Mdc
 import uk.gov.hmrc.upscannotify.model.S3ObjectLocation
 
 import javax.inject.Inject
