@@ -28,7 +28,6 @@ lazy val microservice = Project("upscan-notify", file("."))
   .settings(playDefaultPort := 9573)
   .settings(libraryDependencies ++= AppDependencies())
   .settings(scalacOptions += "-Wconf:src=routes/.*:s") // silence warnings in generated routes
-  .settings(resolvers += Resolver.jcenterRepo)
   .settings(Test / parallelExecution := false)
 
 lazy val it = project
