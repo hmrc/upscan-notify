@@ -12,8 +12,7 @@ object AppDependencies {
     "software.amazon.awssdk" %  "s3"                        % awsSdkVersion,
     "software.amazon.awssdk" %  "secretsmanager"            % awsSdkVersion,
     "jakarta.mail"           %  "jakarta.mail-api"          % "2.1.5",
-    "org.eclipse.angus"      %  "jakarta.mail"              % "2.0.5",
-    "com.fasterxml.jackson.core" % "jackson-core"           % "2.20.0"
+    "org.eclipse.angus"      %  "jakarta.mail"              % "2.0.5"
   )
 
   val test = Seq(
