@@ -2,7 +2,7 @@ import sbt._
 
 object AppDependencies {
 
-  private val bootstrapVersion = "10.1.0"
+  private val bootstrapVersion = "10.6.0"
   private val awsSdkVersion = "2.35.1"
 
   val compile = Seq(
