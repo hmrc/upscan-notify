@@ -48,6 +48,12 @@ export AWS_DEFAULT_PROFILE=name_of_proper_profile_in_dot_aws_credentials_file
 ```
 These commands will give you an access to SBT shell where you can run the service using 'run' or 'start' commands.
 
+### Integrating with Upscan
+
+When integrating with Upscan, your service **must return a 2xx HTTP response** to the callback URL once a callback request is received.  
+Any non-2xx response (for example, 4xx or 5xx) will be treated as a failure, and may trigger alerts.  
+A 2xx response indicates that your service has successfully received the callback notification.
+
 ### Tests
 Upscan service has end-to-end acceptance tests which can be found in https://github.com/hmrc/upscan-acceptance-tests repository
 
