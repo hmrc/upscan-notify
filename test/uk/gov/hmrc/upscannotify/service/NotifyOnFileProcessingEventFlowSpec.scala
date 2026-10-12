@@ -21,6 +21,7 @@ import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.GivenWhenThen
 import org.scalatest.concurrent.ScalaFutures
+import uk.gov.hmrc.play.bootstrap.tools.LogCapturing
 import uk.gov.hmrc.upscannotify.config.ServiceConfiguration
 import uk.gov.hmrc.upscannotify.model._
 import uk.gov.hmrc.upscannotify.test.UnitSpec
@@ -35,7 +36,8 @@ import scala.concurrent.Future
 class NotifyOnFileProcessingEventFlowSpec
   extends UnitSpec
      with GivenWhenThen
-     with ScalaFutures:
+     with ScalaFutures
+     with LogCapturing:
 
   val messageParser =
     new MessageParser:
@@ -142,6 +144,29 @@ class NotifyOnFileProcessingEventFlowSpec
             checksum        = checksum,
             requestContext  = sampleRequestContext
           )
+
+    "not log the original filename when it contains the filename placeholder" in:
+      val originalFileName = "{filename}-Jane-Doe-NINO-AB123456C.pdf"
+      val detailsRetriever = mock[FileNotificationDetailsRetriever]
+      when(detailsRetriever.receiveSuccessfulFileDetails(any[S3ObjectLocation]))
+        .thenReturn(Future.successful(objectMetadata.copy(fileName = originalFileName)))
+
+      val notificationService = mock[NotificationService]
+      when(notificationService.notifySuccessfulCallback(any[SuccessfulProcessingDetails]))
+        .thenReturn(Future.unit)
+
+      val job = NotifyOnSuccessfulFileUploadMessageProcessingJob(
+        messageParser,
+        detailsRetriever,
+        notificationService,
+        downloadUrlGenerator,
+        mock[UpscanAuditingService],
+        serviceConfiguration
+      )(using summon[ExecutionContext], MetricRegistry(), clock)
+
+      withCaptureOfLoggingFrom(job.logger): logs =>
+        job.processMessage(Message("ID", "VALID-BODY", "RECEIPT", clock.instant())).futureValue shouldBe true
+        logs.map(_.getFormattedMessage).mkString("\n") should not include originalFileName
 
     "ignore invalid messages" in:
       Given("a mix of valid & invalid messages in a message queue")

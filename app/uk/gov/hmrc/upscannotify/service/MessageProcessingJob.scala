@@ -102,7 +102,7 @@ class NotifyOnSuccessfulFileUploadMessageProcessingJob @Inject()(
                              )
              _            =  if metadata.fileName.contains("{filename}") then
                                // Debug whether filename is ever `${filename}`
-                               logger.warn(s"Unexpected original filename ${metadata.fileName} for object=[${parsedMessage.location.objectKey}] with upload Key=[${metadata.fileReference.reference}].")
+                               logger.warn(s"Unexpected original filename placeholder for object=[${parsedMessage.location.objectKey}] with upload Key=[${metadata.fileReference.reference}].")
              _            =  logger.debug:
                                s"Retrieved file with Key=[${metadata.fileReference.reference}] and callbackUrl=[${metadata.callbackUrl}] for object=[${parsedMessage.location.objectKey}]."
              _            =  upscanAuditingService.notifyFileUploadedSuccessfully(retrieved)
