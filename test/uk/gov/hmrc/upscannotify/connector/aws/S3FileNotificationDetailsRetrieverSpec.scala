@@ -19,6 +19,8 @@ package uk.gov.hmrc.upscannotify.connector.aws
 import jakarta.mail.internet.MimeUtility
 import org.mockito.Mockito.when
 import org.scalatest.concurrent.ScalaFutures
+import play.api.Logger
+import uk.gov.hmrc.play.bootstrap.tools.LogCapturing
 import uk.gov.hmrc.upscannotify.model.{FileReference, RequestContext, S3ObjectLocation}
 import uk.gov.hmrc.upscannotify.service.SuccessfulFileDetails
 import uk.gov.hmrc.upscannotify.test.UnitSpec
@@ -30,7 +32,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class S3FileNotificationDetailsRetrieverSpec
   extends UnitSpec
-     with ScalaFutures:
+     with ScalaFutures
+     with LogCapturing:
 
   private val callbackUrl      = URL("http://my.callback.url")
   private val initiateDate     = Instant.parse("2018-04-24T09:30:00Z")
@@ -94,6 +97,29 @@ class S3FileNotificationDetailsRetrieverSpec
                             "initiate-date"     -> "2018-04-24T09:30:00Z"
                           )
       )
+
+    "not log the original filename when fetching object metadata" in:
+      val objectLocation  = S3ObjectLocation("bucket", "objectKey")
+      val originalFileName = "Jane-Doe-NINO-AB123456C.pdf"
+      val s3FileManager    = mock[S3FileManager]
+      val retriever        = S3FileNotificationDetailsRetriever(s3FileManager)
+      val userMetadata     = Map(
+        "callback-url"      -> callbackUrl.toString,
+        "initiate-date"     -> DateTimeFormatter.ISO_INSTANT.format(initiateDate),
+        "checksum"          -> checksum,
+        "original-filename" -> originalFileName,
+        "mime-type"         -> "application/pdf",
+        "client-ip"         -> "127.0.0.1",
+        "file-reference"    -> "ref1",
+        "consuming-service" -> consumingService
+      )
+
+      when(s3FileManager.getObjectMetadata(objectLocation))
+        .thenReturn(Future.successful(S3ObjectMetadata(objectLocation, userMetadata, contentLength)))
+
+      withCaptureOfLoggingFrom(Logger(classOf[S3FileNotificationDetailsRetriever])): logs =>
+        retriever.receiveSuccessfulFileDetails(objectLocation).futureValue.fileName shouldBe originalFileName
+        logs.map(_.getFormattedMessage).mkString("\n") should not include originalFileName
 
     "return wrapped failure if the metadata doesn't contain callback URL for uploaded file" in:
       val objectLocation = S3ObjectLocation("bucket", "objectKey")

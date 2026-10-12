@@ -36,7 +36,7 @@ class S3FileNotificationDetailsRetriever @Inject()(
   override def receiveSuccessfulFileDetails(objectLocation: S3ObjectLocation): Future[SuccessfulFileDetails] =
     for
       metadata         <- s3FileManager.getObjectMetadata(objectLocation)
-      _                =  logger.info(s"retrieved metadata for $objectLocation: $metadata")
+      _                =  logger.info(s"retrieved metadata for $objectLocation")
       callbackUrl      <- Future.fromTry(retrieveCallbackUrl(metadata))
       fileReference    <- Future.fromTry(metadata.get("file-reference", FileReference.apply))
       uploadDetails    <- Future.fromTry(parseSuccessfulFileMetadata(metadata))
